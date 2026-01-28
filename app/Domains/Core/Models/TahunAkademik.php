@@ -3,9 +3,12 @@
 namespace App\Domains\Core\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class TahunAkademik extends Model
 {
+    use LogsActivity;
     // Nama tabel sesuai database
     protected $table = 'ref_tahun_akademik';
 
@@ -32,4 +35,40 @@ class TahunAkademik extends Model
         'tgl_mulai_krs' => 'date',
         'tgl_selesai_krs' => 'date',
     ];
+
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->useLogName('tahun_akademik')
+            ->logOnly([
+                'kode_tahun',
+                'semester',
+                'is_active',
+                'buka_krs',
+                'buka_input_nilai',
+                'tgl_mulai_krs',
+                'tgl_selesai_krs'
+            ])
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs();
+    }
+
+    public function getDescriptionForEvent(string $eventName): string
+    {
+        return "Tahun Akademik {$this->kode_tahun} {$eventName}";
+    }
+
+
+    public function isKrsOpen(): bool
+    {
+        return $this->buka_krs
+            && now()->between($this->tgl_mulai_krs, $this->tgl_selesai_krs);
+    }
+
+    public function isInputNilaiOpen(): bool
+    {
+        return $this->buka_input_nilai
+            && now()->between($this->tanggal_mulai, $this->tanggal_selesai);
+    }
 }

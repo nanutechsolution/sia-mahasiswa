@@ -5,25 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ $title ?? 'SIAKAD UNMARIS' }}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        'unmaris-blue': '#002855',
-                        /* Biru Tua Kampus */
-                        'unmaris-dark': '#001a38',
-                        /* Biru Lebih Gelap (Hover) */
-                        'unmaris-gold': '#fcc000',
-                        /* Kuning Emas Logo */
-                        'unmaris-yellow': '#fbbf24',
-                        /* Kuning Aksen */
-                    }
-                }
-            }
-        }
-    </script>
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+   
     <style>
         [x-cloak] {
             display: none !important;
@@ -125,8 +108,8 @@
                         </svg>
                         Tahun Akademik
                     </a>
-                    <a href="{{ route('admin.akademik.skala-nilai') }}" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all {{ request()->routeIs('admin.skala-nilai') ? 'nav-active' : 'nav-inactive' }}">
-                        <svg class="w-5 h-5 mr-3 {{ request()->routeIs('admin.skala-nilai') ? 'text-unmaris-blue' : 'text-slate-400 group-hover:text-white' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <a href="{{ route('admin.akademik.skala-nilai') }}" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all {{ request()->routeIs('admin.akademik.skala-nilai') ? 'nav-active' : 'nav-inactive' }}">
+                        <svg class="w-5 h-5 mr-3 {{ request()->routeIs('admin.akademik.skala-nilai') ? 'text-unmaris-blue' : 'text-slate-400 group-hover:text-white' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                         </svg>
                         Skala Nilai

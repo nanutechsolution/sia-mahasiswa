@@ -32,7 +32,6 @@ class PembayaranMahasiswa extends Model
     protected $casts = [
         'tanggal_bayar' => 'datetime',
         'verified_at' => 'datetime',
-        // Casting decimal agar tidak dianggap string
         'nominal_bayar' => 'decimal:2',
     ];
 

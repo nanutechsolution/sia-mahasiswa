@@ -4,9 +4,12 @@ namespace App\Domains\Akademik\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use App\Domains\Core\Models\Prodi;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class Kurikulum extends Model
 {
+    use LogsActivity;
     protected $table = 'master_kurikulums';
 
     protected $fillable = [
@@ -19,6 +22,22 @@ class Kurikulum extends Model
         'jumlah_sks_pilihan', // Ex: 5
         'is_active'
     ];
+    // =========================
+    // ACTIVITY LOG (LPM READY)
+    // =========================
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->useLogName('kurikulum')
+            ->logOnly([
+                'prodi_id',
+                'nama_kurikulum',
+                'tahun_mulai',
+                'is_active'
+            ])
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs();
+    }
 
     public function prodi()
     {

@@ -9,6 +9,7 @@ use App\Models\User; // Sesuaikan jika User ada di App\Models\User
 use App\Domains\Core\Models\ProgramKelas;
 use App\Domains\Core\Models\Prodi;
 use App\Domains\Core\Models\TahunAkademik; // Jika perlu relasi ke angkatan
+use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
 class Mahasiswa extends Model
@@ -43,13 +44,26 @@ class Mahasiswa extends Model
     ];
 
     // logs activity
-    public function getActivitylogOptions(): \Spatie\Activitylog\LogOptions
+    public function getActivitylogOptions(): LogOptions
     {
-        return \Spatie\Activitylog\LogOptions::defaults()
-            ->logOnly(['nim', 'nama_lengkap', 'prodi_id', 'program_kelas_id'])
+        return LogOptions::defaults()
+            ->useLogName('mahasiswa')
+            ->logOnly([
+                'nim',
+                'nama_lengkap',
+                'prodi_id',
+                'program_kelas_id',
+                'dosen_wali_id'
+            ])
             ->logOnlyDirty()
-            ->useLogName('mahasiswa');
+            ->dontSubmitEmptyLogs();
     }
+
+    public function getDescriptionForEvent(string $eventName): string
+    {
+        return "Mahasiswa {$this->nim} {$eventName}";
+    }
+
 
     // ==========================================
     // RELASI UTAMA (YANG MENYEBABKAN ERROR)
@@ -125,5 +139,4 @@ class Mahasiswa extends Model
     {
         return $this->hasMany(\App\Domains\Mahasiswa\Models\RiwayatStatusMahasiswa::class, 'mahasiswa_id', 'id');
     }
-    
 }

@@ -5,10 +5,12 @@ namespace App\Domains\Akademik\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Domains\Core\Models\Prodi;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class MataKuliah extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, LogsActivity;
 
     protected $table = 'master_mata_kuliahs';
 
@@ -22,6 +24,19 @@ class MataKuliah extends Model
         'sks_lapangan',   // Default Lapangan (Contoh: 0)
         'jenis_mk'
     ];
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->useLogName('mata_kuliah')
+            ->logOnly([
+                'kode_mk',
+                'nama_mk',
+                'sks_default',
+                'jenis_mk'
+            ])
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs();
+    }
 
     /**
      * Relasi ke Program Studi
