@@ -8,7 +8,9 @@ use App\Domains\Mahasiswa\Models\Mahasiswa;
 use App\Domains\Akademik\Models\Krs;
 use App\Domains\Akademik\Models\KrsDetail;
 use App\Domains\Akademik\Models\AturanSks; 
-use App\Domains\Mahasiswa\Models\RiwayatStatusMahasiswa; 
+use App\Domains\Mahasiswa\Models\RiwayatStatusMahasiswa;
+use App\Domains\Akademik\Models\Kurikulum;
+use App\Domains\Akademik\Models\MataKuliah; 
 use Livewire\Component;
 use Illuminate\Support\Facades\Auth;
 use App\Helpers\SistemHelper;
@@ -43,39 +45,31 @@ class KrsPage extends Component
             ->where('user_id', Auth::id())
             ->firstOrFail();
 
-        // --- [UPDATE LOGIC] CEK NIM SEMENTARA (CAMABA) ---
-        // Jika masih pakai No Pendaftaran (mengandung PMB atau panjang > 15 digit)
+        // CEK NIM SEMENTARA (CAMABA)
         if (str_contains(strtoupper($this->mahasiswa->nim), 'PMB') || strlen($this->mahasiswa->nim) > 15) {
             $this->blockKrs = true;
-
-            // Cek apakah dia sudah lunas?
             $tagihan = TagihanMahasiswa::where('mahasiswa_id', $this->mahasiswa->id)
                 ->where('tahun_akademik_id', $this->tahunAkademikId)
                 ->first();
             
             if ($tagihan && $tagihan->status_bayar == 'LUNAS') {
-                // Kasus: SUDAH BAYAR tapi NIM Belum Terbit
-                $this->pesanBlock = 'Pembayaran Daftar Ulang Anda sudah LUNAS. Mohon tunggu Bagian Akademik (BAAK) menerbitkan NIM Resmi Anda untuk dapat memulai pengisian KRS.';
+                $this->pesanBlock = 'Pembayaran Daftar Ulang Anda sudah LUNAS. Mohon tunggu Bagian Akademik (BAAK) menerbitkan NIM Resmi Anda.';
             } else {
-                // Kasus: BELUM BAYAR
-                $this->pesanBlock = 'Status Anda masih CALON MAHASISWA. Silakan selesaikan pembayaran Daftar Ulang di menu Keuangan agar NIM Resmi diterbitkan.';
+                $this->pesanBlock = 'Status Anda masih CALON MAHASISWA. Silakan selesaikan pembayaran Daftar Ulang agar NIM Resmi diterbitkan.';
             }
             return; 
         }
 
-        // 1. Cek Apakah Mahasiswa Punya Dosen Wali (PA)
         if (!$this->blockKrs && !$this->mahasiswa->dosen_wali_id) {
             $this->blockKrs = true;
             $this->pesanBlock = 'Anda belum memiliki Dosen Wali (PA). Silakan hubungi Admin Prodi untuk plotting PA sebelum mengisi KRS.';
         }
 
-        // 2. Cek Masa Pengisian KRS
         if (!$this->blockKrs && !SistemHelper::isMasaKrsOpen()) {
             $this->blockKrs = true;
             $this->pesanBlock = 'Masa pengisian KRS telah berakhir.';
         }
 
-        // 3. Cek Status Keuangan (Untuk Mahasiswa Lama/Resmi)
         if (!$this->blockKrs) {
             $this->cekStatusKeuangan();
         }
@@ -96,7 +90,7 @@ class KrsPage extends Component
         }
 
         $semesterMap = [];
-        $activeKurikulum = \App\Domains\Akademik\Models\Kurikulum::where('prodi_id', $this->mahasiswa->prodi_id)
+        $activeKurikulum = Kurikulum::where('prodi_id', $this->mahasiswa->prodi_id)
             ->where('is_active', true)
             ->orderBy('tahun_mulai', 'desc') 
             ->first();
@@ -113,7 +107,6 @@ class KrsPage extends Component
         ]);
     }
     
-    // ... Method lain tetap sama seperti sebelumnya ...
     public function hitungMaxSks()
     {
         $taAktif = TahunAkademik::find($this->tahunAkademikId);
@@ -164,12 +157,15 @@ class KrsPage extends Component
             ? ($tagihan->total_bayar / $tagihan->total_tagihan) * 100 
             : 100;
         
-        $minBayar = ($this->mahasiswa->programKelas->kode_internal === 'EKS') ? 100 : 50;
+        $minBayar = $this->mahasiswa->programKelas->min_pembayaran_persen ?? 50;
+        
+        // Cek Dispensasi Khusus
+        $dispensasi = $this->mahasiswa->data_tambahan['bebas_keuangan'] ?? false;
 
-        if ($persenBayar < $minBayar) {
+        if ($persenBayar < $minBayar && !$dispensasi) {
             $this->blockKrs = true;
             $this->keuanganLunas = false;
-            $this->pesanBlock = "Syarat KRS: Wajib bayar minimal {$minBayar}% tagihan.";
+            $this->pesanBlock = "Syarat KRS: Wajib bayar minimal {$minBayar}% dari total tagihan. (Terbayar: " . number_format($persenBayar, 1) . "%)";
         } else {
             $this->keuanganLunas = true;
         }
@@ -178,8 +174,7 @@ class KrsPage extends Component
     public function loadKrsHeader()
     {
         if (!$this->tahunAkademikId) return;
-        // Blokir create KRS jika masih Camaba
-        if ($this->blockKrs && (str_contains($this->pesanBlock, 'CALON MAHASISWA') || str_contains($this->pesanBlock, 'Pembayaran Daftar Ulang'))) return;
+        if ($this->blockKrs && (str_contains($this->pesanBlock, 'CALON MAHASISWA') || str_contains($this->pesanBlock, 'Pembayaran Daftar Ulang') || str_contains($this->pesanBlock, 'DISPENSASI'))) return;
 
         $krs = Krs::firstOrCreate(
             [
@@ -238,11 +233,42 @@ class KrsPage extends Component
         $jadwal = JadwalKuliah::with('mataKuliah')->find($jadwalId);
         if (!$jadwal) return;
 
+        // 1. Validasi Batas SKS
         $sksBaru = $jadwal->mataKuliah->sks_default;
         
         if (($this->totalSks + $sksBaru) > $this->maxSks) {
             session()->flash('error', "Gagal ambil: Total SKS akan melebihi batas maksimal ({$this->maxSks} SKS).");
             return;
+        }
+
+        // 2. VALIDASI PRASYARAT (BARU)
+        $kurikulum = Kurikulum::where('prodi_id', $this->mahasiswa->prodi_id)
+            ->where('is_active', true)
+            ->orderBy('tahun_mulai', 'desc')
+            ->first();
+
+        if ($kurikulum) {
+            $syarat = DB::table('kurikulum_mata_kuliah')
+                ->where('kurikulum_id', $kurikulum->id)
+                ->where('mata_kuliah_id', $jadwal->mata_kuliah_id)
+                ->first();
+
+            if ($syarat && $syarat->prasyarat_mk_id) {
+                // Cek apakah sudah lulus MK Prasyarat (Nilai bukan E)
+                $sudahLulus = KrsDetail::join('krs', 'krs_detail.krs_id', '=', 'krs.id')
+                    ->join('jadwal_kuliah', 'krs_detail.jadwal_kuliah_id', '=', 'jadwal_kuliah.id')
+                    ->where('krs.mahasiswa_id', $this->mahasiswa->id)
+                    ->where('jadwal_kuliah.mata_kuliah_id', $syarat->prasyarat_mk_id)
+                    ->where('krs_detail.is_published', true)
+                    ->where('krs_detail.nilai_huruf', '!=', 'E') // Minimal lulus
+                    ->exists();
+
+                if (!$sudahLulus) {
+                    $namaPrasyarat = MataKuliah::find($syarat->prasyarat_mk_id)->nama_mk ?? 'Unknown';
+                    session()->flash('error', "Gagal ambil: Anda belum lulus mata kuliah prasyarat: {$namaPrasyarat}");
+                    return;
+                }
+            }
         }
 
         try {

@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use App\Domains\Akademik\Models\MataKuliah;
 use App\Domains\Core\Models\ProgramKelas;
+use App\Domains\Core\Models\TahunAkademik;
 use App\Models\Dosen; // Sesuaikan namespace Dosen Anda (App\Models\Dosen atau App\Domains\Akademik\Models\Dosen)
 
 class JadwalKuliah extends Model
@@ -44,5 +45,21 @@ class JadwalKuliah extends Model
     public function programKelasAllow()
     {
         return $this->belongsTo(ProgramKelas::class, 'id_program_kelas_allow');
+    }
+
+    /**
+     * Relasi ke Detail KRS (Untuk menghitung peserta kelas)
+     */
+    public function krsDetails()
+    {
+        return $this->hasMany(KrsDetail::class, 'jadwal_kuliah_id');
+    }
+
+    /**
+     * Relasi ke Tahun Akademik (Untuk Kop Surat PDF)
+     */
+    public function tahunAkademik()
+    {
+        return $this->belongsTo(TahunAkademik::class, 'tahun_akademik_id');
     }
 }

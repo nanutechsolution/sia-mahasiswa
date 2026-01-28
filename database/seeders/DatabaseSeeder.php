@@ -34,7 +34,7 @@ class DatabaseSeeder extends Seeder
 
             // 4. Transaksi Akademik (Jadwal)
             ScheduleSeeder::class,
-
+            SkalaNilaiSeeder::class,
             // 5. Simulasi Keuangan (Tagihan & Bayar)
             // FinanceTransactionSeeder::class,
         ]);

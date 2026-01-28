@@ -25,18 +25,19 @@ class MahasiswaManager extends Component
     public $mhsId;
     public $nim;
     public $nama_lengkap;
-    public $angkatan_id; // Tahun Masuk
+    public $angkatan_id; 
     public $prodi_id;
     public $program_kelas_id;
-    public $status_awal = 'B'; // B=Baru, P=Pindahan
+    public $dosen_wali_id;
     public $email_pribadi;
     public $nomor_hp;
-    public $password_baru; // Opsional saat edit
+    public $password_baru; 
+
+    // STATE BARU: DISPENSASI
+    public $bebas_keuangan = false;
 
     public $showForm = false;
     public $editMode = false;
-
-    public $dosen_wali_id;
 
     public function mount()
     {
@@ -49,19 +50,22 @@ class MahasiswaManager extends Component
         $dosens = Dosen::orderBy('nama_lengkap_gelar')->get();
         $prodis = Prodi::all();
         $programKelasList = ProgramKelas::where('is_active', true)->get();
-
         $angkatans = DB::table('ref_angkatan')->orderBy('id_tahun', 'desc')->get();
 
-        $mahasiswas = Mahasiswa::with(['prodi', 'programKelas', 'user', 'dosenWali', 'tagihan']) // Load tagihan untuk cek lunas
-            ->when($this->filterProdiId, function ($q) {
+        $mahasiswas = Mahasiswa::with(['prodi', 'programKelas', 'user', 'dosenWali'])
+            ->where(function($q) {
+                $q->whereRaw('LENGTH(nim) < 15')
+                  ->where('nim', 'not like', '%PMB%');
+            })
+            ->when($this->filterProdiId, function($q) {
                 $q->where('prodi_id', $this->filterProdiId);
             })
-            ->when($this->filterAngkatan, function ($q) {
+            ->when($this->filterAngkatan, function($q) {
                 $q->where('angkatan_id', $this->filterAngkatan);
             })
-            ->where(function ($q) {
-                $q->where('nama_lengkap', 'like', '%' . $this->search . '%')
-                    ->orWhere('nim', 'like', '%' . $this->search . '%');
+            ->where(function($q) {
+                $q->where('nama_lengkap', 'like', '%'.$this->search.'%')
+                  ->orWhere('nim', 'like', '%'.$this->search.'%');
             })
             ->orderBy('nim', 'desc')
             ->paginate(10);
@@ -75,54 +79,6 @@ class MahasiswaManager extends Component
         ]);
     }
 
-    // --- FITUR BARU: GENERATE NIM ---
-    public function generateNimResmi($id)
-    {
-        DB::transaction(function () use ($id) {
-            $mhs = Mahasiswa::lockForUpdate()->find($id);
-            $prodi = Prodi::lockForUpdate()->find($mhs->prodi_id);
-
-            // 1. Generate NIM Baru
-            $format = $prodi->format_nim ?? '{TAHUN}{KODE}{NO:4}';
-            $nextSeq = $prodi->last_nim_seq + 1;
-
-            $newNim = str_replace('{TAHUN}', $mhs->angkatan_id, $format);
-            $newNim = str_replace('{THN}', substr($mhs->angkatan_id, 2, 2), $newNim);
-            $newNim = str_replace('{KODE}', $prodi->kode_prodi_dikti ?? '00000', $newNim);
-            $newNim = str_replace('{INTERNAL}', $prodi->kode_prodi_internal, $newNim);
-
-            if (preg_match('/\{NO:(\d+)\}/', $newNim, $matches)) {
-                $length = $matches[1];
-                $number = str_pad($nextSeq, $length, '0', STR_PAD_LEFT);
-                $newNim = str_replace($matches[0], $number, $newNim);
-            } else {
-                $newNim .= str_pad($nextSeq, 4, '0', STR_PAD_LEFT);
-            }
-
-            // 2. Update Data Mahasiswa
-            $oldNim = $mhs->nim; // Simpan NIM lama (No Pendaftaran) untuk log/history jika perlu
-            $mhs->update([
-                'nim' => $newNim,
-                'data_tambahan' => array_merge($mhs->data_tambahan ?? [], ['nim_lama' => $oldNim])
-            ]);
-
-            // 3. Update User Login
-            if ($mhs->user_id) {
-                $user = User::find($mhs->user_id);
-                $user->update([
-                    'username' => $newNim,
-                    'password' => Hash::make($newNim) // Reset password jadi NIM baru agar mudah
-                ]);
-            }
-
-            // 4. Update Counter Prodi
-            $prodi->update(['last_nim_seq' => $nextSeq]);
-        });
-
-        session()->flash('success', 'NIM Resmi berhasil digenerate. Username login berubah menjadi NIM baru.');
-    }
-
-    // ... (Fungsi create, edit, save, delete, resetForm, batal TETAP SAMA seperti sebelumnya) ...
     public function create()
     {
         $this->resetForm();
@@ -142,7 +98,10 @@ class MahasiswaManager extends Component
         $this->dosen_wali_id = $mhs->dosen_wali_id;
         $this->email_pribadi = $mhs->email_pribadi;
         $this->nomor_hp = $mhs->nomor_hp;
-
+        
+        // Load Status Dispensasi dari JSON
+        $this->bebas_keuangan = $mhs->data_tambahan['bebas_keuangan'] ?? false;
+        
         $this->editMode = true;
         $this->showForm = true;
     }
@@ -155,25 +114,27 @@ class MahasiswaManager extends Component
             'prodi_id' => 'required',
             'program_kelas_id' => 'required',
             'dosen_wali_id' => 'nullable',
+            'bebas_keuangan' => 'boolean'
         ];
 
         if ($this->editMode) {
             $rules['nim'] = 'required|unique:mahasiswas,nim,' . $this->mhsId;
         } else {
             $rules['nim'] = 'required|unique:mahasiswas,nim';
-            $rules['password_baru'] = 'required|min:6';
+            $rules['password_baru'] = 'required|min:6'; 
         }
 
         $this->validate($rules);
 
         DB::transaction(function () {
+            // 1. Handle User Login
             if ($this->editMode) {
                 $mhs = Mahasiswa::find($this->mhsId);
                 $user = User::find($mhs->user_id);
-
+                
                 if ($user) {
                     $user->name = $this->nama_lengkap;
-                    $user->username = $this->nim;
+                    $user->username = $this->nim; 
                     if ($this->password_baru) {
                         $user->password = Hash::make($this->password_baru);
                     }
@@ -183,13 +144,14 @@ class MahasiswaManager extends Component
                 $user = User::create([
                     'name' => $this->nama_lengkap,
                     'username' => $this->nim,
-                    'email' => $this->nim . '@student.unmaris.ac.id',
+                    'email' => $this->nim . '@student.unmaris.ac.id', 
                     'password' => Hash::make($this->password_baru),
                     'role' => 'mahasiswa',
                     'is_active' => true
                 ]);
             }
 
+            // 2. Handle Data Mahasiswa & Dispensasi
             $dataMhs = [
                 'nim' => $this->nim,
                 'nama_lengkap' => $this->nama_lengkap,
@@ -203,9 +165,17 @@ class MahasiswaManager extends Component
 
             if (!$this->editMode) {
                 $dataMhs['user_id'] = $user->id;
+                // Init data tambahan
+                $dataMhs['data_tambahan'] = ['bebas_keuangan' => $this->bebas_keuangan];
                 Mahasiswa::create($dataMhs);
             } else {
-                Mahasiswa::find($this->mhsId)->update($dataMhs);
+                $mhs = Mahasiswa::find($this->mhsId);
+                // Merge dengan data lama agar tidak hilang (misal nim_lama)
+                $currentData = $mhs->data_tambahan ?? [];
+                $currentData['bebas_keuangan'] = $this->bebas_keuangan;
+                $dataMhs['data_tambahan'] = $currentData;
+                
+                $mhs->update($dataMhs);
             }
         });
 
@@ -221,13 +191,13 @@ class MahasiswaManager extends Component
             User::where('id', $mhs->user_id)->delete();
         }
         $mhs->delete();
-
+        
         session()->flash('success', 'Mahasiswa berhasil dihapus (Non-aktif).');
     }
 
     public function resetForm()
     {
-        $this->reset(['mhsId', 'nim', 'nama_lengkap', 'email_pribadi', 'nomor_hp', 'password_baru', 'editMode', 'prodi_id', 'program_kelas_id', 'angkatan_id', 'dosen_wali_id']);
+        $this->reset(['mhsId', 'nim', 'nama_lengkap', 'email_pribadi', 'nomor_hp', 'password_baru', 'editMode', 'prodi_id', 'program_kelas_id', 'angkatan_id', 'dosen_wali_id', 'bebas_keuangan']);
     }
 
     public function batal()

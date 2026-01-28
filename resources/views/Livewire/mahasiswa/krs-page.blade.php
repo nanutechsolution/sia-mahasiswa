@@ -29,7 +29,7 @@
                 </div>
 
                 <div class="flex flex-wrap items-center gap-4">
-                    {{-- SKS Counter Badge (UPDATED) --}}
+                    {{-- SKS Counter Badge --}}
                     <div class="bg-slate-50 border border-slate-100 px-6 py-3 rounded-2xl flex items-center shadow-inner min-w-[180px] justify-between">
                         <div class="text-right mr-4">
                             <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Jatah SKS</p>
@@ -103,35 +103,47 @@
                     <div class="divide-y divide-slate-100 {{ $statusKrs != 'DRAFT' ? 'opacity-50 pointer-events-none' : '' }}">
                         @forelse($this->jadwalTersedia as $jadwal)
                         @php 
+                            // Ambil data semester dari map yang dikirim backend
                             $smtPaket = $semesterMap[$jadwal->mata_kuliah_id] ?? null; 
                         @endphp
                         <div class="px-8 py-6 flex items-center justify-between group hover:bg-slate-50/50 transition-colors">
                             <div class="flex-1">
                                 <div class="flex items-center space-x-3 mb-1.5">
+                                    {{-- Nama MK --}}
                                     <span class="text-sm font-black text-slate-800 leading-tight group-hover:text-indigo-600 transition-colors">{{ $jadwal->mataKuliah->nama_mk }}</span>
-                                    <span class="px-2 py-0.5 rounded-md bg-yellow-100 text-yellow-800 text-[9px] font-black uppercase tracking-widest">{{ $jadwal->mataKuliah->kode_mk }}</span>
                                     
-                                    {{-- NEW: Badge Semester Paket --}}
+                                    {{-- Kode MK Badge --}}
+                                    <span class="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[9px] font-black uppercase tracking-widest">{{ $jadwal->mataKuliah->kode_mk }}</span>
+
+                                    {{-- BADGE SEMESTER (BARU) --}}
                                     @if($smtPaket)
-                                        <span class="px-2 py-0.5 rounded-md bg-sky-100 text-sky-700 text-[9px] font-black uppercase tracking-widest">Smt {{ $smtPaket }}</span>
+                                        <span class="px-2 py-0.5 rounded-md bg-sky-100 text-sky-700 text-[9px] font-black uppercase tracking-widest border border-sky-200">
+                                            SMT {{ $smtPaket }}
+                                        </span>
                                     @endif
                                 </div>
+                                
                                 <div class="flex flex-wrap items-center gap-y-2 gap-x-4">
+                                    {{-- Waktu --}}
                                     <div class="flex items-center text-[11px] font-bold text-slate-400">
                                         <svg class="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                         </svg>
                                         {{ $jadwal->hari }}, {{ \Carbon\Carbon::parse($jadwal->jam_mulai)->format('H:i') }} • Kls {{ $jadwal->nama_kelas }}
                                     </div>
+                                    {{-- Dosen --}}
                                     <div class="flex items-center text-[11px] font-bold text-slate-400 uppercase tracking-tighter">
                                         <svg class="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                                         </svg>
                                         {{ optional($jadwal->dosen)->nama_lengkap_gelar ?? 'Dosen Belum Diset' }}
                                     </div>
+                                    {{-- SKS --}}
                                     <div class="text-[11px] font-black text-indigo-600 uppercase tracking-widest">{{ $jadwal->mataKuliah->sks_default }} SKS</div>
                                 </div>
                             </div>
+
+                            {{-- Tombol Ambil --}}
                             <div class="ml-6">
                                 @if(!$blockKrs)
                                 <button wire:click="ambilMatkul('{{ $jadwal->id }}')"
@@ -155,7 +167,7 @@
                 </div>
             </div>
 
-            {{-- KRS Draft Sidebar --}}
+            {{-- KRS Draft Sidebar (Kanan) --}}
             <div class="lg:col-span-4 space-y-6">
                 <div class="bg-[#0f172a] rounded-3xl shadow-2xl border border-white/5 overflow-hidden sticky top-6">
                     <div class="px-8 py-6 border-b border-white/5 bg-white/5 flex justify-between items-center">
@@ -169,6 +181,7 @@
                     <div class="max-h-[50vh] overflow-y-auto custom-scrollbar divide-y divide-white/5">
                         @forelse($this->krsDiambil as $detail)
                         @php 
+                            // Tampilkan semester paket juga di sidebar kanan
                             $smtPaket = $semesterMap[$detail->jadwalKuliah->mata_kuliah_id] ?? null; 
                         @endphp
                         <div class="px-8 py-5 flex justify-between items-start group hover:bg-white/5 transition-colors">
@@ -200,6 +213,7 @@
                         @endforelse
                     </div>
 
+                    {{-- Footer Sidebar: Action Button --}}
                     <div class="p-8 bg-black/20 border-t border-white/5">
                         <div class="flex justify-between items-end mb-6">
                             <span class="text-[10px] font-black text-white/40 uppercase tracking-widest">Akumulasi Kredit</span>

@@ -16,6 +16,7 @@ class ProgramKelas extends Model
         'nama_program',
         'kode_internal',
         'id_jenis_kelas_feeder',
+        'min_pembayaran_persen',
         'is_active',
         'deskripsi'
     ];

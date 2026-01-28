@@ -17,11 +17,17 @@ class CamabaManager extends Component
     public $search = '';
     public $filterProdiId;
 
+    // Form State (Dispensasi)
+    public $camabaId;
+    public $nama_lengkap;
+    public $bebas_keuangan = false;
+    public $showForm = false;
+
     public function render()
     {
         $prodis = Prodi::all();
 
-        $camabas = Mahasiswa::with(['prodi', 'programKelas', 'user', 'tagihan']) // Load tagihan untuk cek lunas
+        $camabas = Mahasiswa::with(['prodi', 'programKelas', 'user', 'tagihan']) 
             // FILTER: HANYA TAMPILKAN CAMABA (NIM SEMENTARA)
             ->where(function($q) {
                 $q->whereRaw('LENGTH(nim) > 15')
@@ -38,6 +44,37 @@ class CamabaManager extends Component
             'camabas' => $camabas,
             'prodis' => $prodis
         ]);
+    }
+
+    public function edit($id)
+    {
+        $mhs = Mahasiswa::find($id);
+        $this->camabaId = $id;
+        $this->nama_lengkap = $mhs->nama_lengkap;
+        // Load status dispensasi dari JSON
+        $this->bebas_keuangan = $mhs->data_tambahan['bebas_keuangan'] ?? false;
+        
+        $this->showForm = true;
+    }
+
+    public function save()
+    {
+        $mhs = Mahasiswa::find($this->camabaId);
+        
+        // Update data tambahan (Merge agar data PMB lain tidak hilang)
+        $currentData = $mhs->data_tambahan ?? [];
+        $currentData['bebas_keuangan'] = $this->bebas_keuangan;
+        
+        $mhs->update(['data_tambahan' => $currentData]);
+
+        $this->showForm = false;
+        session()->flash('success', 'Status dispensasi calon mahasiswa berhasil diupdate.');
+    }
+
+    public function batal()
+    {
+        $this->showForm = false;
+        $this->reset(['camabaId', 'nama_lengkap', 'bebas_keuangan']);
     }
 
     public function generateNimResmi($id)

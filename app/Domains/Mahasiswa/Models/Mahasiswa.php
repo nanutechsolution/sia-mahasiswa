@@ -116,4 +116,14 @@ class Mahasiswa extends Model
     {
         return $this->belongsTo(\App\Domains\Akademik\Models\Dosen::class, 'dosen_wali_id', 'id');
     }
+
+
+    /**
+     * Relasi ke Riwayat Status Mahasiswa
+     */
+    public function riwayatStatus()
+    {
+        return $this->hasMany(\App\Domains\Mahasiswa\Models\RiwayatStatusMahasiswa::class, 'mahasiswa_id', 'id');
+    }
+    
 }

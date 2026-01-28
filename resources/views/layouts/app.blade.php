@@ -87,7 +87,7 @@
             </div>
 
             <!-- User Info Mini -->
-            <div class="p-5 border-b border-white/10 bg-gradient-to-b from-unmaris-blue to-unmaris-dark">
+            <!-- <div class="p-5 border-b border-white/10 bg-gradient-to-b from-unmaris-blue to-unmaris-dark">
                 <div class="flex items-center space-x-3 bg-white/5 p-3 rounded-xl border border-white/5">
                     <div class="w-10 h-10 rounded-full bg-unmaris-gold text-unmaris-blue flex items-center justify-center text-lg font-black shadow-lg ring-2 ring-white/20">
                         {{ substr(Auth::user()->name ?? 'G', 0, 1) }}
@@ -102,14 +102,19 @@
                         </div>
                     </div>
                 </div>
-            </div>
+            </div> -->
 
             <!-- Navigation -->
             <nav class="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto sidebar-scroll">
-
+                <!-- dashboard   -->
+                <a href="{{ route('dashboard') }}" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all {{ request()->routeIs('dashboard') ? 'nav-active' : 'nav-inactive' }}">
+                    <svg class="w-5 h-5 mr-3 {{ request()->routeIs('dashboard') ? 'text-unmaris-blue' : 'text-slate-400 group-hover:text-white' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                    </svg>
+                    Dashboard
+                </a>
                 {{-- ================= MENU ADMIN ================= --}}
                 @if(Auth::user()->role == 'admin' || Auth::user()->role == 'superadmin' || Auth::user()->role == 'baak' || Auth::user()->role == 'keuangan')
-
                 @if(Auth::user()->role == 'admin' || Auth::user()->role == 'superadmin' || Auth::user()->role == 'baak')
                 {{-- GROUP: KONFIGURASI --}}
                 <div class="pb-4">
@@ -119,6 +124,12 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
                         Tahun Akademik
+                    </a>
+                    <a href="{{ route('admin.akademik.skala-nilai') }}" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all {{ request()->routeIs('admin.skala-nilai') ? 'nav-active' : 'nav-inactive' }}">
+                        <svg class="w-5 h-5 mr-3 {{ request()->routeIs('admin.skala-nilai') ? 'text-unmaris-blue' : 'text-slate-400 group-hover:text-white' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                        Skala Nilai
                     </a>
                 </div>
 
@@ -152,6 +163,13 @@
                         </svg>
                         Jadwal Kuliah
                     </a>
+                    <!-- master/program-kelas -->
+                    <a href="{{ route('admin.master.program-kelas') }}" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all {{ request()->routeIs('admin.master.program-kelas') ? 'nav-active' : 'nav-inactive' }}">
+                        <svg class="w-5 h-5 mr-3 {{ request()->routeIs('admin.master.program-kelas') ? 'text-unmaris-blue' : 'text-slate-400 group-hover:text-white' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                        </svg>
+                        Program & Kelas
+                    </a>
                 </div>
 
                 {{-- GROUP: PENGGUNA --}}
@@ -164,6 +182,12 @@
                         </svg>
                         Data Mahasiswa
                     </a>
+                    <a href="{{ route('admin.ploting-pa') }}" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all {{ request()->routeIs('admin.ploting-pa') ? 'nav-active' : 'nav-inactive' }}">
+                        <svg class="w-5 h-5 mr-3 opacity-70 group-hover:opacity-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                        Plotting PA Massal
+                    </a>
                     <a href="{{ route('admin.dosen') }}" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all {{ request()->routeIs('admin.dosen') ? 'nav-active' : 'nav-inactive' }}">
                         <svg class="w-5 h-5 mr-3 {{ request()->routeIs('admin.dosen') ? 'text-unmaris-blue' : 'text-slate-400 group-hover:text-white' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -175,6 +199,19 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                         </svg>
                         PMB & Daftar Ulang
+                    </a>
+
+                    <a href="{{ route('admin.akademik.mutasi') }}" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all {{ request()->routeIs('admin.akademik.mutasi') ? 'nav-active' : 'nav-inactive' }}">
+                        <svg class="w-5 h-5 mr-3 opacity-70 group-hover:opacity-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                        </svg>
+                        Mutasi / Cuti
+                    </a>
+                    <a href="{{ route('admin.cetak.absensi.manager') }}" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all {{ request()->routeIs('admin.cetak.absensi*') ? 'nav-active' : 'nav-inactive' }}">
+                        <svg class="w-5 h-5 mr-3 opacity-70 group-hover:opacity-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Cetak Absensi
                     </a>
                 </div>
                 @endif
@@ -213,6 +250,13 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                         </svg>
                         Laporan / Monitoring
+                    </a>
+
+                    <a href="{{ route('admin.keuangan.manual') }}" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all {{ request()->routeIs('admin.keuangan.manual') ? 'nav-active' : 'nav-inactive' }}">
+                        <svg class="w-5 h-5 mr-3 {{ request()->routeIs('admin.keuangan.manual') ? 'text-unmaris-blue' : 'text-slate-400 group-hover:text-white' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Buat Tagihan Manual
                     </a>
                 </div>
                 @endif
@@ -278,6 +322,19 @@
                         </svg>
                         Riwayat Keuangan
                     </a>
+
+
+                </div>
+
+                <div class="pb-4 border-t border-white/10 pt-4">
+                    <p class="px-3 text-[10px] font-black text-unmaris-gold/70 uppercase tracking-widest mb-2 ml-1">Akun</p>
+                    <a href="{{ route('mhs.profile') }}" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all {{ request()->routeIs('mhs.profile') ? 'nav-active' : 'nav-inactive' }}">
+                        <svg class="w-5 h-5 mr-3 {{ request()->routeIs('mhs.profile') ? 'text-unmaris-blue' : 'text-slate-400 group-hover:text-white' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        Profil & Password
+                    </a>
                 </div>
                 @endif
 
@@ -325,7 +382,6 @@
         </main>
     </div>
 
-    @livewireScripts
 </body>
 
 </html>

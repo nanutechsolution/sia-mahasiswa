@@ -2,7 +2,7 @@
     <div class="sm:flex sm:items-center sm:justify-between">
         <div>
             <h1 class="text-2xl font-bold text-gray-900">Data Mahasiswa</h1>
-            <p class="mt-2 text-sm text-gray-700">Manajemen biodata dan akun login mahasiswa aktif.</p>
+            <p class="mt-2 text-sm text-gray-700">Manajemen biodata, dispensasi, dan akun login mahasiswa aktif.</p>
         </div>
         <div class="mt-4 sm:mt-0">
             @if(!$showForm)
@@ -106,6 +106,19 @@
                 <p class="text-xs text-gray-500 mt-1">Dosen wali bertugas menyetujui KRS mahasiswa ini.</p>
             </div>
 
+            <!-- DISPENSASI -->
+            <div class="sm:col-span-6 bg-yellow-50 p-4 rounded border border-yellow-200">
+                <div class="flex items-center">
+                    <input type="checkbox" wire:model="bebas_keuangan" id="dispensasi" class="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500">
+                    <label for="dispensasi" class="ml-2 block text-sm font-bold text-gray-900">
+                        Aktifkan Dispensasi Keuangan (Bebas Syarat Bayar)
+                    </label>
+                </div>
+                <p class="text-xs text-gray-600 mt-1 ml-6">
+                    Jika dicentang, mahasiswa ini <strong>BISA MENGISI KRS</strong> meskipun pembayaran belum mencapai target persentase minimal. Gunakan untuk kasus khusus (Beasiswa, Anak Dosen, dll).
+                </p>
+            </div>
+
             <!-- Kontak & Password -->
             <div class="sm:col-span-3">
                 <label class="block text-sm font-medium text-gray-700">Nomor HP</label>
@@ -142,7 +155,7 @@
                                 <th class="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">NIM</th>
                                 <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Nama Lengkap</th>
                                 <th class="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Info Akademik</th>
-                                <th class="px-3 py-3.5 text-center text-sm font-semibold text-gray-900">Program</th>
+                                <th class="px-3 py-3.5 text-center text-sm font-semibold text-gray-900">Status</th>
                                 <th class="relative py-3.5 pl-3 pr-4 sm:pr-6">Aksi</th>
                             </tr>
                         </thead>
@@ -151,6 +164,13 @@
                             <tr>
                                 <td class="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-indigo-600 sm:pl-6">
                                     {{ $mhs->nim }}
+                                    @if($mhs->data_tambahan['bebas_keuangan'] ?? false)
+                                        <div class="mt-1">
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-yellow-100 text-yellow-800">
+                                                DISPENSASI
+                                            </span>
+                                        </div>
+                                    @endif
                                 </td>
                                 <td class="px-3 py-4 text-sm text-gray-900">
                                     <div class="font-bold">{{ $mhs->nama_lengkap }}</div>

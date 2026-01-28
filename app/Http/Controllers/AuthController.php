@@ -45,34 +45,9 @@ class AuthController extends Controller
      */
     protected function redirectBasedOnRole()
     {
-        $role = Auth::user()->role; // Mengambil dari kolom native 'role'
-
-        // 1. SUPERADMIN -> Ke Manajemen User/System
-        if ($role == 'superadmin') {
-            return redirect()->route('admin.users');
-        }
-
-        // 2. ADMIN KEUANGAN -> Ke Verifikasi
-        if ($role == 'keuangan' || $role == 'admin') {
-            return redirect()->route('admin.keuangan');
-        }
-
-        // 3. ADMIN BAAK -> Ke Jadwal/Akademik
-        if ($role == 'baak') {
-            return redirect()->route('admin.jadwal');
-        }
-
-        // 4. DOSEN -> Ke Jadwal Mengajar
-        if ($role == 'dosen') {
-            return redirect()->route('dosen.jadwal');
-        }
-
-        // 5. MAHASISWA -> Ke Dashboard/KRS
-        if ($role == 'mahasiswa') {
-            return redirect()->route('mhs.krs');
-        }
-
-        // Fallback default
-        return redirect('/dashboard');
+        // UPDATE: Arahkan semua user ke Dashboard Utama
+        // Halaman ini (DashboardPage) sudah memiliki logika adaptif untuk 
+        // menampilkan statistik dan menu yang berbeda sesuai role masing-masing.
+        return redirect()->route('dashboard');
     }
 }

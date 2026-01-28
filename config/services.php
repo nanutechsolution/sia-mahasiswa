@@ -34,5 +34,9 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
+    'pmb' => [
+        'secret' => env('PMB_API_SECRET'),
+        'ip' => env('PMB_SERVER_IP'),
+    ],
 
 ];
