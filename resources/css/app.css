@@ -49,6 +49,7 @@ select option {
     background: var(--color-unmaris-gold);
 }
 
+
 /* Nav Link Styling */
 .nav-link {
     display: flex;
@@ -87,3 +88,4 @@ select option {
     letter-spacing: 0.1em; /* tracking-widest */
     color: rgba(252, 192, 0, 0.6); /* unmaris-gold transparent */
 }
+

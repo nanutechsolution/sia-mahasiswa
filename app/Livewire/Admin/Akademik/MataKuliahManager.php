@@ -22,14 +22,14 @@ class MataKuliahManager extends Component
     public $mkId;
     public $kode_mk;
     public $nama_mk;
-    
+
     // SKS Details
     public $sks_default = 3;
     public $sks_tatap_muka = 0;
     public $sks_praktek = 0;
     public $sks_lapangan = 0;
 
-    public $jenis_mk = 'A'; 
+    public $jenis_mk = 'A';
     public $prodi_id;
 
     public $showForm = false;
@@ -63,9 +63,9 @@ class MataKuliahManager extends Component
 
         $mks = MataKuliah::with('prodi')
             ->where('prodi_id', $this->filterProdiId)
-            ->where(function($q) {
-                $q->where('nama_mk', 'like', '%'.$this->search.'%')
-                  ->orWhere('kode_mk', 'like', '%'.$this->search.'%');
+            ->where(function ($q) {
+                $q->where('nama_mk', 'like', '%' . $this->search . '%')
+                    ->orWhere('kode_mk', 'like', '%' . $this->search . '%');
             })
             ->orderBy('kode_mk', 'asc')
             ->paginate(10);
@@ -79,7 +79,7 @@ class MataKuliahManager extends Component
     public function create()
     {
         $this->resetForm();
-        $this->prodi_id = $this->filterProdiId; 
+        $this->prodi_id = $this->filterProdiId;
         $this->showForm = true;
         $this->editMode = false;
     }
@@ -92,15 +92,15 @@ class MataKuliahManager extends Component
 
     public function downloadTemplate()
     {
-        $response = new StreamedResponse(function(){
+        $response = new StreamedResponse(function () {
             $handle = fopen('php://output', 'w');
-            
+
             // Header CSV
             fputcsv($handle, ['Kode MK', 'Nama MK', 'Total SKS', 'SKS Teori', 'SKS Praktek', 'Jenis(A/B/C)']);
-            
+
             // Contoh Data 1
             fputcsv($handle, ['TI101', 'Algoritma Pemrograman', '3', '2', '1', 'A']);
-            
+
             // Contoh Data 2
             fputcsv($handle, ['TI102', 'Basis Data', '3', '3', '0', 'A']);
 
@@ -122,24 +122,24 @@ class MataKuliahManager extends Component
 
         $path = $this->fileImport->getRealPath();
         $file = fopen($path, 'r');
-        
+
         // Skip Header Row
-        fgetcsv($file); 
-        
+        fgetcsv($file);
+
         $count = 0;
-        
+
         DB::beginTransaction();
         try {
             while (($row = fgetcsv($file)) !== false) {
                 // Struktur CSV: Kode, Nama, SKS Total, Teori, Praktek, Jenis(A/B/C)
                 // Contoh: TI101, Algoritma, 3, 2, 1, A
-                
+
                 if (count($row) < 3) continue; // Skip baris tidak lengkap
 
                 $kode = trim($row[0]);
                 $nama = trim($row[1]);
                 $sksTotal = (int) $row[2];
-                
+
                 // Optional columns
                 $teori = isset($row[3]) && $row[3] !== '' ? (int)$row[3] : $sksTotal; // Default teori = total
                 $praktek = isset($row[4]) && $row[4] !== '' ? (int)$row[4] : 0;
@@ -156,7 +156,7 @@ class MataKuliahManager extends Component
                         'sks_tatap_muka' => $teori,
                         'sks_praktek' => $praktek,
                         'sks_lapangan' => 0,
-                        'jenis_mk' => in_array($jenis, ['A','B','C','D']) ? $jenis : 'A'
+                        'jenis_mk' => in_array($jenis, ['A', 'B', 'C', 'D']) ? $jenis : 'A'
                     ]
                 );
                 $count++;
@@ -168,7 +168,7 @@ class MataKuliahManager extends Component
             DB::rollBack();
             session()->flash('error', 'Gagal import: ' . $e->getMessage());
         }
-        
+
         fclose($file);
     }
 
@@ -178,7 +178,7 @@ class MataKuliahManager extends Component
         $this->mkId = $id;
         $this->kode_mk = $mk->kode_mk;
         $this->nama_mk = $mk->nama_mk;
-        
+
         $this->sks_default = $mk->sks_default;
         $this->sks_tatap_muka = $mk->sks_tatap_muka;
         $this->sks_praktek = $mk->sks_praktek;
@@ -203,13 +203,34 @@ class MataKuliahManager extends Component
             'prodi_id' => 'required',
         ];
 
+
         if ($this->editMode) {
             $rules['kode_mk'] = 'required|unique:master_mata_kuliahs,kode_mk,' . $this->mkId . ',id,prodi_id,' . $this->prodi_id;
         } else {
             $rules['kode_mk'] = 'required|unique:master_mata_kuliahs,kode_mk,NULL,id,prodi_id,' . $this->prodi_id;
         }
 
-        $this->validate($rules);
+        $this->validate(
+            $rules,
+            [
+                // Custom pesan validasi (opsional, bisa ditambah sesuai kebutuhan)
+                'required' => 'Kolom :attribute wajib diisi.',
+                'unique' => 'Kolom :attribute sudah digunakan.',
+                'integer' => 'Kolom :attribute harus berupa angka.',
+                'min' => 'Kolom :attribute minimal :min.',
+            ],
+            [
+                // Nama atribut agar pesan lebih profesional
+                'kode_mk' => 'Kode Mata Kuliah',
+                'nama_mk' => 'Nama Mata Kuliah',
+                'sks_default' => 'Total SKS',
+                'sks_tatap_muka' => 'SKS Teori',
+                'sks_praktek' => 'SKS Praktikum',
+                'sks_lapangan' => 'SKS Lapangan',
+                'jenis_mk' => 'Jenis Mata Kuliah',
+                'prodi_id' => 'Program Studi',
+            ]
+        );
 
         $totalRincian = (int)$this->sks_tatap_muka + (int)$this->sks_praktek + (int)$this->sks_lapangan;
         if ($totalRincian != $this->sks_default) {
@@ -252,9 +273,15 @@ class MataKuliahManager extends Component
     public function resetForm()
     {
         $this->reset([
-            'mkId', 'kode_mk', 'nama_mk', 
-            'sks_default', 'sks_tatap_muka', 'sks_praktek', 'sks_lapangan', 
-            'jenis_mk', 'editMode'
+            'mkId',
+            'kode_mk',
+            'nama_mk',
+            'sks_default',
+            'sks_tatap_muka',
+            'sks_praktek',
+            'sks_lapangan',
+            'jenis_mk',
+            'editMode'
         ]);
         $this->sks_default = 3;
         $this->sks_tatap_muka = 0;

@@ -22,6 +22,7 @@ use App\Livewire\Admin\Akademik\KurikulumManager;
 use App\Livewire\Admin\Akademik\MutasiMhsManager;
 use App\Livewire\Admin\HR\PersonManager;
 use App\Livewire\Admin\Keuangan\ManualTagihanManager;
+use App\Livewire\Admin\Konfigurasi\AturanSksManager;
 use App\Livewire\Admin\Konfigurasi\TahunAkademikManager;
 use App\Livewire\Admin\Master\FakultasManager;
 use App\Livewire\Admin\Master\ProdiManager;
@@ -76,6 +77,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/input-nilai/{jadwalId}', InputNilai::class)->name('dosen.nilai');
         Route::get('/perwalian', PerwalianManager::class)->name('dosen.perwalian');
         Route::get('/perwalian/{krsId}', PerwalianDetail::class)->name('dosen.perwalian.detail');
+        Route::get('/profile', \App\Livewire\Dosen\ProfilePage::class)->name('dosen.profile');
     });
 
     // ====================================================
@@ -90,6 +92,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/generator', TagihanGenerator::class)->name('admin.tagihan-generator');
         Route::get('/laporan', LaporanKeuangan::class)->name('admin.keuangan.laporan');
         Route::get('/keuangan/manual', ManualTagihanManager::class)->name('admin.keuangan.manual');
+        Route::get('/koreksi-saldo', \App\Livewire\Admin\Keuangan\AdjustmentManager::class)->name('admin.keuangan.adjustment');
     });
 
     // 2. GROUP AKADEMIK & BAAK (Akses: Superadmin, Admin, BAAK)
@@ -115,6 +118,8 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/akademik/cetak-absensi/{jadwalId}', [\App\Http\Controllers\Admin\AdminCetakController::class, 'cetakAbsensi'])->name('admin.cetak.absensi');
         Route::get('/akademik/skala-nilai', \App\Livewire\Admin\Akademik\SkalaNilaiManager::class)->name('admin.skala-nilai');
         Route::get('/hr-manager', \App\Livewire\Admin\HR\HRModuleManager::class)->name('admin.hr.manager');
+        Route::get('/aturan-sks', AturanSksManager::class)->name('admin.aturan-sks'); // <--- ROUTE BARU
+
     });
 
     // 3. GROUP SYSTEM & IT (Akses: Superadmin ONLY)

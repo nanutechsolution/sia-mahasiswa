@@ -13,6 +13,7 @@ class InputNilai extends Component
     public $jadwalId;
     public $jadwal;
     public $pesertaKelas;
+    public $isInputNilaiOpen = false; // Status pembukaan input nilai
 
     // State form (Array: [krs_detail_id => value])
     public $nilaiTugas = [];
@@ -27,8 +28,17 @@ class InputNilai extends Component
 
     public function loadData()
     {
-        $this->jadwal = JadwalKuliah::with(['mataKuliah', 'dosen'])->find($this->jadwalId);
+        // Load Jadwal beserta status Tahun Akademik
+        $this->jadwal = JadwalKuliah::with(['mataKuliah', 'dosen', 'tahunAkademik'])->find($this->jadwalId);
 
+        if (!$this->jadwal) {
+            abort(404, 'Jadwal tidak ditemukan.');
+        }
+
+        // [FIX] Cek apakah masa input nilai sedang dibuka oleh admin BAAK
+        $this->isInputNilaiOpen = (bool) $this->jadwal->tahunAkademik->buka_input_nilai;
+
+        // Hanya ambil mahasiswa yang KRS-nya sudah DISETUJUI
         $this->pesertaKelas = KrsDetail::with(['krs.mahasiswa'])
             ->where('jadwal_kuliah_id', $this->jadwalId)
             ->whereHas('krs', function($q) {
@@ -46,6 +56,12 @@ class InputNilai extends Component
 
     public function simpanNilai($detailId)
     {
+        // Guard: Jika ditutup, gagalkan proses simpan
+        if (!$this->isInputNilaiOpen) {
+            session()->flash('error', 'Gagal: Masa input nilai untuk semester ini telah ditutup.');
+            return;
+        }
+
         $tugas = $this->nilaiTugas[$detailId] ?? 0;
         $uts   = $this->nilaiUts[$detailId] ?? 0;
         $uas   = $this->nilaiUas[$detailId] ?? 0;
@@ -64,16 +80,17 @@ class InputNilai extends Component
         });
 
         session()->flash('success-' . $detailId, 'Tersimpan');
-        
-        // Refresh data agar tampilan nilai akhir terupdate
-        $this->pesertaKelas = KrsDetail::with(['krs.mahasiswa'])
-            ->where('jadwal_kuliah_id', $this->jadwalId)
-            ->whereHas('krs', fn($q) => $q->where('status_krs', 'DISETUJUI'))
-            ->get();
+        $this->loadData();
     }
 
     public function publishNilai()
     {
+        // Guard: Jika ditutup, gagalkan proses publish
+        if (!$this->isInputNilaiOpen) {
+            session()->flash('error', 'Gagal: Masa publish nilai telah ditutup.');
+            return;
+        }
+
         $action = new HitungNilaiAkhirAction();
         
         DB::transaction(function () use ($action) {

@@ -21,7 +21,9 @@ class Krs extends Model
         'tahun_akademik_id',
         'tgl_krs',
         'status_krs',
-        'dosen_wali_id'
+        'is_paket_snapshot',
+        'dosen_wali_id',
+
     ];
 
     protected $casts = [

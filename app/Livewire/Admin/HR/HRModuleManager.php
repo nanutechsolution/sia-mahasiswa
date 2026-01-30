@@ -4,21 +4,24 @@ namespace App\Livewire\Admin\HR;
 
 use Livewire\Component;
 use Livewire\WithPagination;
+use Livewire\WithFileUploads;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class HRModuleManager extends Component
 {
-    use WithPagination;
+    use WithPagination, WithFileUploads;
 
     // State Navigasi
-    public $activeTab = 'personil';
+    public $activeTab = 'personil'; 
     public $showForm = false;
     public $editMode = false;
     public $search = '';
-    
-    // State Modal (Pop-up)
-    public $activeModal = null; // 'role' atau 'gelar'
+
+    // Import State
+    public $showImportModal = false;
+    public $fileImport;
 
     // Form State
     public $personId, $nama_lengkap, $nik, $email, $no_hp, $tanggal_lahir, $jenis_kelamin = 'L';
@@ -27,10 +30,14 @@ class HRModuleManager extends Component
     public $gelarId, $kode_gelar, $nama_gelar_input, $posisi_gelar = 'BELAKANG', $jenjang_gelar = 'S1';
     public $roleId, $kode_role_input, $nama_role_input;
     public $penugasanId, $target_person_id, $target_jabatan_id, $fakultas_id, $prodi_id, $tanggal_mulai, $tanggal_selesai;
-
-    // State Assignment
     public $assign_person_id, $assign_gelar_id, $assign_urutan = 1;
     public $assign_role_id, $assign_tgl_mulai_role;
+
+    // [BARU] Searchable Select State
+    public $searchPerson = '';
+    public $selectedPersonName = '';
+    public $activeModal = null;
+
 
     protected $queryString = ['activeTab', 'search'];
 
@@ -42,9 +49,20 @@ class HRModuleManager extends Component
 
     public function render()
     {
+        // [BARU] Filter List Personil untuk Dropdown
+        $listPerson = [];
+        if ($this->showForm && in_array($this->activeTab, ['pegawai', 'penugasan'])) {
+            $listPerson = DB::table('ref_person')
+                ->where('nama_lengkap', 'like', '%' . $this->searchPerson . '%')
+                ->orWhere('nik', 'like', '%' . $this->searchPerson . '%')
+                ->orderBy('nama_lengkap')
+                ->limit(10) // Batasi hasil agar ringan
+                ->get();
+        }
+
         return view('livewire.admin.hr.hr-module-manager', [
             'listData' => $this->getDataByTab(),
-            'listPerson' => DB::table('ref_person')->orderBy('nama_lengkap')->get(),
+            'listPerson' => $listPerson, // Gunakan list yang difilter
             'listJabatan' => DB::table('ref_jabatan')->where('is_active', true)->orderBy('nama_jabatan')->get(),
             'listGelar' => DB::table('ref_gelar')->orderBy('nama')->get(),
             'listRoles' => DB::table('ref_person_role')->orderBy('nama_role')->get(),
@@ -53,6 +71,20 @@ class HRModuleManager extends Component
         ]);
     }
 
+    // [BARU] Handler Pilih Personil
+    public function pilihPerson($id, $nama)
+    {
+        if ($this->activeTab == 'pegawai') {
+            $this->pegawai_person_id = $id;
+        } elseif ($this->activeTab == 'penugasan') {
+            $this->target_person_id = $id;
+        }
+        
+        $this->selectedPersonName = $nama;
+        $this->searchPerson = ''; // Reset pencarian untuk menutup dropdown
+    }
+
+    // ... (getDataByTab, CRUD methods sama seperti sebelumnya) ...
     private function getDataByTab()
     {
         if ($this->activeTab == 'personil') {
@@ -91,7 +123,52 @@ class HRModuleManager extends Component
         return collect();
     }
 
-    // --- CRUD METHODS (Sama seperti sebelumnya) ---
+    public function editPegawai($id) {
+        $p = DB::table('trx_pegawai')->find($id);
+        $this->pegawaiId = $id; 
+        $this->pegawai_person_id = $p->person_id; 
+        
+        // [FIX] Set Nama untuk Search Select
+        $person = DB::table('ref_person')->find($p->person_id);
+        $this->selectedPersonName = $person ? $person->nama_lengkap : '';
+
+        $this->nip = $p->nip;
+        $this->jenis_pegawai = $p->jenis_pegawai; 
+        $this->is_active_pegawai = $p->is_active;
+        $this->editMode = true; $this->showForm = true;
+    }
+
+    public function editPenugasan($id) {
+        $pj = DB::table('trx_person_jabatan')->find($id);
+        $this->penugasanId = $id; 
+        $this->target_person_id = $pj->person_id; 
+        
+        // [FIX] Set Nama untuk Search Select
+        $person = DB::table('ref_person')->find($pj->person_id);
+        $this->selectedPersonName = $person ? $person->nama_lengkap : '';
+
+        $this->target_jabatan_id = $pj->jabatan_id;
+        $this->fakultas_id = $pj->fakultas_id; 
+        $this->prodi_id = $pj->prodi_id;
+        $this->tanggal_mulai = $pj->tanggal_mulai; 
+        $this->tanggal_selesai = $pj->tanggal_selesai;
+        $this->editMode = true; $this->showForm = true;
+    }
+
+    public function resetForm() {
+        $this->reset([
+            'personId', 'nama_lengkap', 'nik', 'email', 'no_hp', 'jabatanId', 'kode_jabatan', 
+            'nama_jabatan_input', 'gelarId', 'kode_gelar', 'nama_gelar_input', 'penugasanId', 
+            'target_person_id', 'target_jabatan_id', 'fakultas_id', 'prodi_id', 'roleId', 
+            'kode_role_input', 'nama_role_input', 'pegawaiId', 'pegawai_person_id', 'nip', 
+            'jenis_pegawai', 'is_active_pegawai', 'showForm', 'editMode', 'assign_person_id', 
+            'activeModal', 'searchPerson', 'selectedPersonName' // Reset search state
+        ]);
+        $this->tanggal_mulai = date('Y-m-d');
+        $this->assign_tgl_mulai_role = date('Y-m-d');
+    }
+    
+    // ... (Metode lain sama, pastikan ada savePerson, saveJabatan, dll) ...
     public function savePerson() {
         $this->validate(['nama_lengkap' => 'required', 'nik' => ['nullable', Rule::unique('ref_person', 'nik')->ignore($this->personId)]]);
         $data = ['nama_lengkap' => $this->nama_lengkap, 'nik' => $this->nik, 'email' => $this->email, 'no_hp' => $this->no_hp, 'jenis_kelamin' => $this->jenis_kelamin, 'updated_at' => now()];
@@ -105,7 +182,6 @@ class HRModuleManager extends Component
         $this->email = $p->email; $this->no_hp = $p->no_hp; $this->jenis_kelamin = $p->jenis_kelamin;
         $this->editMode = true; $this->showForm = true;
     }
-
     public function savePegawai() {
         $this->validate(['pegawai_person_id' => 'required', 'nip' => ['nullable', Rule::unique('trx_pegawai', 'nip')->ignore($this->pegawaiId)], 'jenis_pegawai' => 'required']);
         $data = ['person_id' => $this->pegawai_person_id, 'nip' => $this->nip, 'jenis_pegawai' => $this->jenis_pegawai, 'is_active' => $this->is_active_pegawai, 'updated_at' => now()];
@@ -113,13 +189,6 @@ class HRModuleManager extends Component
         else { $data['created_at'] = now(); DB::table('trx_pegawai')->insert($data); }
         $this->resetForm(); session()->flash('success', 'Data Pegawai disimpan.');
     }
-    public function editPegawai($id) {
-        $p = DB::table('trx_pegawai')->find($id);
-        $this->pegawaiId = $id; $this->pegawai_person_id = $p->person_id; $this->nip = $p->nip;
-        $this->jenis_pegawai = $p->jenis_pegawai; $this->is_active_pegawai = $p->is_active;
-        $this->editMode = true; $this->showForm = true;
-    }
-
     public function saveRole() {
         $this->validate(['kode_role_input' => ['required', Rule::unique('ref_person_role', 'kode_role')->ignore($this->roleId)], 'nama_role_input' => 'required']);
         $data = ['kode_role' => strtoupper($this->kode_role_input), 'nama_role' => $this->nama_role_input, 'updated_at' => now()];
@@ -132,7 +201,6 @@ class HRModuleManager extends Component
         $this->roleId = $id; $this->kode_role_input = $r->kode_role; $this->nama_role_input = $r->nama_role;
         $this->editMode = true; $this->showForm = true;
     }
-
     public function saveJabatan() {
         $this->validate(['kode_jabatan' => ['required', Rule::unique('ref_jabatan', 'kode_jabatan')->ignore($this->jabatanId)], 'nama_jabatan_input' => 'required']);
         $data = ['kode_jabatan' => strtoupper($this->kode_jabatan), 'nama_jabatan' => $this->nama_jabatan_input, 'jenis' => $this->jenis_jabatan, 'is_active' => $this->is_active_jabatan, 'updated_at' => now()];
@@ -146,7 +214,6 @@ class HRModuleManager extends Component
         $this->jenis_jabatan = $j->jenis; $this->is_active_jabatan = $j->is_active;
         $this->editMode = true; $this->showForm = true;
     }
-
     public function saveGelar() {
         $this->validate(['kode_gelar' => ['required', Rule::unique('ref_gelar', 'kode')->ignore($this->gelarId)], 'nama_gelar_input' => 'required']);
         $data = ['kode' => $this->kode_gelar, 'nama' => $this->nama_gelar_input, 'posisi' => $this->posisi_gelar, 'jenjang' => $this->jenjang_gelar, 'updated_at' => now()];
@@ -160,69 +227,76 @@ class HRModuleManager extends Component
         $this->posisi_gelar = $g->posisi; $this->jenjang_gelar = $g->jenjang;
         $this->editMode = true; $this->showForm = true;
     }
-
     public function savePenugasan() {
         $this->validate(['target_person_id' => 'required', 'target_jabatan_id' => 'required', 'tanggal_mulai' => 'required|date']);
-        $data = [
-            'person_id' => $this->target_person_id, 
-            'jabatan_id' => $this->target_jabatan_id, 
-            'fakultas_id' => $this->fakultas_id ?: null, 
-            'prodi_id' => $this->prodi_id ?: null, 
-            'tanggal_mulai' => $this->tanggal_mulai, 
-            'tanggal_selesai' => $this->tanggal_selesai ?: null, 
-            'updated_at' => now()
-        ];
+        $data = ['person_id' => $this->target_person_id, 'jabatan_id' => $this->target_jabatan_id, 'fakultas_id' => $this->fakultas_id ?: null, 'prodi_id' => $this->prodi_id ?: null, 'tanggal_mulai' => $this->tanggal_mulai, 'tanggal_selesai' => $this->tanggal_selesai ?: null, 'updated_at' => now()];
         if ($this->editMode) DB::table('trx_person_jabatan')->where('id', $this->penugasanId)->update($data);
         else { $data['created_at'] = now(); DB::table('trx_person_jabatan')->insert($data); }
         $this->resetForm(); session()->flash('success', 'Penugasan pejabat disimpan.');
     }
-    public function editPenugasan($id) {
-        $pj = DB::table('trx_person_jabatan')->find($id);
-        $this->penugasanId = $id; $this->target_person_id = $pj->person_id; $this->target_jabatan_id = $pj->jabatan_id;
-        $this->fakultas_id = $pj->fakultas_id; $this->prodi_id = $pj->prodi_id;
-        $this->tanggal_mulai = $pj->tanggal_mulai; $this->tanggal_selesai = $pj->tanggal_selesai;
-        $this->editMode = true; $this->showForm = true;
-    }
-
-    // --- ASSIGNMENT MODALS (Role & Gelar) ---
-    
-    public function openRoleModal($id) { 
-        $this->assign_person_id = $id; 
-        $this->activeModal = 'role'; 
-    }
+    public function openRoleModal($id) { $this->assign_person_id = $id; $this->activeModal = 'role'; }
     public function saveAssignmentRole() {
         $this->validate(['assign_role_id' => 'required', 'assign_tgl_mulai_role' => 'required|date']);
         DB::table('trx_person_role')->insert(['person_id' => $this->assign_person_id, 'role_id' => $this->assign_role_id, 'tanggal_mulai' => $this->assign_tgl_mulai_role, 'created_at' => now()]);
         $this->reset(['assign_role_id']);
     }
     public function removeAssignmentRole($id) { DB::table('trx_person_role')->where('id', $id)->delete(); }
-
-    public function openDegreeModal($id) { 
-        $this->assign_person_id = $id; 
-        $this->activeModal = 'gelar'; 
-    }
+    public function openDegreeModal($id) { $this->assign_person_id = $id; $this->activeModal = 'gelar'; }
     public function saveAssignmentGelar() {
         $this->validate(['assign_gelar_id' => 'required']);
         DB::table('trx_person_gelar')->updateOrInsert(['person_id' => $this->assign_person_id, 'gelar_id' => $this->assign_gelar_id], ['urutan' => $this->assign_urutan, 'updated_at' => now()]);
         $this->reset(['assign_gelar_id', 'assign_urutan']);
     }
     public function removeAssignmentGelar($id) { DB::table('trx_person_gelar')->where('id', $id)->delete(); }
-
-    public function closeModal() {
-        $this->reset(['assign_person_id', 'activeModal', 'assign_role_id', 'assign_gelar_id', 'assign_urutan']);
-    }
-
+    public function closeModal() { $this->reset(['assign_person_id', 'activeModal', 'assign_role_id', 'assign_gelar_id', 'assign_urutan']); }
     public function deleteData($id) {
         $map = ['personil' => 'ref_person', 'pegawai' => 'trx_pegawai', 'jabatan' => 'ref_jabatan', 'gelar' => 'ref_gelar', 'penugasan' => 'trx_person_jabatan', 'role' => 'ref_person_role'];
         DB::table($map[$this->activeTab])->where('id', $id)->delete();
         session()->flash('success', 'Data dihapus.');
     }
-
-    public function resetForm() {
-        $this->reset(['personId', 'nama_lengkap', 'nik', 'email', 'no_hp', 'jabatanId', 'kode_jabatan', 'nama_jabatan_input', 'gelarId', 'kode_gelar', 'nama_gelar_input', 'penugasanId', 'target_person_id', 'target_jabatan_id', 'fakultas_id', 'prodi_id', 'roleId', 'kode_role_input', 'nama_role_input', 'pegawaiId', 'pegawai_person_id', 'nip', 'jenis_pegawai', 'is_active_pegawai', 'showForm', 'editMode', 'assign_person_id', 'activeModal']);
-        $this->tanggal_mulai = date('Y-m-d');
-        $this->assign_tgl_mulai_role = date('Y-m-d');
-    }
-
     public function switchTab($tab) { $this->activeTab = $tab; $this->resetForm(); $this->resetPage(); }
+
+    public function openImport() { $this->reset(['fileImport']); $this->showImportModal = true; }
+    public function downloadTemplate() {
+        $response = new StreamedResponse(function(){
+            $handle = fopen('php://output', 'w');
+            if ($this->activeTab == 'personil') { fputcsv($handle, ['Nama Lengkap', 'NIK', 'Email', 'No HP', 'Gender (L/P)']); fputcsv($handle, ['Budi Santoso', '3201123456789001', 'budi@mail.com', '08123456789', 'L']); } 
+            elseif ($this->activeTab == 'pegawai') { fputcsv($handle, ['Nama Lengkap (Wajib sama dgn Personil)', 'NIP', 'Jenis Pegawai (TENDIK/ADMIN)', 'Status Aktif (1/0)']); fputcsv($handle, ['Siti Aminah', '198001012000121001', 'TENDIK', '1']); }
+            fclose($handle);
+        });
+        $response->headers->set('Content-Type', 'text/csv');
+        $response->headers->set('Content-Disposition', 'attachment; filename="template_'.$this->activeTab.'.csv"');
+        return $response;
+    }
+    public function processImport() {
+        $this->validate(['fileImport' => 'required|mimes:csv,txt|max:2048']);
+        $path = $this->fileImport->getRealPath();
+        $file = fopen($path, 'r');
+        fgetcsv($file); 
+        $count = 0;
+        DB::beginTransaction();
+        try {
+            while (($row = fgetcsv($file)) !== false) {
+                if ($this->activeTab == 'personil') {
+                    if (empty($row[0])) continue;
+                    DB::table('ref_person')->updateOrInsert(['nama_lengkap' => trim($row[0])], ['nik' => $row[1] ?? null, 'email' => $row[2] ?? null, 'no_hp' => $row[3] ?? null, 'jenis_kelamin' => strtoupper($row[4] ?? 'L'), 'updated_at' => now(), 'created_at' => now()]);
+                    $count++;
+                } 
+                elseif ($this->activeTab == 'pegawai') {
+                    if (empty($row[0])) continue;
+                    $person = DB::table('ref_person')->where('nama_lengkap', trim($row[0]))->first();
+                    if (!$person) { $id = DB::table('ref_person')->insertGetId(['nama_lengkap' => trim($row[0]), 'created_at' => now(), 'updated_at' => now()]); $personId = $id; } else { $personId = $person->id; }
+                    DB::table('trx_pegawai')->updateOrInsert(['person_id' => $personId], ['nip' => $row[1] ?? null, 'jenis_pegawai' => strtoupper($row[2] ?? 'TENDIK'), 'is_active' => $row[3] ?? 1, 'updated_at' => now(), 'created_at' => now()]);
+                    $count++;
+                }
+            }
+            DB::commit();
+            session()->flash('success', "Berhasil import $count data {$this->activeTab}.");
+            $this->showImportModal = false;
+        } catch (\Exception $e) {
+            DB::rollBack();
+            session()->flash('error', 'Gagal import: ' . $e->getMessage());
+        }
+        fclose($file);
+    }
 }

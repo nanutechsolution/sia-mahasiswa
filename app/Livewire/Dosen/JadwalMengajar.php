@@ -4,7 +4,6 @@ namespace App\Livewire\Dosen;
 
 use Livewire\Component;
 use Illuminate\Support\Facades\Auth;
-use App\Domains\Akademik\Models\Dosen;
 use App\Domains\Akademik\Models\JadwalKuliah;
 use App\Helpers\SistemHelper;
 
@@ -17,15 +16,15 @@ class JadwalMengajar extends Component
     public function mount()
     {
         $user = Auth::user();
-        $this->dosen = $user->profileable;
-        if (!$this->dosen || !($this->dosen instanceof \App\Domains\Akademik\Models\Dosen)) {
-            abort(403, 'Data dosen belum terhubung.');
+        
+        // [SSOT FIX] Ambil Profil Dosen via Person
+        // User -> belongsTo Person -> hasOne Dosen
+        if (!$user->person || !$user->person->dosen) {
+            abort(403, 'Akun Anda belum terhubung dengan Data Dosen (SSOT). Silakan hubungi Admin BAAK untuk perbaikan data.');
         }
-        // Cari Profile Dosen berdasarkan User Login
-        // $this->dosen = Dosen::where('user_id', $user->id)->firstOrFail();
-        if (!$this->dosen) {
-            abort(403, 'Data dosen belum terhubung.');
-        }
+
+        $this->dosen = $user->person->dosen;
+        
         $taId = SistemHelper::idTahunAktif();
         $this->taAktif = SistemHelper::getTahunAktif();
 
@@ -34,6 +33,7 @@ class JadwalMengajar extends Component
                 ->where('dosen_id', $this->dosen->id)
                 ->where('tahun_akademik_id', $taId)
                 ->orderBy('hari', 'desc')
+                ->orderBy('jam_mulai', 'asc')
                 ->get();
         }
     }

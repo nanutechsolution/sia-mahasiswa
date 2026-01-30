@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Domains\Mahasiswa\Models\Mahasiswa;
 use App\Domains\Keuangan\Models\TagihanMahasiswa;
 use App\Domains\Keuangan\Models\PembayaranMahasiswa;
-use App\Helpers\SistemHelper; // Import
+use App\Helpers\SistemHelper;
 
 class KeuanganPage extends Component
 {
@@ -26,9 +26,14 @@ class KeuanganPage extends Component
 
     public function mount()
     {
-        $this->mahasiswa = Mahasiswa::where('user_id', Auth::id())->firstOrFail();
+        $user = Auth::user();
         
-        // Kita simpan ID TA aktif untuk highlight (opsional) di view
+        // [SSOT FIX] Ambil Mahasiswa berdasarkan person_id dari User
+        if (!$user->person_id) {
+            abort(403, 'Akun Anda belum terhubung dengan Data Personil (SSOT).');
+        }
+
+        $this->mahasiswa = Mahasiswa::where('person_id', $user->person_id)->firstOrFail();
         $this->taAktifId = SistemHelper::idTahunAktif();
         
         $this->loadData();
@@ -36,8 +41,7 @@ class KeuanganPage extends Component
 
     public function loadData()
     {
-        // Keuangan biasanya menampilkan SEMUA histori, tidak hanya semester aktif
-        // Tapi kita urutkan yang terbaru (semester aktif biasanya paling atas)
+        // Ambil semua tagihan, urutkan dari yang terbaru
         $this->tagihans = TagihanMahasiswa::with(['pembayarans', 'tahunAkademik'])
             ->where('mahasiswa_id', $this->mahasiswa->id)
             ->orderBy('created_at', 'desc')
@@ -75,7 +79,7 @@ class KeuanganPage extends Component
         $this->reset(['tagihanIdSelected', 'nominalBayar', 'fileBukti', 'tglBayar']);
         $this->loadData();
         
-        session()->flash('success', 'Bukti pembayaran berhasil diupload. Tunggu verifikasi admin.');
+        session()->flash('success', 'Bukti pembayaran berhasil diupload. Mohon tunggu verifikasi admin.');
     }
 
     public function render()

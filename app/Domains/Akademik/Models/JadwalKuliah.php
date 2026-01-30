@@ -8,13 +8,14 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use App\Domains\Akademik\Models\MataKuliah;
 use App\Domains\Core\Models\ProgramKelas;
 use App\Domains\Core\Models\TahunAkademik;
-use App\Models\Dosen; // Sesuaikan namespace Dosen Anda (App\Models\Dosen atau App\Domains\Akademik\Models\Dosen)
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class JadwalKuliah extends Model
 {
-    use HasUuids, SoftDeletes;
+    use HasUuids, SoftDeletes, LogsActivity;
 
-    protected $table = 'jadwal_kuliah'; // Fix nama tabel
+    protected $table = 'jadwal_kuliah';
 
     protected $fillable = [
         'tahun_akademik_id',
@@ -29,6 +30,41 @@ class JadwalKuliah extends Model
         'id_program_kelas_allow'
     ];
 
+    /**
+     * Konfigurasi Spatie Activitylog
+     */
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+            ->logOnly([
+                'tahun_akademik_id',
+                'mata_kuliah_id',
+                'dosen_id',
+                'nama_kelas',
+                'hari',
+                'jam_mulai',
+                'jam_selesai',
+                'ruang',
+                'kuota_kelas',
+                'id_program_kelas_allow',
+                'deleted_at',
+            ])
+            ->useLogName('Jadwal Kuliah')
+            ->logOnlyDirty() // hanya perubahan yang dicatat
+            ->dontSubmitEmptyLogs(); // jangan log kalau tidak ada perubahan
+    }
+
+    /**
+     * Custom description untuk event
+     */
+    public function getDescriptionForEvent(string $eventName): string
+    {
+        $mk = $this->mataKuliah->nama_mk ?? '-';
+        $dosen = $this->dosen->person->nama_lengkap ?? '-';
+        $kelas = $this->nama_kelas ?? '-';
+
+        return "Jadwal Kuliah [MK: {$mk}, Kelas: {$kelas}, Dosen: {$dosen}] telah di {$eventName}.";
+    }
     // Relasi yang dibutuhkan Livewire KrsPage
     public function mataKuliah()
     {
@@ -37,8 +73,6 @@ class JadwalKuliah extends Model
 
     public function dosen()
     {
-        // Pastikan model Dosen sudah dibuat, biasanya di App\Domains\Akademik\Models\Dosen
-        // Atau jika masih default: App\Models\Dosen
         return $this->belongsTo(\App\Domains\Akademik\Models\Dosen::class, 'dosen_id');
     }
 

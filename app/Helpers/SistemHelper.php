@@ -4,6 +4,7 @@ namespace App\Helpers;
 
 use App\Domains\Core\Models\TahunAkademik;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 class SistemHelper
 {
@@ -32,17 +33,19 @@ class SistemHelper
     /**
      * Cek apakah Masa KRS sedang dibuka berdasarkan tanggal
      */
-    public static function isMasaKrsOpen()
+    public static function isMasaKrsOpen(): bool
     {
         $ta = self::getTahunAktif();
+        if (!$ta || !$ta->tgl_mulai_krs || !$ta->tgl_selesai_krs) return false;
 
-        // Jika tidak ada semester aktif, atau tanggal belum diset -> Tutup
-        if (!$ta || !$ta->tgl_mulai_krs || !$ta->tgl_selesai_krs) {
-            return false;
-        }
+        $now = now()->startOfDay();
 
-        return now()->between($ta->tgl_mulai_krs, $ta->tgl_selesai_krs);
+        if (!$ta->buka_krs) return false; // langsung tutup
+
+        return $now->between($ta->tgl_mulai_krs, $ta->tgl_selesai_krs);
     }
+
+
 
     /**
      * Dapatkan path logo kop surat untuk PDF

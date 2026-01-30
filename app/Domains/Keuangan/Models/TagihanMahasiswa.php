@@ -35,12 +35,13 @@ class TagihanMahasiswa extends Model
         'total_bayar' => 'decimal:2',
         'rincian_item' => 'array',
         'tenggat_waktu' => 'date',
+        'sisa_tagihan' => 'decimal:2',
     ];
 
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['total_tagihan', 'status_bayar', 'total_bayar']) 
+            ->logOnly(['total_tagihan', 'status_bayar', 'total_bayar'])
             ->logOnlyDirty()
             ->useLogName('keuangan');
     }
@@ -71,10 +72,15 @@ class TagihanMahasiswa extends Model
     {
         return $this->belongsTo(TahunAkademik::class, 'tahun_akademik_id');
     }
-    
+
     // Virtual Attribute Helper
     public function getSisaTagihanAttribute()
     {
         return $this->total_tagihan - $this->total_bayar;
+    }
+
+    public function adjustments()
+    {
+        return $this->hasMany(KeuanganAdjustment::class, 'tagihan_id');
     }
 }

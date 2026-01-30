@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\DB;
 class CetakController extends Controller
 {
     /**
-     * Helper untuk mengambil data Pejabat secara dinamis
+     * Helper untuk mengambil data Pejabat secara dinamis dari HR Module (SSOT)
      */
     private function getPejabat($kodeJabatan, $prodiId = null)
     {
@@ -37,6 +37,7 @@ class CetakController extends Controller
         
         if (!$person) return null;
 
+        // Ambil gelar personil tersebut
         $gelars = DB::table('trx_person_gelar as tpg')
             ->join('ref_gelar as rg', 'tpg.gelar_id', '=', 'rg.id')
             ->where('tpg.person_id', $person->id)
@@ -54,15 +55,20 @@ class CetakController extends Controller
     }
 
     /**
-     * Cetak Kartu Rencana Studi
+     * Cetak Kartu Rencana Studi (KRS)
      */
     public function cetakKrs()
     {
         $user = Auth::user();
-        $mahasiswa = Mahasiswa::with(['prodi.fakultas', 'programKelas', 'dosenWali'])->where('user_id', $user->id)->firstOrFail();
+        
+        // [FIX SSOT] Cari Mahasiswa via person_id dari User
+        $mahasiswa = Mahasiswa::with(['prodi.fakultas', 'programKelas', 'dosenWali.person', 'person'])
+            ->where('person_id', $user->person_id)
+            ->firstOrFail();
+            
         $ta = SistemHelper::getTahunAktif();
 
-        $krs = Krs::with(['details.jadwalKuliah.mataKuliah', 'details.jadwalKuliah.dosen'])
+        $krs = Krs::with(['details.jadwalKuliah.mataKuliah', 'details.jadwalKuliah.dosen.person'])
             ->where('mahasiswa_id', $mahasiswa->id)
             ->where('tahun_akademik_id', $ta->id)
             ->firstOrFail();
@@ -77,12 +83,17 @@ class CetakController extends Controller
     }
 
     /**
-     * Cetak Kartu Hasil Studi per Semester
+     * Cetak Kartu Hasil Studi (KHS)
      */
     public function cetakKhs()
     {
         $user = Auth::user();
-        $mahasiswa = Mahasiswa::with(['prodi.fakultas', 'programKelas'])->where('user_id', $user->id)->firstOrFail();
+        
+        // [FIX SSOT]
+        $mahasiswa = Mahasiswa::with(['prodi.fakultas', 'programKelas', 'person'])
+            ->where('person_id', $user->person_id)
+            ->firstOrFail();
+            
         $ta = SistemHelper::getTahunAktif();
 
         $details = DB::table('krs_detail as kd')
@@ -111,14 +122,17 @@ class CetakController extends Controller
     }
 
     /**
-     * Cetak Transkrip Nilai Sementara (Kumulatif)
+     * Cetak Transkrip Nilai Sementara
      */
     public function cetakTranskrip()
     {
         $user = Auth::user();
-        $mahasiswa = Mahasiswa::with(['prodi.fakultas', 'programKelas'])->where('user_id', $user->id)->firstOrFail();
+        
+        // [FIX SSOT]
+        $mahasiswa = Mahasiswa::with(['prodi.fakultas', 'programKelas', 'person'])
+            ->where('person_id', $user->person_id)
+            ->firstOrFail();
 
-        // Ambil semua nilai yang sudah dipublish dari seluruh semester
         $transkrip = DB::table('krs_detail as kd')
             ->join('krs', 'kd.krs_id', '=', 'krs.id')
             ->join('jadwal_kuliah as jk', 'kd.jadwal_kuliah_id', '=', 'jk.id')

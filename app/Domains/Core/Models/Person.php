@@ -1,79 +1,97 @@
 <?php
 
-namespace  App\Domains\Core\Models;
+namespace App\Domains\Core\Models;
 
-use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Domains\Akademik\Models\Dosen;
+use App\Domains\Mahasiswa\Models\Mahasiswa;
+use App\Domains\Akademik\Models\Gelar; // Import Model Gelar
+use App\Domains\Core\Models\Gelar as ModelsGelar;
+use App\Models\User;
+use Illuminate\Support\Facades\DB;
 
 class Person extends Model
 {
-    protected $table = 'ref_person';
+    use SoftDeletes;
 
+    protected $table = 'ref_person';
+    
     protected $fillable = [
-        'nama_lengkap',
-        'jenis_kelamin',
-        'tanggal_lahir',
-        'nik',
+        'nama_lengkap', 'nik', 'email', 'no_hp', 
+        'tanggal_lahir', 'jenis_kelamin', 'tempat_lahir'
     ];
 
     /**
-     * RELATIONS
+     * RELASI KE GELAR (Many-to-Many)
+     * Menggunakan tabel pivot trx_person_gelar
      */
-    public function jabatans()
-    {
-        return $this->hasMany(PersonJabatan::class, 'person_id');
-    }
-
-    // user
-    public function user()
-    {
-        return $this->hasOne(User::class, 'person_id');
-    }
-
     public function gelars()
     {
-        // Relasi Many-to-Many ke tabel ref_gelar melalui trx_person_gelar
-        return $this->belongsToMany(\Illuminate\Support\Facades\DB::table('ref_gelar'), 'trx_person_gelar', 'person_id', 'gelar_id')
-            ->using(new class extends \Illuminate\Database\Eloquent\Relations\Pivot {
-                protected $table = 'trx_person_gelar';
-            })
+        // [FIX] Parameter pertama harus Model Class, bukan DB::table
+        return $this->belongsToMany(ModelsGelar::class, 'trx_person_gelar', 'person_id', 'gelar_id')
             ->withPivot('urutan')
             ->orderBy('trx_person_gelar.urutan', 'asc');
     }
 
     /**
-     * Accessor untuk Nama Lengkap + Gelar
-     * Panggil dengan: $person->nama_dengan_gelar
+     * Accessor: Gabungan Nama + Gelar
+     * Panggil: $person->nama_dengan_gelar
      */
     public function getNamaDenganGelarAttribute()
     {
-        // Ambil gelar via Query Builder agar lebih ringan/pasti jika model Gelar belum dibuat
-        $gelars = \Illuminate\Support\Facades\DB::table('trx_person_gelar as tpg')
-            ->join('ref_gelar as rg', 'tpg.gelar_id', '=', 'rg.id')
-            ->where('tpg.person_id', $this->id)
-            ->orderBy('tpg.urutan', 'asc')
-            ->get();
+        // Kita bisa gunakan relasi yang sudah diload untuk performa (jika eager loading)
+        // atau query manual jika relasi belum diload.
+        
+        if ($this->relationLoaded('gelars')) {
+            $gelars = $this->gelars;
+        } else {
+            // Fallback query manual jika relasi tidak di-eager load (untuk hemat memori list besar)
+            $gelars = DB::table('trx_person_gelar as tpg')
+                ->join('ref_gelar as rg', 'tpg.gelar_id', '=', 'rg.id')
+                ->where('tpg.person_id', $this->id)
+                ->orderBy('tpg.urutan', 'asc')
+                ->select('rg.kode', 'rg.posisi')
+                ->get();
+        }
 
         $depan = $gelars->where('posisi', 'DEPAN')->pluck('kode')->implode(' ');
         $belakang = $gelars->where('posisi', 'BELAKANG')->pluck('kode')->implode(', ');
 
         $namaLengkap = $this->nama_lengkap;
 
-        // Gabung: [Depan] [Nama] [, Belakang]
+        // Format: [Gelar Depan] [Nama] [, Gelar Belakang]
         $hasil = $depan ? ($depan . ' ' . $namaLengkap) : $namaLengkap;
         $hasil .= $belakang ? (', ' . $belakang) : '';
 
         return $hasil;
     }
 
-    public function dosen()
+    /**
+     * Relasi ke Akun Login
+     */
+    public function user()
     {
-        return $this->hasOne(\App\Domains\Akademik\Models\Dosen::class, 'person_id');
+        return $this->hasOne(User::class, 'person_id');
     }
 
-    // mahasiswa
+    /**
+     * Domain: Akademik (Dosen)
+     */
+    public function dosen()
+    {
+        return $this->hasOne(Dosen::class, 'person_id');
+    }
+
+    /**
+     * Domain: Akademik (Mahasiswa)
+     */
     public function mahasiswa()
     {
-        return $this->hasOne(\App\Domains\Mahasiswa\Models\Mahasiswa::class, 'person_id');
+        return $this->hasOne(Mahasiswa::class, 'person_id');
     }
+
+    // Bisa tambah relasi jabatan dll
+
+    // public function jabatans() { ... }
 }

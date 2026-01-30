@@ -43,17 +43,15 @@ class Dosen extends Model
     {
         return $this->person ? $this->person->user : null;
     }
-
-
     /**
-     * UPDATE ACCESSOR INI
+     * 
      * Agar $dosen->nama_lengkap_gelar otomatis memunculkan gelar
      */
-        public function getNamaLengkapGelarAttribute()
+    public function getNamaLengkapGelarAttribute()
     {
         if ($this->person) {
             // Panggil accessor baru yang kita buat di Model Person
-            return $this->person->nama_dengan_gelar;
+            return $this->person->nama_lengkap;
         }
         return '-';
     }

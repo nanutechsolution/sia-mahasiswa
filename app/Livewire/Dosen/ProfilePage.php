@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire\Mahasiswa;
+namespace App\Livewire\Dosen;
 
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use App\Models\Person;
 use App\Models\User;
-use App\Domains\Mahasiswa\Models\Mahasiswa;
+use App\Domains\Akademik\Models\Dosen;
 use Carbon\Carbon;
 
 class ProfilePage extends Component
@@ -19,19 +19,18 @@ class ProfilePage extends Component
 
     public $user;
     public $person;
-    public $mahasiswa;
+    public $dosen;
 
-    // Form Data Utama
+    // Form Data Utama (ref_person)
     public $nama_lengkap, $email_pribadi, $nomor_hp, $nik, $jenis_kelamin;
     public $tempat_lahir, $tanggal_lahir;
 
-    // Form Alamat & Keluarga (JSON)
+    // Form Alamat & Detail (JSON data_tambahan di trx_dosen)
     public $jalan, $dusun, $rt, $rw, $kelurahan, $kode_pos;
-    public $nama_ayah, $nik_ayah, $nama_ibu, $nik_ibu;
-
-    // Berkas & Foto (Properti yang menyebabkan error sebelumnya)
+    
+    // Berkas & Foto
     public $photo_profil;
-    public $berkas_ktp, $berkas_ijazah, $berkas_kk;
+    public $berkas_ktp, $berkas_ijazah_terakhir, $berkas_serdos;
 
     // Form Keamanan
     public $current_password, $new_password, $new_password_confirmation;
@@ -39,14 +38,13 @@ class ProfilePage extends Component
     protected function messages()
     {
         return [
-            'nama_lengkap.required' => 'Nama lengkap wajib diisi sesuai identitas resmi.',
-            'email_pribadi.required' => 'Alamat email aktif diperlukan untuk korespondensi.',
+            'nama_lengkap.required' => 'Nama lengkap dan gelar wajib diisi.',
+            'email_pribadi.required' => 'Alamat email aktif diperlukan.',
             'nik.required' => 'NIK wajib diisi sesuai KTP.',
-            'nik.digits' => 'NIK harus terdiri dari 16 digit.',
-            'new_password.min' => 'Kata sandi minimal terdiri dari 6 karakter.',
-            'new_password.confirmed' => 'Konfirmasi kata sandi tidak cocok.',
-            'photo_profil.image' => 'File harus berupa gambar (JPG/PNG).',
-            'photo_profil.max' => 'Ukuran gambar maksimal 1MB.',
+            'nik.digits' => 'NIK harus 16 digit.',
+            'new_password.min' => 'Kata sandi minimal 6 karakter.',
+            'photo_profil.image' => 'Berkas harus berupa gambar.',
+            'photo_profil.max' => 'Ukuran maksimal 1MB.',
         ];
     }
 
@@ -54,11 +52,11 @@ class ProfilePage extends Component
     {
         $this->user = Auth::user();
         if (!$this->user->person_id) {
-            abort(403, 'Profil personil tidak terdeteksi (SSOT Error).');
+            abort(403, 'Profil personil tidak terdeteksi.');
         }
 
         $this->person = $this->user->person;
-        $this->mahasiswa = $this->person->mahasiswa;
+        $this->dosen = $this->person->dosen;
 
         // Load Data dari ref_person
         $this->nama_lengkap = $this->person->nama_lengkap;
@@ -67,8 +65,8 @@ class ProfilePage extends Component
         $this->nik = $this->person->nik;
         $this->jenis_kelamin = $this->person->jenis_kelamin;
 
-        // Load dari JSON data_tambahan
-        $extra = $this->mahasiswa->data_tambahan ?? [];
+        // Load dari JSON data_tambahan di tabel dosen
+        $extra = $this->dosen->data_tambahan ?? [];
         $this->tempat_lahir = $extra['tempat_lahir'] ?? null;
         
         if (!empty($extra['tanggal_lahir'])) {
@@ -78,27 +76,15 @@ class ProfilePage extends Component
         
         $alamat = $extra['alamat_detail'] ?? [];
         $this->jalan = $alamat['jalan'] ?? '';
-        $this->dusun = $alamat['dusun'] ?? '';
-        $this->rt = $alamat['rt'] ?? '';
-        $this->rw = $alamat['rw'] ?? '';
         $this->kelurahan = $alamat['kelurahan'] ?? '';
         $this->kode_pos = $alamat['kode_pos'] ?? '';
-
-        $ortu = $extra['orang_tua'] ?? [];
-        $this->nama_ayah = $ortu['nama_ayah'] ?? '';
-        $this->nik_ayah = $ortu['nik_ayah'] ?? '';
-        $this->nama_ibu = $ortu['nama_ibu'] ?? '';
-        $this->nik_ibu = $ortu['nik_ibu'] ?? '';
     }
 
-    // Hook untuk simpan foto otomatis saat di-upload
     public function updatedPhotoProfil()
     {
         $this->validate(['photo_profil' => 'image|max:1024']);
+        $path = $this->photo_profil->store('photos/dosen', 'public');
         
-        $path = $this->photo_profil->store('photos', 'public');
-        
-        // Hapus foto lama jika ada
         if ($this->person->photo_path) {
             Storage::disk('public')->delete($this->person->photo_path);
         }
@@ -111,26 +97,26 @@ class ProfilePage extends Component
     {
         $this->validate([
             'berkas_ktp' => 'nullable|mimes:pdf,jpg,jpeg,png|max:2048',
-            'berkas_ijazah' => 'nullable|mimes:pdf,jpg,jpeg,png|max:2048',
-            'berkas_kk' => 'nullable|mimes:pdf,jpg,jpeg,png|max:2048',
+            'berkas_ijazah_terakhir' => 'nullable|mimes:pdf,jpg,jpeg,png|max:2048',
+            'berkas_serdos' => 'nullable|mimes:pdf,jpg,jpeg,png|max:2048',
         ]);
 
-        $extra = $this->mahasiswa->data_tambahan ?? [];
+        $extra = $this->dosen->data_tambahan ?? [];
 
         if ($this->berkas_ktp) {
-            $extra['path_ktp'] = $this->berkas_ktp->store('documents/ktp', 'public');
+            $extra['path_ktp'] = $this->berkas_ktp->store('documents/dosen/ktp', 'public');
         }
-        if ($this->berkas_ijazah) {
-            $extra['path_ijazah'] = $this->berkas_ijazah->store('documents/ijazah', 'public');
+        if ($this->berkas_ijazah_terakhir) {
+            $extra['path_ijazah'] = $this->berkas_ijazah_terakhir->store('documents/dosen/ijazah', 'public');
         }
-        if ($this->berkas_kk) {
-            $extra['path_kk'] = $this->berkas_kk->store('documents/kk', 'public');
+        if ($this->berkas_serdos) {
+            $extra['path_serdos'] = $this->berkas_serdos->store('documents/dosen/serdos', 'public');
         }
 
-        $this->mahasiswa->update(['data_tambahan' => $extra]);
-        $this->reset(['berkas_ktp', 'berkas_ijazah', 'berkas_kk']);
+        $this->dosen->update(['data_tambahan' => $extra]);
+        $this->reset(['berkas_ktp', 'berkas_ijazah_terakhir', 'berkas_serdos']);
         
-        session()->flash('success', 'Dokumen pendukung berhasil diunggah.');
+        session()->flash('success', 'Dokumen pendukung dosen berhasil diunggah.');
     }
 
     public function updateProfil()
@@ -154,23 +140,19 @@ class ProfilePage extends Component
 
             $this->user->update(['name' => $this->nama_lengkap, 'email' => $this->email_pribadi]);
 
-            $extra = $this->mahasiswa->data_tambahan ?? [];
+            $extra = $this->dosen->data_tambahan ?? [];
             $extra['tempat_lahir'] = $this->tempat_lahir;
             $extra['tanggal_lahir'] = $this->tanggal_lahir;
             $extra['alamat_detail'] = [
-                'jalan' => $this->jalan, 'dusun' => $this->dusun,
-                'rt' => $this->rt, 'rw' => $this->rw,
-                'kelurahan' => $this->kelurahan, 'kode_pos' => $this->kode_pos
-            ];
-            $extra['orang_tua'] = [
-                'nama_ayah' => $this->nama_ayah, 'nik_ayah' => $this->nik_ayah,
-                'nama_ibu' => $this->nama_ibu, 'nik_ibu' => $this->nik_ibu
+                'jalan' => $this->jalan,
+                'kelurahan' => $this->kelurahan, 
+                'kode_pos' => $this->kode_pos
             ];
 
-            $this->mahasiswa->update(['data_tambahan' => $extra]);
+            $this->dosen->update(['data_tambahan' => $extra]);
 
             DB::commit();
-            session()->flash('success', 'Profil berhasil diperbarui.');
+            session()->flash('success', 'Profil Dosen berhasil diperbarui.');
         } catch (\Exception $e) {
             DB::rollBack();
             session()->flash('error', 'Gagal memperbarui profil.');
@@ -193,6 +175,6 @@ class ProfilePage extends Component
 
     public function render()
     {
-        return view('livewire.mahasiswa.profile-page');
+        return view('livewire.dosen.profile-page');
     }
 }

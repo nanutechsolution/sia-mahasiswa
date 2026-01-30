@@ -20,10 +20,6 @@
     </style>
 </head>
 <body>
-    <div class="gov-header">
-        PANGKALAN DATA PENDIDIKAN TINGGI,<br>
-        KEMENTERIAN PENDIDIKAN TINGGI, SAINS, DAN TEKNOLOGI
-    </div>
 
     <div class="header">
         <img src="{{ public_path('logo.png') }}" class="logo">
@@ -35,7 +31,7 @@
 
     <table class="info-table">
         <tr>
-            <td width="15%">Nama</td><td width="2%">:</td><td width="33%" style="font-weight:bold uppercase">{{ $mahasiswa->nama_lengkap }}</td>
+            <td width="15%">Nama</td><td width="2%">:</td><td width="33%" style="font-weight:bold uppercase">{{ $mahasiswa->person->nama_lengkap }}</td>
             <td width="15%">NIM</td><td width="2%">:</td><td>{{ $mahasiswa->nim }}</td>
         </tr>
         <tr>
