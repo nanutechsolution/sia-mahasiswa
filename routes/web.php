@@ -113,7 +113,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/akademik/ploting-pa', \App\Livewire\Admin\Akademik\PlotingPaManager::class)->name('admin.ploting-pa');
         Route::get('/akademik/cetak-absensi', \App\Livewire\Admin\Akademik\CetakAbsensiManager::class)->name('admin.cetak.absensi.manager');
         Route::get('/akademik/cetak-absensi/{jadwalId}', [\App\Http\Controllers\Admin\AdminCetakController::class, 'cetakAbsensi'])->name('admin.cetak.absensi');
-        Route::get('/akademik/skala-nilai', \App\Livewire\Admin\Akademik\SkalaNilaiManager::class)->name('admin.akademik.skala-nilai');
+        Route::get('/akademik/skala-nilai', \App\Livewire\Admin\Akademik\SkalaNilaiManager::class)->name('admin.skala-nilai');
         Route::get('/hr-manager', \App\Livewire\Admin\HR\HRModuleManager::class)->name('admin.hr.manager');
     });
 

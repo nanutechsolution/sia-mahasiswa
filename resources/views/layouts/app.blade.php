@@ -1,385 +1,297 @@
 <!DOCTYPE html>
 <html lang="id">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ $title ?? 'SIAKAD UNMARIS' }}</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
-
-    <style>
-        [x-cloak] {
-            display: none !important;
-        }
-
-        /* Custom Scrollbar for Sidebar */
-        .sidebar-scroll::-webkit-scrollbar {
-            width: 4px;
-        }
-
-        .sidebar-scroll::-webkit-scrollbar-track {
-            background: #001a38;
-        }
-
-        .sidebar-scroll::-webkit-scrollbar-thumb {
-            background: #1e40af;
-            border-radius: 4px;
-        }
-
-        .sidebar-scroll::-webkit-scrollbar-thumb:hover {
-            background: #fcc000;
-        }
-
-        .nav-active {
-            background-color: #fcc000;
-            color: #002855;
-            font-weight: 800;
-            box-shadow: 0 4px 6px -1px rgba(252, 192, 0, 0.3);
-        }
-
-        .nav-inactive {
-            color: #cbd5e1;
-        }
-
-        .nav-inactive:hover {
-            background-color: rgba(255, 255, 255, 0.1);
-            color: #ffffff;
-        }
-    </style>
-    @livewireStyles
 </head>
+<body class="bg-slate-100 font-sans antialiased text-slate-800" x-data="{ sidebarOpen: false }">
 
-<body class="bg-slate-100 font-sans antialiased">
+    <div class="flex h-screen overflow-hidden">
 
-    <div class="min-h-screen flex">
-        <!-- SIDEBAR -->
-        <aside class="w-72 bg-unmaris-blue text-white flex flex-col fixed h-full shadow-2xl z-50 transition-all duration-300">
-            <!-- Branding / Logo -->
-            <div class="h-24 flex items-center px-6 border-b border-white/10 bg-unmaris-dark shadow-md z-10">
-                <div class="flex items-center gap-4">
-                    {{-- Logo Image --}}
-                    <div class="bg-white p-1 rounded-full shadow-lg shadow-white/10">
-                        <!-- Pastikan file logo.png ada di folder public -->
-                        <img src="{{ asset('logo.png') }}" alt="Logo UNMARIS" class="w-10 h-10 object-contain">
+        {{-- ================= MOBILE SIDEBAR BACKDROP ================= --}}
+        <div x-show="sidebarOpen" x-transition:enter="transition-opacity ease-linear duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="transition-opacity ease-linear duration-300" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" class="fixed inset-0 z-40 bg-slate-900/80 backdrop-blur-sm md:hidden" @click="sidebarOpen = false" x-cloak></div>
+
+        {{-- ================= SIDEBAR (Desktop & Mobile) ================= --}}
+        <aside :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'" class="fixed inset-y-0 left-0 z-50 w-72 bg-unmaris-blue text-white shadow-2xl transition-transform duration-300 ease-in-out md:static md:translate-x-0 flex flex-col h-full border-r border-unmaris-dark">
+            
+            {{-- LOGO AREA --}}
+            <div class="h-20 flex items-center px-6 bg-unmaris-dark border-b border-white/5 relative z-10 shadow-md flex-shrink-0">
+                <div class="flex items-center gap-3">
+                    <div class="bg-white p-1.5 rounded-xl shadow-lg shadow-black/20">
+                        {{-- Logo Image --}}
+                        <img src="{{ asset('logo.png') }}" alt="UNMARIS" class="w-8 h-8 object-contain">
                     </div>
-                    <div>
-                        <h1 class="text-xl font-black tracking-wider text-white leading-none">UNMARIS</h1>
-                        <p class="text-[10px] text-unmaris-gold font-bold uppercase tracking-[0.2em] mt-1">SIAKAD v1.0</p>
+                    <div class="flex flex-col">
+                        <span class="text-lg font-black tracking-wide leading-none text-white">UNMARIS</span>
+                        <span class="text-[9px] font-bold text-unmaris-gold uppercase tracking-[0.2em] mt-0.5">Siakad v2.0</span>
                     </div>
                 </div>
+                {{-- Close Button (Mobile Only) --}}
+                <button @click="sidebarOpen = false" class="md:hidden absolute right-4 text-slate-400 hover:text-white">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
             </div>
 
-            <!-- User Info Mini -->
-            <!-- <div class="p-5 border-b border-white/10 bg-gradient-to-b from-unmaris-blue to-unmaris-dark">
-                <div class="flex items-center space-x-3 bg-white/5 p-3 rounded-xl border border-white/5">
-                    <div class="w-10 h-10 rounded-full bg-unmaris-gold text-unmaris-blue flex items-center justify-center text-lg font-black shadow-lg ring-2 ring-white/20">
-                        {{ substr(Auth::user()->name ?? 'G', 0, 1) }}
-                    </div>
-                    <div class="overflow-hidden">
-                        <div class="text-sm font-bold truncate w-40 text-white">{{ Auth::user()->name ?? 'Guest' }}</div>
-                        <div class="flex items-center mt-0.5">
-                            <div class="h-1.5 w-1.5 rounded-full bg-green-400 mr-1.5 animate-pulse"></div>
-                            <div class="text-[10px] text-slate-300 font-bold uppercase tracking-wider">
-                                {{ Auth::user()->role ?? 'Visitor' }}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div> -->
+            {{-- MENU NAVIGATION (Scrollable) --}}
+            <nav class="flex-1 overflow-y-auto px-4 py-4 space-y-1 sidebar-scroll">
 
-            <!-- Navigation -->
-            <nav class="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto sidebar-scroll">
-                <!-- dashboard   -->
-                <a href="{{ route('dashboard') }}" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all {{ request()->routeIs('dashboard') ? 'nav-active' : 'nav-inactive' }}">
-                    <svg class="w-5 h-5 mr-3 {{ request()->routeIs('dashboard') ? 'text-unmaris-blue' : 'text-slate-400 group-hover:text-white' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                    </svg>
+                <a href="{{ route('dashboard') }}" class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
                     Dashboard
                 </a>
-                {{-- ================= MENU ADMIN ================= --}}
-                @if(Auth::user()->role == 'admin' || Auth::user()->role == 'superadmin' || Auth::user()->role == 'baak' || Auth::user()->role == 'keuangan')
-                @if(Auth::user()->role == 'admin' || Auth::user()->role == 'superadmin' || Auth::user()->role == 'baak')
-                {{-- GROUP: KONFIGURASI --}}
-                <div class="pb-4">
-                    <p class="px-3 text-[10px] font-black text-unmaris-gold/70 uppercase tracking-widest mb-2 ml-1">Konfigurasi</p>
-                    <a href="{{ route('admin.semester') }}" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all {{ request()->routeIs('admin.semester') ? 'nav-active' : 'nav-inactive' }}">
-                        <svg class="w-5 h-5 mr-3 {{ request()->routeIs('admin.semester') ? 'text-unmaris-blue' : 'text-slate-400 group-hover:text-white' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
+
+                {{-- ADMIN AREA --}}
+                @if(in_array(Auth::user()->role, ['admin', 'superadmin', 'baak', 'keuangan']))
+                    
+                    @if(in_array(Auth::user()->role, ['admin', 'superadmin', 'baak']))
+                    <div class="nav-group-title">Konfigurasi</div>
+                    <a href="{{ route('admin.semester') }}" class="nav-link {{ request()->routeIs('admin.semester') ? 'active' : '' }}">
+                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                         Tahun Akademik
                     </a>
-                    <a href="{{ route('admin.akademik.skala-nilai') }}" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all {{ request()->routeIs('admin.akademik.skala-nilai') ? 'nav-active' : 'nav-inactive' }}">
-                        <svg class="w-5 h-5 mr-3 {{ request()->routeIs('admin.akademik.skala-nilai') ? 'text-unmaris-blue' : 'text-slate-400 group-hover:text-white' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                        </svg>
+                    <a href="{{ route('admin.skala-nilai') }}" class="nav-link {{ request()->routeIs('admin.skala-nilai') ? 'active' : '' }}">
+                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
                         Skala Nilai
                     </a>
-                </div>
-
-                {{-- GROUP: MASTER DATA --}}
-                <div class="pb-4">
-                    <p class="px-3 text-[10px] font-black text-unmaris-gold/70 uppercase tracking-widest mb-2 ml-1">Master Data</p>
-
-                    <a href="{{ route('admin.master.fakultas') }}" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all {{ request()->routeIs('admin.master.fakultas') ? 'nav-active' : 'nav-inactive' }}">
-                        <span class="w-5 h-5 mr-3 flex items-center justify-center text-[10px] font-black border-2 border-current rounded-md {{ request()->routeIs('admin.master.fakultas') ? 'border-unmaris-blue' : 'border-slate-500 group-hover:border-white' }}">F</span>
-                        Fakultas
-                    </a>
-                    <a href="{{ route('admin.master.prodi') }}" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all {{ request()->routeIs('admin.master.prodi') ? 'nav-active' : 'nav-inactive' }}">
-                        <span class="w-5 h-5 mr-3 flex items-center justify-center text-[10px] font-black border-2 border-current rounded-md {{ request()->routeIs('admin.master.prodi') ? 'border-unmaris-blue' : 'border-slate-500 group-hover:border-white' }}">P</span>
-                        Program Studi
-                    </a>
-                    <a href="{{ route('admin.matakuliah') }}" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all {{ request()->routeIs('admin.matakuliah') ? 'nav-active' : 'nav-inactive' }}">
-                        <svg class="w-5 h-5 mr-3 {{ request()->routeIs('admin.matakuliah') ? 'text-unmaris-blue' : 'text-slate-400 group-hover:text-white' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                        </svg>
-                        Mata Kuliah
-                    </a>
-                    <a href="{{ route('admin.kurikulum') }}" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all {{ request()->routeIs('admin.kurikulum') ? 'nav-active' : 'nav-inactive' }}">
-                        <svg class="w-5 h-5 mr-3 {{ request()->routeIs('admin.kurikulum') ? 'text-unmaris-blue' : 'text-slate-400 group-hover:text-white' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                        </svg>
-                        Kurikulum
-                    </a>
-                    <a href="{{ route('admin.jadwal') }}" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all {{ request()->routeIs('admin.jadwal') ? 'nav-active' : 'nav-inactive' }}">
-                        <svg class="w-5 h-5 mr-3 {{ request()->routeIs('admin.jadwal') ? 'text-unmaris-blue' : 'text-slate-400 group-hover:text-white' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        Jadwal Kuliah
-                    </a>
-                    <!-- master/program-kelas -->
-                    <a href="{{ route('admin.master.program-kelas') }}" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all {{ request()->routeIs('admin.master.program-kelas') ? 'nav-active' : 'nav-inactive' }}">
-                        <svg class="w-5 h-5 mr-3 {{ request()->routeIs('admin.master.program-kelas') ? 'text-unmaris-blue' : 'text-slate-400 group-hover:text-white' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-                        </svg>
+                    <a href="{{ route('admin.master.program-kelas') }}" class="nav-link {{ request()->routeIs('admin.master.program-kelas') ? 'active' : '' }}">
+                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
                         Program & Kelas
                     </a>
-                </div>
-                {{-- SDM --}}
-                <div class="mt-4 pt-4 border-t border-white/10">
-                    <p class="px-3 text-[10px] font-black text-unmaris-gold/70 uppercase tracking-widest mb-2 ml-1">
-                        SDM
-                    </p>
-                    <a href="{{ route('admin.hr.manager') }}"
-                        class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all {{ request()->routeIs('admin.hr.manager*') ? 'nav-active' : 'nav-inactive' }}">
-                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1z" />
-                        </svg>
-                        SDM & Pejabat Kampus
-                    </a>
 
-
-                </div>
-                {{-- GROUP: PENGGUNA --}}
-                <div class="pb-4">
-                    <p class="px-3 text-[10px] font-black text-unmaris-gold/70 uppercase tracking-widest mb-2 ml-1">Pengguna</p>
-
-                    <a href="{{ route('admin.mahasiswa') }}" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all {{ request()->routeIs('admin.mahasiswa') ? 'nav-active' : 'nav-inactive' }}">
-                        <svg class="w-5 h-5 mr-3 {{ request()->routeIs('admin.mahasiswa') ? 'text-unmaris-blue' : 'text-slate-400 group-hover:text-white' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                        </svg>
-                        Data Mahasiswa
+                    <div class="nav-group-title">Master Akademik</div>
+                    <a href="{{ route('admin.master.fakultas') }}" class="nav-link {{ request()->routeIs('admin.master.fakultas') ? 'active' : '' }}">
+                        <span class="w-5 h-5 mr-3 flex items-center justify-center font-black border border-current rounded text-[10px]">F</span>
+                        Fakultas
                     </a>
-                    <a href="{{ route('admin.ploting-pa') }}" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all {{ request()->routeIs('admin.ploting-pa') ? 'nav-active' : 'nav-inactive' }}">
-                        <svg class="w-5 h-5 mr-3 opacity-70 group-hover:opacity-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                        </svg>
-                        Plotting PA Massal
+                    <a href="{{ route('admin.master.prodi') }}" class="nav-link {{ request()->routeIs('admin.master.prodi') ? 'active' : '' }}">
+                        <span class="w-5 h-5 mr-3 flex items-center justify-center font-black border border-current rounded text-[10px]">P</span>
+                        Program Studi
                     </a>
-                    <a href="{{ route('admin.dosen') }}" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all {{ request()->routeIs('admin.dosen') ? 'nav-active' : 'nav-inactive' }}">
-                        <svg class="w-5 h-5 mr-3 {{ request()->routeIs('admin.dosen') ? 'text-unmaris-blue' : 'text-slate-400 group-hover:text-white' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                        </svg>
-                        Data Dosen
+                    <a href="{{ route('admin.matakuliah') }}" class="nav-link {{ request()->routeIs('admin.matakuliah') ? 'active' : '' }}">
+                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                        Mata Kuliah
                     </a>
-                    <a href="{{ route('admin.camaba') }}" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all {{ request()->routeIs('admin.camaba') ? 'nav-active' : 'nav-inactive' }}">
-                        <svg class="w-5 h-5 mr-3 {{ request()->routeIs('admin.camaba') ? 'text-unmaris-blue' : 'text-slate-400 group-hover:text-white' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                        </svg>
-                        PMB & Daftar Ulang
+                    <a href="{{ route('admin.kurikulum') }}" class="nav-link {{ request()->routeIs('admin.kurikulum*') ? 'active' : '' }}">
+                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+                        Kurikulum
                     </a>
-
-                    <a href="{{ route('admin.akademik.mutasi') }}" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all {{ request()->routeIs('admin.akademik.mutasi') ? 'nav-active' : 'nav-inactive' }}">
-                        <svg class="w-5 h-5 mr-3 opacity-70 group-hover:opacity-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                        </svg>
-                        Mutasi / Cuti
+                    <a href="{{ route('admin.jadwal') }}" class="nav-link {{ request()->routeIs('admin.jadwal') ? 'active' : '' }}">
+                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        Jadwal Kuliah
                     </a>
-                    <a href="{{ route('admin.cetak.absensi.manager') }}" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all {{ request()->routeIs('admin.cetak.absensi*') ? 'nav-active' : 'nav-inactive' }}">
-                        <svg class="w-5 h-5 mr-3 opacity-70 group-hover:opacity-100" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
+                    <a href="{{ route('admin.cetak.absensi.manager') }}" class="nav-link {{ request()->routeIs('admin.cetak.absensi*') ? 'active' : '' }}">
+                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
                         Cetak Absensi
                     </a>
-                </div>
-                @endif
 
-                @if(Auth::user()->role == 'admin' || Auth::user()->role == 'superadmin' || Auth::user()->role == 'keuangan')
-                {{-- GROUP: KEUANGAN --}}
-                <div class="pb-4">
-                    <p class="px-3 text-[10px] font-black text-unmaris-gold/70 uppercase tracking-widest mb-2 ml-1">Keuangan</p>
+                    <div class="nav-group-title">Operasional</div>
+                    <a href="{{ route('admin.ploting-pa') }}" class="nav-link {{ request()->routeIs('admin.ploting-pa') ? 'active' : '' }}">
+                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                        Plotting PA
+                    </a>
+                    <a href="{{ route('admin.akademik.mutasi') }}" class="nav-link {{ request()->routeIs('admin.akademik.mutasi') ? 'active' : '' }}">
+                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
+                        Mutasi Mahasiswa
+                    </a>
+                    <a href="{{ route('admin.hr.manager') }}" class="nav-link {{ request()->routeIs('admin.hr.manager') ? 'active' : '' }}">
+                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                        HR & Pejabat
+                    </a>
+                    @endif
 
-                    <a href="{{ route('admin.keuangan') }}" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all {{ request()->routeIs('admin.keuangan') ? 'nav-active' : 'nav-inactive' }}">
-                        <svg class="w-5 h-5 mr-3 {{ request()->routeIs('admin.keuangan') ? 'text-unmaris-blue' : 'text-slate-400 group-hover:text-white' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
+                    @if(in_array(Auth::user()->role, ['admin', 'superadmin', 'keuangan']))
+                    <div class="nav-group-title">Keuangan</div>
+                    <a href="{{ route('admin.keuangan') }}" class="nav-link {{ request()->routeIs('admin.keuangan') ? 'active' : '' }}">
+                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                         Verifikasi Bayar
                     </a>
-                    <a href="{{ route('admin.keuangan.komponen') }}" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all {{ request()->routeIs('admin.keuangan.komponen') ? 'nav-active' : 'nav-inactive' }}">
-                        <svg class="w-5 h-5 mr-3 {{ request()->routeIs('admin.keuangan.komponen') ? 'text-unmaris-blue' : 'text-slate-400 group-hover:text-white' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                        </svg>
+                    <a href="{{ route('admin.keuangan.komponen') }}" class="nav-link {{ request()->routeIs('admin.keuangan.komponen') ? 'active' : '' }}">
+                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg>
                         Komponen Biaya
                     </a>
-                    <a href="{{ route('admin.keuangan.skema') }}" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all {{ request()->routeIs('admin.keuangan.skema') ? 'nav-active' : 'nav-inactive' }}">
-                        <svg class="w-5 h-5 mr-3 {{ request()->routeIs('admin.keuangan.skema') ? 'text-unmaris-blue' : 'text-slate-400 group-hover:text-white' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                        </svg>
+                    <a href="{{ route('admin.keuangan.skema') }}" class="nav-link {{ request()->routeIs('admin.keuangan.skema') ? 'active' : '' }}">
+                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
                         Skema Tarif
                     </a>
-                    <a href="{{ route('admin.tagihan-generator') }}" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all {{ request()->routeIs('admin.tagihan-generator') ? 'nav-active' : 'nav-inactive' }}">
-                        <svg class="w-5 h-5 mr-3 {{ request()->routeIs('admin.tagihan-generator') ? 'text-unmaris-blue' : 'text-slate-400 group-hover:text-white' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                        </svg>
+                    <a href="{{ route('admin.tagihan-generator') }}" class="nav-link {{ request()->routeIs('admin.tagihan-generator') ? 'active' : '' }}">
+                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
                         Generator Tagihan
                     </a>
-                    <a href="{{ route('admin.keuangan.laporan') }}" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all {{ request()->routeIs('admin.keuangan.laporan') ? 'nav-active' : 'nav-inactive' }}">
-                        <svg class="w-5 h-5 mr-3 {{ request()->routeIs('admin.keuangan.laporan') ? 'text-unmaris-blue' : 'text-slate-400 group-hover:text-white' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                        </svg>
+                    <a href="{{ route('admin.keuangan.manual') }}" class="nav-link {{ request()->routeIs('admin.keuangan.manual') ? 'active' : '' }}">
+                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        Tagihan Manual
+                    </a>
+                    <a href="{{ route('admin.keuangan.laporan') }}" class="nav-link {{ request()->routeIs('admin.keuangan.laporan') ? 'active' : '' }}">
+                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
                         Laporan / Monitoring
                     </a>
+                    @endif
 
-                    <a href="{{ route('admin.keuangan.manual') }}" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all {{ request()->routeIs('admin.keuangan.manual') ? 'nav-active' : 'nav-inactive' }}">
-                        <svg class="w-5 h-5 mr-3 {{ request()->routeIs('admin.keuangan.manual') ? 'text-unmaris-blue' : 'text-slate-400 group-hover:text-white' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        Buat Tagihan Manual
+                    {{-- GROUP: PENGGUNA --}}
+                    @if(in_array(Auth::user()->role, ['admin', 'superadmin', 'baak']))
+                    <div class="nav-group-title">Pengguna</div>
+                    <a href="{{ route('admin.camaba') }}" class="nav-link {{ request()->routeIs('admin.camaba') ? 'active' : '' }}">
+                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path></svg>
+                        PMB & Daftar Ulang
                     </a>
-                </div>
-                @endif
+                    <a href="{{ route('admin.mahasiswa') }}" class="nav-link {{ request()->routeIs('admin.mahasiswa') ? 'active' : '' }}">
+                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                        Data Mahasiswa
+                    </a>
+                    <a href="{{ route('admin.dosen') }}" class="nav-link {{ request()->routeIs('admin.dosen') ? 'active' : '' }}">
+                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                        Data Dosen
+                    </a>
+                    @endif
 
-                @if(Auth::user()->role == 'superadmin')
-                {{-- GROUP: SYSTEM --}}
-                <div class="pb-4">
-                    <p class="px-3 text-[10px] font-black text-unmaris-gold/70 uppercase tracking-widest mb-2 ml-1">System & IT</p>
-
-                    <a href="{{ route('admin.users') }}" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all {{ request()->routeIs('admin.users') ? 'nav-active' : 'nav-inactive' }}">
-                        <svg class="w-5 h-5 mr-3 {{ request()->routeIs('admin.users') ? 'text-unmaris-blue' : 'text-slate-400 group-hover:text-white' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
+                    @if(Auth::user()->role == 'superadmin')
+                    <div class="nav-group-title">System & IT</div>
+                    <a href="{{ route('admin.users') }}" class="nav-link {{ request()->routeIs('admin.users') ? 'active' : '' }}">
+                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                         User Management
                     </a>
-                    <a href="{{ route('admin.audit') }}" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all {{ request()->routeIs('admin.audit') ? 'nav-active' : 'nav-inactive' }}">
-                        <svg class="w-5 h-5 mr-3 {{ request()->routeIs('admin.audit') ? 'text-unmaris-blue' : 'text-slate-400 group-hover:text-white' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                        </svg>
+                    <a href="{{ route('admin.audit') }}" class="nav-link {{ request()->routeIs('admin.audit') ? 'active' : '' }}">
+                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
                         Audit Logs
                     </a>
-                    <a href="{{ route('admin.roles') }}" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all {{ request()->routeIs('admin.roles') ? 'nav-active' : 'nav-inactive' }}">
-                        <svg class="w-5 h-5 mr-3 {{ request()->routeIs('admin.roles') ? 'text-unmaris-blue' : 'text-slate-400 group-hover:text-white' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                        </svg>
+                    <a href="{{ route('admin.roles') }}" class="nav-link {{ request()->routeIs('admin.roles') ? 'active' : '' }}">
+                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
                         Roles & Akses
                     </a>
-                </div>
-                @endif
+                    @endif
                 @endif
 
                 {{-- ================= MENU MAHASISWA ================= --}}
                 @if(Auth::user()->role == 'mahasiswa')
-                <div class="pb-4">
-                    <p class="px-3 text-[10px] font-black text-unmaris-gold/70 uppercase tracking-widest mb-2 ml-1">Akademik</p>
-
-                    <a href="{{ route('mhs.krs') }}" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all {{ request()->routeIs('mhs.krs') ? 'nav-active' : 'nav-inactive' }}">
-                        <svg class="w-5 h-5 mr-3 {{ request()->routeIs('mhs.krs') ? 'text-unmaris-blue' : 'text-slate-400 group-hover:text-white' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                        </svg>
+                    <div class="nav-group-title">Akademik</div>
+                    <a href="{{ route('mhs.krs') }}" class="nav-link {{ request()->routeIs('mhs.krs') ? 'active' : '' }}">
+                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
                         KRS Online
                     </a>
-                    <a href="{{ route('mhs.khs') }}" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all {{ request()->routeIs('mhs.khs') ? 'nav-active' : 'nav-inactive' }}">
-                        <svg class="w-5 h-5 mr-3 {{ request()->routeIs('mhs.khs') ? 'text-unmaris-blue' : 'text-slate-400 group-hover:text-white' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
+                    <a href="{{ route('mhs.khs') }}" class="nav-link {{ request()->routeIs('mhs.khs') ? 'active' : '' }}">
+                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                         Kartu Hasil Studi
                     </a>
-                    <a href="{{ route('mhs.transkrip') }}" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all {{ request()->routeIs('mhs.transkrip') ? 'nav-active' : 'nav-inactive' }}">
-                        <svg class="w-5 h-5 mr-3 {{ request()->routeIs('mhs.transkrip') ? 'text-unmaris-blue' : 'text-slate-400 group-hover:text-white' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                        </svg>
+                    <a href="{{ route('mhs.transkrip') }}" class="nav-link {{ request()->routeIs('mhs.transkrip') ? 'active' : '' }}">
+                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
                         Transkrip Nilai
                     </a>
-                </div>
 
-                <div class="pb-4 border-t border-white/10 pt-4">
-                    <p class="px-3 text-[10px] font-black text-unmaris-gold/70 uppercase tracking-widest mb-2 ml-1">Tagihan</p>
-                    <a href="{{ route('mhs.keuangan') }}" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all {{ request()->routeIs('mhs.keuangan') ? 'nav-active' : 'nav-inactive' }}">
-                        <svg class="w-5 h-5 mr-3 {{ request()->routeIs('mhs.keuangan') ? 'text-unmaris-blue' : 'text-slate-400 group-hover:text-white' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                        </svg>
+                    <div class="nav-group-title">Keuangan</div>
+                    <a href="{{ route('mhs.keuangan') }}" class="nav-link {{ request()->routeIs('mhs.keuangan') ? 'active' : '' }}">
+                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
                         Riwayat Keuangan
                     </a>
 
-
-                </div>
-
-                <div class="pb-4 border-t border-white/10 pt-4">
-                    <p class="px-3 text-[10px] font-black text-unmaris-gold/70 uppercase tracking-widest mb-2 ml-1">Akun</p>
-                    <a href="{{ route('mhs.profile') }}" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all {{ request()->routeIs('mhs.profile') ? 'nav-active' : 'nav-inactive' }}">
-                        <svg class="w-5 h-5 mr-3 {{ request()->routeIs('mhs.profile') ? 'text-unmaris-blue' : 'text-slate-400 group-hover:text-white' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
+                    <div class="nav-group-title">Akun</div>
+                    <a href="{{ route('mhs.profile') }}" class="nav-link {{ request()->routeIs('mhs.profile') ? 'active' : '' }}">
+                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                         Profil & Password
                     </a>
-                </div>
                 @endif
 
                 {{-- ================= MENU DOSEN ================= --}}
                 @if(Auth::user()->role == 'dosen')
-                <div class="pb-4">
-                    <p class="px-3 text-[10px] font-black text-unmaris-gold/70 uppercase tracking-widest mb-2 ml-1">Perkuliahan</p>
-
-                    <a href="{{ route('dosen.jadwal') }}" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all {{ request()->routeIs('dosen.jadwal') ? 'nav-active' : 'nav-inactive' }}">
-                        <svg class="w-5 h-5 mr-3 {{ request()->routeIs('dosen.jadwal') ? 'text-unmaris-blue' : 'text-slate-400 group-hover:text-white' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2-2v12a2 2 0 002 2z" />
-                        </svg>
+                    <div class="nav-group-title">Perkuliahan</div>
+                    <a href="{{ route('dosen.jadwal') }}" class="nav-link {{ request()->routeIs('dosen.jadwal') ? 'active' : '' }}">
+                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                         Jadwal Mengajar
                     </a>
-                    <a href="{{ route('dosen.perwalian') }}" class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all {{ request()->routeIs('dosen.perwalian*') ? 'nav-active' : 'nav-inactive' }}">
-                        <svg class="w-5 h-5 mr-3 {{ request()->routeIs('dosen.perwalian*') ? 'text-unmaris-blue' : 'text-slate-400 group-hover:text-white' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                        </svg>
+                    <a href="{{ route('dosen.perwalian') }}" class="nav-link {{ request()->routeIs('dosen.perwalian*') ? 'active' : '' }}">
+                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
                         Perwalian (PA)
                     </a>
-                </div>
                 @endif
 
             </nav>
 
             <!-- Logout -->
-            <div class="p-4 border-t border-white/10 bg-unmaris-dark">
+            <div class="p-4 border-t border-white/5 bg-unmaris-dark">
                 <form action="{{ route('logout') }}" method="POST">
                     @csrf
-                    <button type="submit" class="w-full flex items-center justify-center px-4 py-3 border border-slate-700 rounded-xl shadow-lg bg-white/5 hover:bg-red-600 hover:border-red-600 hover:text-white text-sm font-bold text-slate-300 transition-all focus:outline-none">
-                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                        </svg>
-                        Keluar Aplikasi
+                    <button type="submit" class="w-full flex items-center justify-center px-4 py-3 bg-white/5 hover:bg-rose-600 text-slate-300 hover:text-white border border-slate-700 hover:border-rose-500 rounded-xl transition-all shadow-md group">
+                        <svg class="w-5 h-5 mr-2 group-hover:rotate-180 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                        <span class="font-bold text-xs uppercase tracking-wider">Keluar Aplikasi</span>
                     </button>
                 </form>
             </div>
+
         </aside>
 
         <!-- MAIN CONTENT -->
-        <main class="flex-1 ml-72 p-8 bg-slate-100 min-h-screen">
-            <div class="max-w-7xl mx-auto animate-in fade-in slide-in-from-bottom-2 duration-500">
-                {{ $slot }}
-            </div>
-        </main>
+        <main class="flex-1 flex flex-col h-screen overflow-hidden relative">
+            
+            {{-- Top Header (Replaces User Info in Sidebar) --}}
+            <header class="flex items-center justify-between px-6 py-4 bg-white border-b border-slate-200 z-30 shadow-sm relative">
+                
+                {{-- Left Side: Mobile Toggle & Mobile Logo / Desktop Title --}}
+                <div class="flex items-center gap-4">
+                    <button @click="sidebarOpen = true" class="text-slate-500 hover:text-unmaris-blue focus:outline-none md:hidden">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                    </button>
+                    
+                    <div class="flex items-center gap-3 md:hidden">
+                        <img src="{{ asset('logo.png') }}" alt="Logo" class="w-8 h-8 object-contain">
+                        <span class="font-black text-unmaris-blue tracking-wider">UNMARIS</span>
+                    </div>
+
+                    {{-- Desktop Title (Optional) --}}
+                    <div class="hidden md:block">
+                        {{-- <h2 class="text-lg font-bold text-slate-700">{{ $title ?? 'Dashboard' }}</h2> --}}
+                    </div>
+                </div>
+
+                {{-- Right Side: Notifications & Profile --}}
+                <div class="flex items-center gap-4">
+                    
+                    {{-- Notification Icon --}}
+                    <button class="relative p-2 text-slate-400 hover:text-unmaris-blue transition-colors rounded-full hover:bg-slate-50">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                        </svg>
+                        {{-- Badge (Logic notifikasi bisa ditambahkan nanti) --}}
+                        <span class="absolute top-1.5 right-1.5 h-2.5 w-2.5 rounded-full bg-red-500 border-2 border-white"></span>
+                    </button>
+
+                    {{-- User Profile Dropdown/Area --}}
+                    <div class="flex items-center gap-3 pl-4 border-l border-slate-200">
+                        <div class="text-right hidden sm:block">
+                            <div class="text-sm font-bold text-slate-700 leading-tight">{{ Auth::user()->name }}</div>
+                            <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{{ Auth::user()->role }}</div>
+                        </div>
+                        <div class="relative group">
+                            <div class="h-10 w-10 rounded-full bg-unmaris-gold text-unmaris-blue flex items-center justify-center text-sm font-black shadow-md ring-2 ring-white cursor-pointer hover:ring-unmaris-blue transition-all">
+                                {{ substr(Auth::user()->name ?? 'G', 0, 1) }}
+                                {{-- Placeholder for future image: <img src="..." class="h-full w-full rounded-full object-cover"> --}}
+                            </div>
+                            <span class="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-emerald-500 border-2 border-white"></span>
+                            
+                            {{-- Dropdown Menu (Simple Hover) --}}
+                            <div class="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl py-2 invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-all z-50 border border-slate-100">
+                                <a href="#" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-unmaris-blue">Profil Saya</a>
+                                <form action="{{ route('logout') }}" method="POST">
+                                    @csrf
+                                    <button type="submit" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50">Keluar</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </header>
+
+            {{-- Scrollable Content Area --}}
+            <main class="flex-1 overflow-x-hidden overflow-y-auto bg-slate-100 p-4 md:p-8 scroll-smooth">
+                <div class="max-w-7xl mx-auto pb-10">
+                    {{ $slot }}
+                </div>
+            </main>
+        </div>
+
     </div>
 
+    @livewireScripts
 </body>
-
 </html>
