@@ -5,7 +5,9 @@ namespace App\Livewire\Admin\Keuangan;
 use Livewire\Component;
 use Livewire\WithPagination;
 use App\Domains\Keuangan\Models\TagihanMahasiswa;
+use App\Domains\Keuangan\Models\PembayaranMahasiswa;
 use App\Domains\Core\Models\Prodi;
+use App\Domains\Core\Models\TahunAkademik;
 use App\Helpers\SistemHelper;
 use Illuminate\Support\Facades\DB;
 
@@ -38,8 +40,8 @@ class LaporanKeuangan extends Component
 
     public function render()
     {
-        // 1. Base Query
-        $query = TagihanMahasiswa::with(['mahasiswa.prodi', 'mahasiswa.programKelas'])
+        // 1. Base Query dengan Eager Loading Person (SSOT)
+        $query = TagihanMahasiswa::with(['mahasiswa.prodi', 'mahasiswa.programKelas', 'mahasiswa.person'])
             ->where('tahun_akademik_id', $this->semesterId);
 
         // 2. Apply Filters
@@ -59,16 +61,17 @@ class LaporanKeuangan extends Component
 
         if ($this->search) {
             $query->whereHas('mahasiswa', function ($q) {
-                $q->where('nama_lengkap', 'like', '%' . $this->search . '%')
-                  ->orWhere('nim', 'like', '%' . $this->search . '%');
+                // Fix Search SSOT: Cari Nama di tabel Person atau NIM di tabel Mahasiswa
+                $q->whereHas('person', function($qp) {
+                    $qp->where('nama_lengkap', 'like', '%' . $this->search . '%');
+                })
+                ->orWhere('nim', 'like', '%' . $this->search . '%');
             });
         }
 
-        // 3. Hitung Statistik (Tanpa Pagination untuk Summary Card)
-        // Clone query agar tidak merusak query utama pagination
+        // 3. Hitung Statistik (Tanpa Pagination)
         $statsQuery = clone $query;
         
-        // Gunakan aggregate DB raw untuk performa
         $stats = $statsQuery->selectRaw('
             SUM(total_tagihan) as total_bill, 
             SUM(total_bayar) as total_paid,
@@ -83,8 +86,11 @@ class LaporanKeuangan extends Component
         $this->countBelum = ($stats->count_total ?? 0) - $this->countLunas;
 
         // 4. Get Data Table
-        $tagihans = $query->orderBy('created_at', 'desc')->paginate(20);
-        $semesters = \App\Domains\Core\Models\TahunAkademik::orderBy('kode_tahun', 'desc')->get();
+        $tagihans = $query->select('tagihan_mahasiswas.*') // Reset select agar tidak clash dengan selectRaw stats
+            ->orderBy('created_at', 'desc')
+            ->paginate(20);
+            
+        $semesters = TahunAkademik::orderBy('kode_tahun', 'desc')->get();
         $prodis = Prodi::all();
 
         return view('livewire.admin.keuangan.laporan-keuangan', [

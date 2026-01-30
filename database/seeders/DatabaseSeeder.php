@@ -37,6 +37,9 @@ class DatabaseSeeder extends Seeder
             SkalaNilaiSeeder::class,
             // 5. Simulasi Keuangan (Tagihan & Bayar)
             // FinanceTransactionSeeder::class,
+            MasterReferenceSeeder::class,
+            PersonSeeder::class,
+            TrxPersonJabatanSeeder::class,
         ]);
 
         // User::factory()->create([

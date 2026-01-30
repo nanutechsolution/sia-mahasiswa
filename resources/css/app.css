@@ -15,3 +15,13 @@
     --color-unmaris-yellow: #fbbf24;
 
 }
+
+select {
+    background-color: #ffffff !important;
+    color: #0f172a !important; /* slate-900 */
+}
+
+select option {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+}

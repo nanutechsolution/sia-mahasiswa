@@ -20,6 +20,7 @@ use App\Livewire\Admin\Akademik\JadwalKuliahManager;
 use App\Livewire\Admin\Akademik\MataKuliahManager;
 use App\Livewire\Admin\Akademik\KurikulumManager;
 use App\Livewire\Admin\Akademik\MutasiMhsManager;
+use App\Livewire\Admin\HR\PersonManager;
 use App\Livewire\Admin\Keuangan\ManualTagihanManager;
 use App\Livewire\Admin\Konfigurasi\TahunAkademikManager;
 use App\Livewire\Admin\Master\FakultasManager;
@@ -27,7 +28,7 @@ use App\Livewire\Admin\Master\ProdiManager;
 use App\Livewire\Admin\Pengguna\CamabaManager;
 use App\Livewire\Admin\Pengguna\MahasiswaManager;
 use App\Livewire\Admin\Pengguna\DosenManager;
-
+use App\Livewire\Admin\PersonJabatanManager;
 use App\Livewire\Admin\System\AuditLogViewer;
 use App\Livewire\Admin\System\UserManager;
 use App\Livewire\Admin\System\RoleManager;
@@ -113,6 +114,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/akademik/cetak-absensi', \App\Livewire\Admin\Akademik\CetakAbsensiManager::class)->name('admin.cetak.absensi.manager');
         Route::get('/akademik/cetak-absensi/{jadwalId}', [\App\Http\Controllers\Admin\AdminCetakController::class, 'cetakAbsensi'])->name('admin.cetak.absensi');
         Route::get('/akademik/skala-nilai', \App\Livewire\Admin\Akademik\SkalaNilaiManager::class)->name('admin.akademik.skala-nilai');
+        Route::get('/hr-manager', \App\Livewire\Admin\HR\HRModuleManager::class)->name('admin.hr.manager');
     });
 
     // 3. GROUP SYSTEM & IT (Akses: Superadmin ONLY)

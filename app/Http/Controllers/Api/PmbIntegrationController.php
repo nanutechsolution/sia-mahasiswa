@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Domains\Core\Models\Person as ModelsPerson;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\User;
+use App\Models\Person; // Pastikan Model Person diimport
 use App\Domains\Mahasiswa\Models\Mahasiswa;
 use App\Domains\Core\Models\Prodi;
 use App\Domains\Core\Models\ProgramKelas;
@@ -23,18 +25,30 @@ class PmbIntegrationController extends Controller
      */
     public function receiveCamaba(Request $request)
     {
+        // [BARU] Custom Messages Bahasa Indonesia
+        $messages = [
+            'required' => ':attribute wajib diisi.',
+            'unique'   => ':attribute sudah terdaftar di dalam sistem SIAKAD.',
+            'email'    => 'Format email tidak valid.',
+            'digits'   => ':attribute harus terdiri dari :digits digit angka.',
+            'string'   => ':attribute harus berupa teks.',
+            'integer'  => ':attribute harus berupa angka.',
+            'exists'   => 'Data :attribute tidak ditemukan di database SIAKAD.',
+            'in'       => 'Pilihan :attribute tidak valid.',
+        ];
+
         // 1. Validasi Input Eksternal
         $validator = Validator::make($request->all(), [
-            'nomor_pendaftaran' => 'required|unique:mahasiswas,data_tambahan->pmb_no_daftar',
+            'nomor_pendaftaran' => 'required',
             'nama_lengkap'      => 'required|string|max:150',
-            'nik'               => 'required|digits:16|unique:mahasiswas,nik',
-            'email'             => 'required|email|unique:users,email',
+            'nik'               => 'required|digits:16|unique:ref_person,nik',
+            'email'             => 'required|email|unique:ref_person,email',
             'nomor_hp'          => 'required|string',
-            'kode_prodi'        => 'required|exists:ref_prodi,kode_prodi_internal', // Ex: TI, SI
-            'kode_program'      => 'required|exists:ref_program_kelas,kode_internal', // Ex: REG, EKS
+            'kode_prodi'        => 'required|exists:ref_prodi,kode_prodi_internal',
+            'kode_program'      => 'required|exists:ref_program_kelas,kode_internal',
             'tahun_masuk'       => 'required|integer|digits:4',
             'jenis_kelamin'     => 'required|in:L,P',
-        ]);
+        ], $messages); // <--- Masukkan pesan custom di sini
 
         if ($validator->fails()) {
             return response()->json([
@@ -42,6 +56,15 @@ class PmbIntegrationController extends Controller
                 'message' => 'Validasi Gagal',
                 'errors' => $validator->errors()
             ], 422);
+        }
+
+        // Cek duplikasi nomor pendaftaran di JSON data_tambahan
+        $exists = Mahasiswa::where('data_tambahan->pmb_no_daftar', $request->nomor_pendaftaran)->exists();
+        if ($exists) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Nomor Pendaftaran ini sudah terdaftar di SIAKAD.'
+            ], 409);
         }
 
         DB::beginTransaction();
@@ -53,44 +76,47 @@ class PmbIntegrationController extends Controller
             $programKelas = ProgramKelas::where('kode_internal', $data['kode_program'])->firstOrFail();
 
             // 3. SETUP IDENTITAS SEMENTARA (CAMABA)
-            // Jangan generate NIM dulu. Gunakan No Pendaftaran sebagai identitas & login.
-            // NIM resmi akan dibuatkan Admin/Sistem setelah pembayaran Daftar Ulang lunas.
             $identityTemp = $data['nomor_pendaftaran'];
 
-            // 4. Buat User Login (Username = No Pendaftaran)
+            // 4. Buat Data Person (SSOT Biodata)
+            $person = ModelsPerson::create([
+                'nama_lengkap' => $data['nama_lengkap'],
+                'nik' => $data['nik'],
+                'email' => $data['email'],
+                'no_hp' => $data['nomor_hp'],
+                'jenis_kelamin' => $data['jenis_kelamin'],
+                'created_at' => now()
+            ]);
+
+            // 5. Buat User Login (Linked to Person)
             $user = User::create([
                 'name' => $data['nama_lengkap'],
                 'username' => $identityTemp,
                 'email' => $data['email'],
                 'password' => Hash::make($identityTemp), // Password default = No Pendaftaran
-                'role' => 'mahasiswa', // Role tetap mahasiswa agar bisa login, tapi akses KRS dibatasi via logic keuangan
+                'role' => 'mahasiswa',
                 'is_active' => true,
+                'person_id' => $person->id // Link ke Person
             ]);
-
-            // Assign Role Spatie
+            
             $user->assignRole('mahasiswa');
 
-            // 5. Buat Data Mahasiswa (NIM diisi No Pendaftaran dulu)
+            // 6. Buat Data Akademik Mahasiswa (Linked to Person)
             $mhs = Mahasiswa::create([
-                'user_id' => $user->id,
-                'nim' => $identityTemp,
-                'nama_lengkap' => $data['nama_lengkap'],
+                'person_id' => $person->id, // KUNCI SSOT
+                'nim' => $identityTemp, // Masih pakai No Pendaftaran
                 'angkatan_id' => $data['tahun_masuk'],
                 'prodi_id' => $prodi->id,
                 'program_kelas_id' => $programKelas->id,
-                'nik' => $data['nik'],
-                'nomor_hp' => $data['nomor_hp'],
-                'email_pribadi' => $data['email'],
-                'jenis_kelamin' => $data['jenis_kelamin'],
                 'data_tambahan' => [
                     'pmb_no_daftar' => $data['nomor_pendaftaran'],
-                    'status_awal' => 'CAMABA', // Flag untuk membedakan
+                    'status_awal' => 'CAMABA',
                     'jalur_masuk' => $data['jalur_masuk'] ?? 'UMUM',
                     'asal_sekolah' => $data['asal_sekolah'] ?? null,
                 ]
             ]);
 
-            // 6. Generate Tagihan Awal (Uang Pangkal/Daftar Ulang)
+            // 7. Generate Tagihan Awal
             $this->generateTagihanAwal($mhs);
 
             DB::commit();
@@ -104,6 +130,7 @@ class PmbIntegrationController extends Controller
                     'tagihan_info' => 'Tagihan awal telah diterbitkan'
                 ]
             ], 201);
+
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
@@ -111,42 +138,6 @@ class PmbIntegrationController extends Controller
                 'message' => 'Terjadi kesalahan sistem: ' . $e->getMessage()
             ], 500);
         }
-    }
-
-    /**
-     * Logic Generate NIM Custom
-     * Format: {THN}{KODE}{NO:4} -> 24552010001
-     * NOTE: Method ini akan dipanggil nanti di fitur "Validasi Daftar Ulang"
-     */
-    public function generateNim(Prodi $prodi, $tahunMasuk)
-    {
-        // Kunci database agar tidak race condition (Berebut nomor urut)
-        // Kita lock row prodi sebentar
-        $prodi = Prodi::where('id', $prodi->id)->lockForUpdate()->first();
-
-        $format = $prodi->format_nim ?? '{TAHUN}{KODE}{NO:4}'; // Default pattern
-        $nextSeq = $prodi->last_nim_seq + 1;
-
-        // Parse Variabel
-        $nim = str_replace('{TAHUN}', $tahunMasuk, $format);
-        $nim = str_replace('{THN}', substr($tahunMasuk, 2, 2), $nim);
-        $nim = str_replace('{KODE}', $prodi->kode_prodi_dikti ?? '00000', $nim);
-        $nim = str_replace('{INTERNAL}', $prodi->kode_prodi_internal, $nim);
-
-        // Parse Nomor Urut (Regex untuk mencari {NO:x})
-        if (preg_match('/\{NO:(\d+)\}/', $nim, $matches)) {
-            $length = $matches[1];
-            $number = str_pad($nextSeq, $length, '0', STR_PAD_LEFT);
-            $nim = str_replace($matches[0], $number, $nim);
-        } else {
-            // Fallback jika tidak ada pattern NO
-            $nim .= str_pad($nextSeq, 4, '0', STR_PAD_LEFT);
-        }
-
-        // Update Counter di Prodi
-        $prodi->update(['last_nim_seq' => $nextSeq]);
-
-        return $nim;
     }
 
     /**
@@ -165,7 +156,7 @@ class PmbIntegrationController extends Controller
             ->where('program_kelas_id', $mhs->program_kelas_id)
             ->first();
 
-        if (!$skema) return; // Jika belum ada tarif, skip saja (nanti admin generate manual)
+        if (!$skema) return; 
 
         $total = 0;
         $rincian = [];
@@ -185,7 +176,7 @@ class PmbIntegrationController extends Controller
             TagihanMahasiswa::create([
                 'mahasiswa_id' => $mhs->id,
                 'tahun_akademik_id' => $taId,
-                'kode_transaksi' => 'INV-PMB-' . $mhs->nim,
+                'kode_transaksi' => 'INV-PMB-' . $mhs->nim . '-' . rand(100, 999),
                 'deskripsi' => "Tagihan Daftar Ulang (Awal Masuk)",
                 'total_tagihan' => $total,
                 'total_bayar' => 0,

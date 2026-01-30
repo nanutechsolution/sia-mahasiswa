@@ -1,125 +1,180 @@
 <?php
 
-namespace App\Domains\Keuangan\Actions;
+namespace App\Http\Controllers\Api;
 
-use App\Domains\Keuangan\Models\TagihanMahasiswa;
-use App\Domains\Keuangan\Models\SkemaTarif;
+use App\Domains\Core\Models\Person as ModelsPerson;
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use App\Models\User;
+use App\Models\Person; // Pastikan Model Person diimport
 use App\Domains\Mahasiswa\Models\Mahasiswa;
+use App\Domains\Core\Models\Prodi;
+use App\Domains\Core\Models\ProgramKelas;
+use App\Domains\Keuangan\Models\SkemaTarif;
+use App\Domains\Keuangan\Models\TagihanMahasiswa;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Validator;
+use App\Helpers\SistemHelper;
 
-class GenerateTagihanMassalAction
+class PmbIntegrationController extends Controller
 {
-    public function execute($tahunAkademikId, $angkatanId, $prodiId = null)
+    /**
+     * Endpoint: POST /api/v1/pmb/receive-camaba
+     * Menerima data kelulusan dari PMB
+     */
+    public function receiveCamaba(Request $request)
     {
-        // 1. Cari Mahasiswa Target
-        $query = Mahasiswa::query()
-            ->where('angkatan_id', $angkatanId);
-            
-        if ($prodiId) {
-            $query->where('prodi_id', $prodiId);
+        // 1. Validasi Input Eksternal
+        // Note: Validasi unik diarahkan ke tabel yang benar (ref_person untuk NIK/Email)
+        $validator = Validator::make($request->all(), [
+            'nomor_pendaftaran' => 'required', // Cek unik manual di data_tambahan nanti
+            'nama_lengkap'      => 'required|string|max:150',
+            'nik'               => 'required|digits:16|unique:ref_person,nik',
+            'email'             => 'required|email|unique:ref_person,email',
+            'nomor_hp'          => 'required|string',
+            'kode_prodi'        => 'required|exists:ref_prodi,kode_prodi_internal',
+            'kode_program'      => 'required|exists:ref_program_kelas,kode_internal',
+            'tahun_masuk'       => 'required|integer|digits:4',
+            'jenis_kelamin'     => 'required|in:L,P',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Validasi Gagal',
+                'errors' => $validator->errors()
+            ], 422);
         }
-        
-        $mahasiswas = $query->get();
-        $stats = ['sukses' => 0, 'skip' => 0, 'errors' => []];
+
+        // Cek duplikasi nomor pendaftaran di JSON data_tambahan
+        // Karena JSON tidak bisa di-unique via validator laravel standar dengan mudah
+        $exists = Mahasiswa::where('data_tambahan->pmb_no_daftar', $request->nomor_pendaftaran)->exists();
+        if ($exists) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Nomor Pendaftaran ini sudah terdaftar di SIAKAD.'
+            ], 409);
+        }
 
         DB::beginTransaction();
         try {
-            foreach ($mahasiswas as $mhs) {
-                // 2. Ambil Skema Tarif Terbaru
-                $skema = SkemaTarif::with('details.komponenBiaya')
-                    ->where('angkatan_id', $mhs->angkatan_id)
-                    ->where('prodi_id', $mhs->prodi_id)
-                    ->where('program_kelas_id', $mhs->program_kelas_id)
-                    ->first();
+            $data = $request->all();
 
-                if (!$skema) {
-                    $stats['errors'][] = "Skema tarif tidak ditemukan untuk NIM {$mhs->nim}";
-                    continue;
-                }
+            // 2. Ambil Data Referensi
+            $prodi = Prodi::where('kode_prodi_internal', $data['kode_prodi'])->firstOrFail();
+            $programKelas = ProgramKelas::where('kode_internal', $data['kode_program'])->firstOrFail();
 
-                // 3. LOGIKA DIFFERENTIAL BILLING (Tagihan Selisih)
-                
-                // A. Hitung apa saja yang SUDAH ditagihkan sebelumnya di semester ini
-                $existingTagihans = TagihanMahasiswa::where('mahasiswa_id', $mhs->id)
-                    ->where('tahun_akademik_id', $tahunAkademikId)
-                    ->get();
+            // 3. SETUP IDENTITAS SEMENTARA (CAMABA)
+            $identityTemp = $data['nomor_pendaftaran'];
 
-                $sudahDitagih = []; // Map: Nama Komponen => Total Nominal Terbit
-                
-                foreach ($existingTagihans as $inv) {
-                    if (is_array($inv->rincian_item)) {
-                        foreach ($inv->rincian_item as $item) {
-                            $nama = $item['nama'];
-                            $nominal = $item['nominal'];
-                            if (!isset($sudahDitagih[$nama])) $sudahDitagih[$nama] = 0;
-                            $sudahDitagih[$nama] += $nominal;
-                        }
-                    }
-                }
+            // 4. Buat Data Person (SSOT Biodata)
+            $person = ModelsPerson::create([
+                'nama_lengkap' => $data['nama_lengkap'],
+                'nik' => $data['nik'],
+                'email' => $data['email'],
+                'no_hp' => $data['nomor_hp'],
+                'jenis_kelamin' => $data['jenis_kelamin'],
+                'created_at' => now()
+            ]);
 
-                // B. Bandingkan dengan Skema saat ini
-                $invoiceBaruItems = [];
-                $totalInvoiceBaru = 0;
+            // 5. Buat User Login (Linked to Person)
+            $user = User::create([
+                'name' => $data['nama_lengkap'],
+                'username' => $identityTemp,
+                'email' => $data['email'],
+                'password' => Hash::make($identityTemp), // Password default = No Pendaftaran
+                'role' => 'mahasiswa',
+                'is_active' => true,
+                'person_id' => $person->id // Link ke Person
+            ]);
+            
+            $user->assignRole('mahasiswa');
 
-                foreach ($skema->details as $detail) {
-                    $namaKomponen = $detail->komponenBiaya->nama_komponen;
-                    $targetNominal = $detail->nominal;
-                    
-                    // Berapa yang sudah ditagih untuk komponen ini?
-                    $billedNominal = $sudahDitagih[$namaKomponen] ?? 0;
+            // 6. Buat Data Akademik Mahasiswa (Linked to Person)
+            // Hapus field biodata yang sudah ada di Person (nama, nik, hp, email)
+            $mhs = Mahasiswa::create([
+                'person_id' => $person->id, // KUNCI SSOT
+                'nim' => $identityTemp, // Masih pakai No Pendaftaran
+                // 'nama_lengkap' tidak perlu disimpan lagi di sini jika kolom sudah dihapus
+                'angkatan_id' => $data['tahun_masuk'],
+                'prodi_id' => $prodi->id,
+                'program_kelas_id' => $programKelas->id,
+                'data_tambahan' => [
+                    'pmb_no_daftar' => $data['nomor_pendaftaran'],
+                    'status_awal' => 'CAMABA',
+                    'jalur_masuk' => $data['jalur_masuk'] ?? 'UMUM',
+                    'asal_sekolah' => $data['asal_sekolah'] ?? null,
+                ]
+            ]);
 
-                    // Jika target lebih besar dari yang sudah ditagih, tagihkan selisihnya
-                    if ($targetNominal > $billedNominal) {
-                        $selisih = $targetNominal - $billedNominal;
-                        
-                        $invoiceBaruItems[] = [
-                            'nama' => $namaKomponen,
-                            'nominal' => $selisih
-                        ];
-                        $totalInvoiceBaru += $selisih;
-                    }
-                }
+            // 7. Generate Tagihan Awal
+            $this->generateTagihanAwal($mhs);
 
-                // 4. Jika tidak ada selisih, Skip
-                if ($totalInvoiceBaru <= 0) {
-                    $stats['skip']++;
-                    continue;
-                }
-
-                // --- [PERBAIKAN] BUAT DESKRIPSI DINAMIS ---
-                // Ambil nama item dari rincian baru
-                $itemNames = array_column($invoiceBaruItems, 'nama');
-                $deskripsiList = implode(', ', $itemNames);
-                
-                // Potong jika terlalu panjang
-                if (strlen($deskripsiList) > 100) {
-                    $deskripsiList = substr($deskripsiList, 0, 97) . '...';
-                }
-                
-                // Tentukan Prefix: "Tagihan Susulan" jika sudah ada tagihan sebelumnya, "Tagihan" jika baru
-                $prefix = $existingTagihans->count() > 0 ? "Tagihan Susulan: " : "Tagihan: ";
-                $deskripsiFinal = $prefix . $deskripsiList;
-
-                // 5. Buat Invoice
-                TagihanMahasiswa::create([
-                    'mahasiswa_id' => $mhs->id,
-                    'tahun_akademik_id' => $tahunAkademikId,
-                    'kode_transaksi' => 'INV-' . $tahunAkademikId . '-' . $mhs->nim . '-' . rand(1000, 9999), 
-                    'deskripsi' => $deskripsiFinal, // Gunakan deskripsi dinamis
-                    'total_tagihan' => $totalInvoiceBaru,
-                    'total_bayar' => 0,
-                    'status_bayar' => 'BELUM',
-                    'rincian_item' => $invoiceBaruItems
-                ]);
-
-                $stats['sukses']++;
-            }
             DB::commit();
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Data Camaba diterima. Silakan lakukan pembayaran untuk mendapatkan NIM.',
+                'data' => [
+                    'nomor_pendaftaran' => $identityTemp,
+                    'user_id' => $user->id,
+                    'tagihan_info' => 'Tagihan awal telah diterbitkan'
+                ]
+            ], 201);
+
         } catch (\Exception $e) {
             DB::rollBack();
-            throw $e;
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Terjadi kesalahan sistem: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Generate Tagihan Pertama (Biasanya Uang Pangkal + SPP Smt 1)
+     */
+    private function generateTagihanAwal(Mahasiswa $mhs)
+    {
+        // Cari Semester Aktif
+        $taId = SistemHelper::idTahunAktif();
+        if (!$taId) return;
+
+        // Cari Skema Tarif yang cocok
+        $skema = SkemaTarif::with('details.komponenBiaya')
+            ->where('angkatan_id', $mhs->angkatan_id)
+            ->where('prodi_id', $mhs->prodi_id)
+            ->where('program_kelas_id', $mhs->program_kelas_id)
+            ->first();
+
+        if (!$skema) return; 
+
+        $total = 0;
+        $rincian = [];
+
+        foreach ($skema->details as $detail) {
+            // Logika: Ambil biaya yang Semester=1 (Awal) atau Kosong (Rutin)
+            if ($detail->berlaku_semester == 1 || is_null($detail->berlaku_semester)) {
+                $total += $detail->nominal;
+                $rincian[] = [
+                    'nama' => $detail->komponenBiaya->nama_komponen,
+                    'nominal' => $detail->nominal
+                ];
+            }
         }
 
-        return $stats;
+        if ($total > 0) {
+            TagihanMahasiswa::create([
+                'mahasiswa_id' => $mhs->id,
+                'tahun_akademik_id' => $taId,
+                'kode_transaksi' => 'INV-PMB-' . $mhs->nim . '-' . rand(100, 999),
+                'deskripsi' => "Tagihan Daftar Ulang (Awal Masuk)",
+                'total_tagihan' => $total,
+                'total_bayar' => 0,
+                'status_bayar' => 'BELUM',
+                'rincian_item' => $rincian
+            ]);
+        }
     }
 }

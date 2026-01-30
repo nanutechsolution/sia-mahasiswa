@@ -2,6 +2,7 @@
 
 namespace App\Domains\Mahasiswa\Models;
 
+use App\Domains\Core\Models\Person;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -19,22 +20,15 @@ class Mahasiswa extends Model
     protected $table = 'mahasiswas';
 
     protected $fillable = [
-        'user_id',
+        'person_id',
         'nim',
-        'nama_lengkap',
         'angkatan_id',
         'prodi_id',
         'program_kelas_id',
-        'tempat_lahir',
-        'tanggal_lahir',
-        'jenis_kelamin',
-        'nik',
-        'nomor_hp',
-        'email_pribadi',
+        'dosen_wali_id',
         'data_tambahan',
         'id_pd_feeder',
-        'last_synced_at',
-        'dosen_wali_id'
+        'last_synced_at'
     ];
 
     protected $casts = [
@@ -42,6 +36,7 @@ class Mahasiswa extends Model
         'data_tambahan' => 'array',
         'last_synced_at' => 'datetime',
     ];
+
 
     // logs activity
     public function getActivitylogOptions(): LogOptions
@@ -64,7 +59,16 @@ class Mahasiswa extends Model
         return "Mahasiswa {$this->nim} {$eventName}";
     }
 
+    public function person()
+    {
+        return $this->belongsTo(Person::class, 'person_id');
+    }
 
+    // Relasi user diakses via Person
+    public function getUserAttribute()
+    {
+        return $this->person ? $this->person->user : null;
+    }
     // ==========================================
     // RELASI UTAMA (YANG MENYEBABKAN ERROR)
     // ==========================================

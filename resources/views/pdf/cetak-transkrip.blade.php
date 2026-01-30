@@ -1,33 +1,42 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Transkrip Nilai Akademik</title>
+    <title>Transkrip - {{ $mahasiswa->nim }}</title>
     <style>
-        body { font-family: sans-serif; font-size: 11px; }
-        .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid black; padding-bottom: 10px; }
-        .info-table { width: 100%; margin-bottom: 15px; font-weight: bold; }
-        .data-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-        .data-table th, .data-table td { border: 1px solid black; padding: 4px 6px; }
-        .data-table th { background-color: #f0f0f0; text-align: center; }
-        .summary { float: right; width: 300px; border: 1px solid black; padding: 10px; margin-bottom: 20px; }
-        .ttd { margin-top: 50px; float: right; text-align: center; width: 200px; }
+        @page { margin: 1cm 1.5cm; }
+        body { font-family: 'Arial', sans-serif; font-size: 10px; color: #000; line-height: 1.4; }
+        .header { text-align: center; margin-bottom: 10px; position: relative; border-bottom: 2px solid #000; padding-bottom: 10px; }
+        .header h1 { font-size: 16px; margin: 0; text-transform: uppercase; font-weight: bold; }
+        .logo { position: absolute; left: 0; top: 0; width: 65px; }
+        .main-title { text-align: center; font-size: 15px; font-weight: 900; text-decoration: underline; margin: 20px 0; text-transform: uppercase; }
+        .info-table { width: 100%; margin-bottom: 20px; border-collapse: collapse; }
+        .data-table { width: 100%; border-collapse: collapse; }
+        .data-table th, .data-table td { border: 1px solid black; padding: 5px; }
+        .data-table th { background-color: #f2f2f2; text-transform: uppercase; font-size: 9px; }
+        .summary-table { width: 40%; margin-top: 15px; font-weight: bold; border-collapse: collapse; }
+        .summary-table td { padding: 4px; border: 1px solid black; }
+        .sig-container { margin-top: 30px; width: 100%; }
+        .sig-right { float: right; width: 250px; text-align: center; }
+        .sig-space { height: 70px; }
     </style>
 </head>
 <body>
     <div class="header">
-        <h2 style="margin:0">UNIVERSITAS MARITIM SISTEM (UNMARIS)</h2>
-        <p style="margin:0">Jl. Teknologi No. 1, Cloud Server, Indonesia</p>
-        <h3>TRANSKRIP NILAI AKADEMIK SEMENTARA</h3>
+        <img src="{{ public_path('logo.png') }}" class="logo">
+        <h1>UNIVERSITAS STELLA MARIS SUMBA (UNMARIS)</h1>
+        <p style="font-size: 9px; margin:2px 0;">Situs Resmi: www.unmaris.ac.id | Email: info@unmaris.ac.id</p>
     </div>
+    
+    <div class="main-title">TRANSKRIP NILAI SEMENTARA</div>
 
     <table class="info-table">
         <tr>
-            <td width="15%">Nama</td><td>: {{ $mahasiswa->nama_lengkap }}</td>
-            <td width="15%">Prodi</td><td>: {{ $mahasiswa->prodi->nama_prodi }}</td>
+            <td width="20%">Nama Mahasiswa</td><td width="2%">:</td><td width="30%" style="font-weight:bold">{{ strtoupper($mahasiswa->nama_lengkap) }}</td>
+            <td width="20%">NIM</td><td width="2%">:</td><td>{{ $mahasiswa->nim }}</td>
         </tr>
         <tr>
-            <td>NIM</td><td>: {{ $mahasiswa->nim }}</td>
-            <td>Jenjang</td><td>: {{ $mahasiswa->prodi->jenjang }}</td>
+            <td>Program Studi</td><td>:</td><td>{{ $mahasiswa->prodi->nama_prodi }}</td>
+            <td>Fakultas</td><td>:</td><td>{{ $mahasiswa->prodi->fakultas->nama_fakultas ?? '-' }}</td>
         </tr>
     </table>
 
@@ -35,22 +44,22 @@
         <thead>
             <tr>
                 <th width="5%">No</th>
-                <th>Kode MK</th>
+                <th width="15%">Kode MK</th>
                 <th>Mata Kuliah</th>
-                <th width="5%">SKS</th>
-                <th width="5%">Huruf</th>
-                <th width="5%">Bobot</th>
-                <th width="10%">Mutu (KxN)</th>
+                <th width="8%">SKS</th>
+                <th width="8%">Huruf</th>
+                <th width="8%">Indeks</th>
+                <th width="10%">Mutu</th>
             </tr>
         </thead>
         <tbody>
             @foreach($transkrip as $index => $mk)
             <tr>
                 <td style="text-align:center">{{ $index + 1 }}</td>
-                <td>{{ $mk->kode_mk }}</td>
+                <td style="text-align:center">{{ $mk->kode_mk }}</td>
                 <td>{{ $mk->nama_mk }}</td>
                 <td style="text-align:center">{{ $mk->sks_default }}</td>
-                <td style="text-align:center">{{ $mk->nilai_huruf }}</td>
+                <td style="text-align:center; font-weight:bold">{{ $mk->nilai_huruf }}</td>
                 <td style="text-align:center">{{ number_format($mk->nilai_indeks, 2) }}</td>
                 <td style="text-align:center">{{ number_format($mk->sks_default * $mk->nilai_indeks, 2) }}</td>
             </tr>
@@ -58,23 +67,26 @@
         </tbody>
     </table>
 
-    <div class="summary">
-        <table width="100%">
-            <tr>
-                <td>Total SKS Lulus</td>
-                <td style="text-align:right"><b>{{ $totalSks }}</b></td>
-            </tr>
-            <tr>
-                <td>Indeks Prestasi Kumulatif (IPK)</td>
-                <td style="text-align:right"><b>{{ number_format($ipk, 2) }}</b></td>
-            </tr>
-        </table>
-    </div>
+    <table class="summary-table">
+        <tr>
+            <td>Total Kredit (SKS)</td>
+            <td style="text-align:center">{{ $totalSks }}</td>
+        </tr>
+        <tr>
+            <td>Indeks Prestasi Kumulatif (IPK)</td>
+            <td style="text-align:center">{{ number_format($ipk, 2) }}</td>
+        </tr>
+    </table>
 
-    <div class="ttd">
-        <p>Sumba, {{ date('d F Y') }}<br>Ketua Program Studi</p>
-        <br><br><br>
-        <p>__________________________</p>
+    <div class="sig-container">
+        <div class="sig-right">
+            Tambolaka, {{ date('d F Y') }}<br>
+            Ketua Program Studi,<br>
+            <div class="sig-space"></div>
+            <p style="font-weight:bold; text-decoration:underline;">( {{ $kaProdi->nama ?? '..................................' }} )</p>
+            <p>NIK/NIP. {{ $kaProdi->identitas ?? '.........................' }}</p>
+        </div>
+        <div style="clear: both;"></div>
     </div>
 </body>
 </html>

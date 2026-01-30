@@ -27,8 +27,9 @@ class CamabaManager extends Component
     {
         $prodis = Prodi::all();
 
-        $camabas = Mahasiswa::with(['prodi', 'programKelas', 'user', 'tagihan']) 
+        $camabas = Mahasiswa::with(['prodi', 'programKelas', 'user', 'tagihan', 'person']) // Load person untuk nama
             // FILTER: HANYA TAMPILKAN CAMABA (NIM SEMENTARA)
+            // Asumsi: NIM > 15 digit atau mengandung 'PMB' adalah Camaba
             ->where(function($q) {
                 $q->whereRaw('LENGTH(nim) > 15')
                   ->orWhere('nim', 'like', '%PMB%');
@@ -36,7 +37,13 @@ class CamabaManager extends Component
             ->when($this->filterProdiId, function($q) {
                 $q->where('prodi_id', $this->filterProdiId);
             })
-            ->where('nama_lengkap', 'like', '%'.$this->search.'%')
+            // Search via Person (SSOT)
+            ->where(function($q) {
+                $q->whereHas('person', function($qp) {
+                    $qp->where('nama_lengkap', 'like', '%'.$this->search.'%');
+                })
+                ->orWhere('nim', 'like', '%'.$this->search.'%');
+            })
             ->orderBy('created_at', 'desc')
             ->paginate(10);
 
@@ -48,9 +55,11 @@ class CamabaManager extends Component
 
     public function edit($id)
     {
-        $mhs = Mahasiswa::find($id);
+        $mhs = Mahasiswa::with('person')->find($id);
         $this->camabaId = $id;
-        $this->nama_lengkap = $mhs->nama_lengkap;
+        // Ambil nama dari accessor model Mahasiswa (yang mengambil dari Person)
+        $this->nama_lengkap = $mhs->nama_lengkap; 
+        
         // Load status dispensasi dari JSON
         $this->bebas_keuangan = $mhs->data_tambahan['bebas_keuangan'] ?? false;
         

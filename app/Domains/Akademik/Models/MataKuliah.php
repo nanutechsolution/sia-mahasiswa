@@ -23,7 +23,7 @@ class MataKuliah extends Model
         'sks_praktek',    // Default Praktek (Contoh: 2)
         'sks_lapangan',   // Default Lapangan (Contoh: 0)
         'jenis_mk'
-    ];
+    ];  
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()

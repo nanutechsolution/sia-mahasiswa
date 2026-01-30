@@ -59,8 +59,11 @@ class PlotingPaManager extends Component
             ->where('prodi_id', $this->filterProdiId)
             ->where('angkatan_id', $this->filterAngkatan)
             ->when($this->search, function($q) {
-                $q->where('nama_lengkap', 'like', '%'.$this->search.'%')
-                  ->orWhere('nim', 'like', '%'.$this->search.'%');
+                // Fix Search: Cari Nama via relasi Person
+                $q->whereHas('person', function($qp) {
+                    $qp->where('nama_lengkap', 'like', '%'.$this->search.'%');
+                })
+                ->orWhere('nim', 'like', '%'.$this->search.'%');
             })
             ->when($this->filterStatusPa == 'belum', function($q) {
                 $q->whereNull('dosen_wali_id');
@@ -90,7 +93,6 @@ class PlotingPaManager extends Component
         session()->flash('success', "Berhasil memploting $count mahasiswa ke Dosen Wali: {$dosen->nama_lengkap_gelar}.");
         
         $this->resetSelection();
-        // $this->targetDosenId = null; // Opsional: reset dosen atau biarkan biar bisa lanjut ploting
     }
 
     public function render()
@@ -98,11 +100,16 @@ class PlotingPaManager extends Component
         $prodis = Prodi::all();
         $angkatans = DB::table('ref_angkatan')->orderBy('id_tahun', 'desc')->get();
         
-        // Ambil Dosen yang homebase-nya sesuai Prodi filter (Opsional, atau ambil semua)
-        $dosens = Dosen::orderBy('nama_lengkap_gelar')->get();
+        // [FIX] Ambil Dosen dengan Join ke Person untuk sorting nama
+        // Agar tidak error "column nama_lengkap_gelar not found"
+        $dosens = Dosen::join('ref_person', 'trx_dosen.person_id', '=', 'ref_person.id')
+            ->where('trx_dosen.is_active', true)
+            ->orderBy('ref_person.nama_lengkap', 'asc')
+            ->select('trx_dosen.*') // Ambil kolom dosen saja agar model hydration benar
+            ->get();
 
         $mahasiswas = $this->getMahasiswaQuery()
-            ->with(['dosenWali', 'programKelas'])
+            ->with(['dosenWali.person', 'programKelas', 'person']) // Load person
             ->orderBy('nim', 'asc')
             ->paginate(50); // Tampilkan banyak biar enak check-nya
 

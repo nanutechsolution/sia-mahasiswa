@@ -1,121 +1,129 @@
-<div class="max-w-4xl mx-auto space-y-6">
+<div class="max-w-5xl mx-auto space-y-6">
     <div class="sm:flex sm:items-center sm:justify-between">
         <div>
-            <h1 class="text-2xl font-bold text-gray-900">Buat Tagihan Manual</h1>
-            <p class="mt-2 text-sm text-gray-700">Untuk tagihan khusus (Denda, Ganti Rugi, Biaya Susulan) perorangan.</p>
+            <h1 class="text-2xl font-black text-[#002855]">Buat Tagihan Manual</h1>
+            <p class="mt-2 text-sm text-slate-500">Penerbitan invoice khusus (Denda, Ganti Rugi, Biaya Susulan) perorangan.</p>
         </div>
     </div>
 
     @if (session()->has('success'))
-        <div class="bg-green-50 p-4 rounded-md border border-green-200 text-sm text-green-700 font-bold flex items-center animate-in fade-in">
-            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-            {{ session('success') }}
+        <div class="bg-emerald-50 border border-emerald-100 p-4 rounded-xl text-emerald-800 text-sm flex items-center shadow-sm animate-in fade-in slide-in-from-top-2">
+            <svg class="w-5 h-5 mr-3 text-emerald-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+            </svg>
+            <span class="font-bold">{{ session('success') }}</span>
         </div>
     @endif
 
-    <div class="bg-white shadow rounded-lg border border-gray-200 overflow-hidden">
-        <div class="p-6 space-y-6">
+    <div class="bg-white shadow-xl rounded-3xl border border-slate-200 overflow-hidden">
+        <div class="p-8 space-y-10">
             
             {{-- LANGKAH 1: PILIH MAHASISWA --}}
-            <div>
-                <label class="block text-sm font-bold text-gray-700 uppercase mb-2">1. Cari Mahasiswa</label>
+            <div class="space-y-4">
+                <h4 class="text-xs font-bold text-[#002855] uppercase border-l-4 border-[#fcc000] pl-3 tracking-widest">1. Target Mahasiswa</h4>
                 
                 @if(!$selectedMhs)
                     <div class="relative">
                         <input type="text" wire:model.live.debounce.300ms="searchMhs" 
-                            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm pl-10" 
+                            class="block w-full rounded-xl border-slate-300 bg-white py-4 pl-12 pr-4 text-sm focus:border-[#002855] focus:ring-[#002855] transition-shadow outline-none font-bold placeholder-slate-400" 
                             placeholder="Ketik NIM atau Nama Mahasiswa...">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
+                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                             </svg>
                         </div>
                         
                         {{-- Dropdown Hasil Pencarian --}}
                         @if(!empty($searchResults))
-                            <div class="absolute z-10 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm">
+                            <div class="absolute z-10 mt-2 w-full bg-white shadow-2xl rounded-xl py-2 text-base ring-1 ring-black ring-opacity-5 overflow-hidden">
                                 @foreach($searchResults as $mhs)
-                                    <div wire:click="selectMhs('{{ $mhs->id }}')" class="cursor-pointer select-none relative py-2 pl-3 pr-9 hover:bg-indigo-50">
-                                        <span class="font-semibold block truncate">{{ $mhs->nama_lengkap }}</span>
-                                        <span class="text-gray-500 text-xs">{{ $mhs->nim }} - {{ $mhs->prodi->nama_prodi }}</span>
+                                    <div wire:click="selectMhs('{{ $mhs->id }}')" class="cursor-pointer px-4 py-3 hover:bg-indigo-50 border-b border-slate-50 last:border-0 transition-colors">
+                                        <span class="font-bold text-[#002855] block">{{ $mhs->person->nama_lengkap ?? $mhs->nama_lengkap }}</span>
+                                        <span class="text-slate-500 text-xs font-mono">{{ $mhs->nim }} - {{ $mhs->prodi->nama_prodi }}</span>
                                     </div>
                                 @endforeach
                             </div>
                         @elseif(strlen($searchMhs) >= 3)
-                            <div class="absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md py-2 px-3 text-sm text-gray-500 italic border">
-                                Tidak ditemukan mahasiswa dengan kata kunci tersebut.
+                            <div class="absolute z-10 mt-2 w-full bg-white shadow-xl rounded-xl py-4 px-6 text-sm text-slate-500 italic border border-slate-100 text-center">
+                                Tidak ditemukan data mahasiswa.
                             </div>
                         @endif
                     </div>
                 @else
                     {{-- Kartu Mahasiswa Terpilih --}}
-                    <div class="bg-indigo-50 border border-indigo-100 rounded-lg p-4 flex justify-between items-center">
-                        <div class="flex items-center">
-                            <div class="flex-shrink-0 h-10 w-10 bg-indigo-200 rounded-full flex items-center justify-center text-indigo-700 font-bold">
-                                {{ substr($selectedMhs->nama_lengkap, 0, 1) }}
+                    <div class="bg-indigo-50 border border-indigo-100 rounded-2xl p-5 flex justify-between items-center animate-in zoom-in-95">
+                        <div class="flex items-center gap-4">
+                            <div class="h-12 w-12 bg-[#002855] rounded-full flex items-center justify-center text-white text-lg font-black shadow-lg">
+                                {{ substr($selectedMhs->person->nama_lengkap ?? $selectedMhs->nama_lengkap, 0, 1) }}
                             </div>
-                            <div class="ml-4">
-                                <div class="text-sm font-bold text-indigo-900">{{ $selectedMhs->nama_lengkap }}</div>
-                                <div class="text-xs text-indigo-700">{{ $selectedMhs->nim }} • {{ $selectedMhs->prodi->nama_prodi }}</div>
+                            <div>
+                                <div class="text-sm font-black text-[#002855] uppercase tracking-wide">{{ $selectedMhs->person->nama_lengkap ?? $selectedMhs->nama_lengkap }}</div>
+                                <div class="text-xs text-indigo-600 font-bold mt-0.5">{{ $selectedMhs->nim }} • {{ $selectedMhs->prodi->nama_prodi }}</div>
                             </div>
                         </div>
-                        <button wire:click="resetSelection" class="text-red-500 hover:text-red-700 text-sm font-bold px-3 py-1 bg-white rounded border border-red-200 hover:bg-red-50">
-                            Ganti Mahasiswa
+                        <button wire:click="resetSelection" class="text-rose-600 hover:text-rose-800 text-xs font-black uppercase tracking-widest bg-white px-4 py-2 rounded-lg border border-rose-100 hover:bg-rose-50 transition-all shadow-sm">
+                            Ganti Target
                         </button>
                     </div>
                 @endif
-                @error('selectedMhs') <span class="text-red-500 text-xs mt-1 block">{{ $message }}</span> @enderror
+                @error('selectedMhs') <span class="text-rose-500 text-xs font-bold mt-1 block">{{ $message }}</span> @enderror
             </div>
 
             {{-- LANGKAH 2: DETAIL TAGIHAN --}}
-            <div class="{{ !$selectedMhs ? 'opacity-50 pointer-events-none' : '' }} space-y-6">
-                <div class="border-t border-gray-200 pt-6">
-                    <label class="block text-sm font-bold text-gray-700 uppercase mb-4">2. Detail Tagihan</label>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Untuk Semester</label>
-                            <select wire:model="semesterId" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 sm:text-sm">
-                                @foreach($semesters as $sem)
-                                    <option value="{{ $sem->id }}">{{ $sem->nama_tahun }} {{ $sem->is_active ? '(Aktif)' : '' }}</option>
-                                @endforeach
-                            </select>
-                            @error('semesterId') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
-                        </div>
+            <div class="{{ !$selectedMhs ? 'opacity-50 pointer-events-none grayscale' : '' }} space-y-6 transition-all duration-300">
+                <h4 class="text-xs font-bold text-[#002855] uppercase border-l-4 border-[#fcc000] pl-3 tracking-widest">2. Rincian Invoice</h4>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-6 rounded-2xl border border-slate-100">
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2">Untuk Semester</label>
+                        <select wire:model="semesterId" class="block w-full rounded-xl border-slate-300 bg-white text-slate-900 focus:border-[#002855] focus:ring-[#002855] text-sm transition-all">
+                            @foreach($semesters as $sem)
+                                <option value="{{ $sem->id }}">{{ $sem->nama_tahun }} {{ $sem->is_active ? '(Aktif)' : '' }}</option>
+                            @endforeach
+                        </select>
+                        @error('semesterId') <span class="text-rose-500 text-xs font-bold mt-1 block">{{ $message }}</span> @enderror
+                    </div>
 
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Jenis Biaya</label>
-                            <select wire:model.live="komponenId" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 sm:text-sm">
-                                <option value="">-- Pilih Komponen --</option>
-                                @foreach($komponens as $k)
-                                    <option value="{{ $k->id }}">{{ $k->nama_komponen }} ({{ $k->tipe_biaya }})</option>
-                                @endforeach
-                            </select>
-                            @error('komponenId') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
-                        </div>
+                    <div>
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2">Jenis Biaya</label>
+                        <select wire:model.live="komponenId" class="block w-full rounded-xl border-slate-300 bg-white text-slate-900 focus:border-[#002855] focus:ring-[#002855] text-sm transition-all">
+                            <option value="">-- Pilih Komponen --</option>
+                            @foreach($komponens as $k)
+                                <option value="{{ $k->id }}">{{ $k->nama_komponen }} ({{ $k->tipe_biaya }})</option>
+                            @endforeach
+                        </select>
+                        @error('komponenId') <span class="text-rose-500 text-xs font-bold mt-1 block">{{ $message }}</span> @enderror
+                    </div>
 
-                        <div class="md:col-span-2">
-                            <label class="block text-sm font-medium text-gray-700">Deskripsi / Keterangan Tagihan</label>
-                            <input type="text" wire:model="deskripsi" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 sm:text-sm" placeholder="Contoh: Denda Keterlambatan Pengembalian Alat Lab">
-                            @error('deskripsi') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
-                        </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2">Deskripsi / Keterangan Tagihan</label>
+                        <input type="text" wire:model="deskripsi" class="block w-full rounded-xl border-slate-300 bg-white text-slate-900 focus:border-[#002855] focus:ring-[#002855] text-sm" placeholder="Contoh: Denda Keterlambatan Pengembalian Alat Lab">
+                        @error('deskripsi') <span class="text-rose-500 text-xs font-bold mt-1 block">{{ $message }}</span> @enderror
+                    </div>
 
-                        <div class="md:col-span-2">
-                            <label class="block text-sm font-medium text-gray-700">Nominal Tagihan (Rp)</label>
-                            <div class="mt-1 relative rounded-md shadow-sm">
-                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <span class="text-gray-500 sm:text-sm">Rp</span>
-                                </div>
-                                <input type="number" wire:model="nominal" class="focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-10 sm:text-sm border-gray-300 rounded-md" placeholder="0">
+                    <div class="md:col-span-2">
+                        <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2">Nominal Tagihan (Rp)</label>
+                        <div class="relative rounded-xl shadow-sm">
+                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                <span class="text-slate-400 font-bold sm:text-sm">Rp</span>
                             </div>
-                            @error('nominal') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
+                            <input type="number" wire:model="nominal" class="block w-full rounded-xl border-slate-300 pl-12 pr-4 py-3 focus:border-[#002855] focus:ring-[#002855] text-lg font-black text-slate-800 placeholder-slate-300" placeholder="0">
                         </div>
+                        @error('nominal') <span class="text-rose-500 text-xs font-bold mt-1 block">{{ $message }}</span> @enderror
                     </div>
                 </div>
 
-                <div class="flex justify-end pt-4 border-t border-gray-200">
-                    <button wire:click="simpanTagihan" wire:loading.attr="disabled" class="inline-flex justify-center py-2 px-6 border border-transparent shadow-sm text-sm font-bold rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50">
-                        <span wire:loading.remove>Buat Tagihan</span>
+                <div class="flex justify-end pt-6 border-t border-slate-100">
+                    <button wire:click="simpanTagihan" 
+                        wire:loading.attr="disabled"
+                        class="px-8 py-3 bg-[#002855] text-white rounded-xl text-sm font-bold shadow-xl shadow-indigo-900/20 hover:bg-[#001a38] hover:scale-105 transition-all flex items-center disabled:opacity-50 disabled:cursor-not-allowed">
+                        
+                        <svg wire:loading wire:target="simpanTagihan" class="animate-spin -ml-1 mr-3 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        
+                        <span wire:loading.remove>Terbitkan Tagihan</span>
                         <span wire:loading>Memproses...</span>
                     </button>
                 </div>
@@ -123,4 +131,4 @@
 
         </div>
     </div>
-</div>
+</div>  

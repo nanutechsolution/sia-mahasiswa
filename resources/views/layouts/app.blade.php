@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ $title ?? 'SIAKAD UNMARIS' }}</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
-   
+
     <style>
         [x-cloak] {
             display: none !important;
@@ -154,7 +154,22 @@
                         Program & Kelas
                     </a>
                 </div>
+                {{-- SDM --}}
+                <div class="mt-4 pt-4 border-t border-white/10">
+                    <p class="px-3 text-[10px] font-black text-unmaris-gold/70 uppercase tracking-widest mb-2 ml-1">
+                        SDM
+                    </p>
+                    <a href="{{ route('admin.hr.manager') }}"
+                        class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all {{ request()->routeIs('admin.hr.manager*') ? 'nav-active' : 'nav-inactive' }}">
+                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1z" />
+                        </svg>
+                        SDM & Pejabat Kampus
+                    </a>
 
+
+                </div>
                 {{-- GROUP: PENGGUNA --}}
                 <div class="pb-4">
                     <p class="px-3 text-[10px] font-black text-unmaris-gold/70 uppercase tracking-widest mb-2 ml-1">Pengguna</p>

@@ -31,12 +31,14 @@ class DetailTarif extends Model
             ->dontSubmitEmptyLogs();
     }
 
-    /**
-     * Deskripsi log biar kebaca manusia
-     */
     public function getDescriptionForEvent(string $eventName): string
     {
-        return "Detail tarif {$eventName}";
+        return match ($eventName) {
+            'created' => 'Menambahkan detail tarif',
+            'updated' => 'Mengubah detail tarif',
+            'deleted' => 'Menghapus detail tarif',
+            default => "Detail tarif {$eventName}",
+        };
     }
 
     public function komponenBiaya()

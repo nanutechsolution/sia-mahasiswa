@@ -16,20 +16,21 @@ class MutasiMhsManager extends Component
 
     public $search = '';
     public $taAktifId;
-    
+
     // State Modal Mutasi
     public $showModal = false;
     public $selectedMhsId;
     public $selectedMhsName;
-    
+    public $selectedMhsNim;
+
     // Form Input
     public $status_baru = 'C'; // C=Cuti, K=Keluar, D=DropOut, L=Lulus
     public $nomor_sk;
     public $keterangan;
-    
+
     // Form Keuangan Cuti
     public $buat_tagihan_cuti = true;
-    public $nominal_biaya_cuti = 250000; // Default biaya cuti (Bisa diubah admin)
+    public $nominal_biaya_cuti = 250000; // Default biaya cuti
 
     public function mount()
     {
@@ -38,13 +39,16 @@ class MutasiMhsManager extends Component
 
     public function render()
     {
-        $mahasiswas = Mahasiswa::with(['prodi', 'riwayatStatus' => function($q) {
-                // Ambil status di semester aktif saja
-                $q->where('tahun_akademik_id', $this->taAktifId);
-            }])
-            ->where(function($q) {
-                $q->where('nama_lengkap', 'like', '%'.$this->search.'%')
-                  ->orWhere('nim', 'like', '%'.$this->search.'%');
+        // Query dengan relasi Person untuk pencarian nama (SSOT)
+        $mahasiswas = Mahasiswa::with(['prodi', 'person', 'riwayatStatus' => function ($q) {
+            // Ambil status di semester aktif saja
+            $q->where('tahun_akademik_id', $this->taAktifId);
+        }])
+            ->where(function ($q) {
+                $q->whereHas('person', function ($qp) {
+                    $qp->where('nama_lengkap', 'like', '%' . $this->search . '%');
+                })
+                    ->orWhere('nim', 'like', '%' . $this->search . '%');
             })
             ->orderBy('nim', 'desc')
             ->paginate(10);
@@ -59,13 +63,14 @@ class MutasiMhsManager extends Component
         $mhs = Mahasiswa::find($id);
         $this->selectedMhsId = $id;
         $this->selectedMhsName = $mhs->nama_lengkap;
-        
+        $this->selectedMhsNim = $mhs->nim;
+
         // Reset Form
-        $this->status_baru = 'C'; 
+        $this->status_baru = 'C';
         $this->nomor_sk = '';
         $this->keterangan = '';
         $this->buat_tagihan_cuti = true;
-        $this->nominal_biaya_cuti = 250000; // Nominal default, bisa ambil dari Config jika ada
+        $this->nominal_biaya_cuti = 250000;
 
         $this->showModal = true;
     }
@@ -93,24 +98,23 @@ class MutasiMhsManager extends Component
                 [
                     'status_kuliah' => $this->status_baru,
                     'nomor_sk' => $this->nomor_sk,
-                    // IPS/SKS biasanya 0 kalau cuti dari awal
                 ]
             );
 
             // 2. Generate Tagihan Cuti (Jika status Cuti dan dicentang)
             if ($this->status_baru == 'C' && $this->buat_tagihan_cuti && $this->nominal_biaya_cuti > 0) {
                 $mhs = Mahasiswa::find($this->selectedMhsId);
-                
+
                 TagihanMahasiswa::create([
                     'mahasiswa_id' => $this->selectedMhsId,
                     'tahun_akademik_id' => $this->taAktifId,
-                    'kode_transaksi' => 'INV-CUTI-' . $mhs->nim . '-' . rand(100,999),
+                    'kode_transaksi' => 'INV-CUTI-' . $mhs->nim . '-' . rand(100, 999),
                     'deskripsi' => "Biaya Administrasi Cuti Akademik",
                     'total_tagihan' => $this->nominal_biaya_cuti,
                     'total_bayar' => 0,
                     'status_bayar' => 'BELUM',
                     'rincian_item' => [
-                        ['nama' => 'Biaya Administrasi Cuti', 'nominal' => $this->nominal_biaya_cuti]
+                        ['nama' => 'Biaya Administrasi Cuti', 'nominal' => (int)$this->nominal_biaya_cuti]
                     ]
                 ]);
             }

@@ -14,7 +14,7 @@ class InputNilai extends Component
     public $jadwal;
     public $pesertaKelas;
 
-    // State untuk input form (Array: [krs_detail_id => value])
+    // State form (Array: [krs_detail_id => value])
     public $nilaiTugas = [];
     public $nilaiUts = [];
     public $nilaiUas = [];
@@ -29,22 +29,23 @@ class InputNilai extends Component
     {
         $this->jadwal = JadwalKuliah::with(['mataKuliah', 'dosen'])->find($this->jadwalId);
 
-        // Ambil mahasiswa yang mengambil kelas ini
         $this->pesertaKelas = KrsDetail::with(['krs.mahasiswa'])
             ->where('jadwal_kuliah_id', $this->jadwalId)
+            ->whereHas('krs', function($q) {
+                $q->where('status_krs', 'DISETUJUI');
+            })
             ->get();
 
         // Fill form state
         foreach ($this->pesertaKelas as $mhs) {
-            $this->nilaiTugas[$mhs->id] = $mhs->nilai_tugas;
-            $this->nilaiUts[$mhs->id]   = $mhs->nilai_uts;
-            $this->nilaiUas[$mhs->id]   = $mhs->nilai_uas;
+            $this->nilaiTugas[$mhs->id] = $mhs->nilai_tugas ?? 0;
+            $this->nilaiUts[$mhs->id]   = $mhs->nilai_uts ?? 0;
+            $this->nilaiUas[$mhs->id]   = $mhs->nilai_uas ?? 0;
         }
     }
 
     public function simpanNilai($detailId)
     {
-        // Validasi Simple
         $tugas = $this->nilaiTugas[$detailId] ?? 0;
         $uts   = $this->nilaiUts[$detailId] ?? 0;
         $uas   = $this->nilaiUas[$detailId] ?? 0;
@@ -52,33 +53,38 @@ class InputNilai extends Component
         DB::transaction(function () use ($detailId, $tugas, $uts, $uas) {
             $detail = KrsDetail::find($detailId);
             
-            // 1. Update Komponen Nilai
             $detail->update([
                 'nilai_tugas' => $tugas,
                 'nilai_uts' => $uts,
                 'nilai_uas' => $uas,
             ]);
 
-            // 2. Hitung Akhir (Panggil Action yg kita buat tadi)
             $action = new HitungNilaiAkhirAction();
             $action->execute($detail);
         });
 
         session()->flash('success-' . $detailId, 'Tersimpan');
+        
+        // Refresh data agar tampilan nilai akhir terupdate
+        $this->pesertaKelas = KrsDetail::with(['krs.mahasiswa'])
+            ->where('jadwal_kuliah_id', $this->jadwalId)
+            ->whereHas('krs', fn($q) => $q->where('status_krs', 'DISETUJUI'))
+            ->get();
     }
 
     public function publishNilai()
     {
-        // Hitung IPS untuk semua mahasiswa di kelas ini
         $action = new HitungNilaiAkhirAction();
         
-        foreach ($this->pesertaKelas as $detail) {
-            $detail->update(['is_published' => true]);
-            // Recalculate IPS mahasiswa ybs
-            $action->hitungIps($detail->krs); 
-        }
+        DB::transaction(function () use ($action) {
+            foreach ($this->pesertaKelas as $detail) {
+                $detail->update(['is_published' => true]);
+                $action->hitungIps($detail->krs); 
+            }
+        });
 
-        session()->flash('global_success', 'Nilai berhasil dipublish! Mahasiswa dapat melihat KHS.');
+        session()->flash('global_success', 'Nilai berhasil dipublish!');
+        $this->loadData();
     }
 
     public function render()

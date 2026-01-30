@@ -35,12 +35,21 @@ class SistemHelper
     public static function isMasaKrsOpen()
     {
         $ta = self::getTahunAktif();
-        
+
         // Jika tidak ada semester aktif, atau tanggal belum diset -> Tutup
         if (!$ta || !$ta->tgl_mulai_krs || !$ta->tgl_selesai_krs) {
             return false;
         }
 
         return now()->between($ta->tgl_mulai_krs, $ta->tgl_selesai_krs);
+    }
+
+    /**
+     * Dapatkan path logo kop surat untuk PDF
+     */
+    public static function getKopLogoPath()
+    {
+        // Ganti dengan path logo yang sesuai di sistem Anda
+        return public_path('logo.png');
     }
 }

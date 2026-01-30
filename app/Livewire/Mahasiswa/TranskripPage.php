@@ -6,12 +6,13 @@ use Livewire\Component;
 use Illuminate\Support\Facades\Auth;
 use App\Domains\Mahasiswa\Models\Mahasiswa;
 use App\Domains\Akademik\Models\KrsDetail;
+use Illuminate\Support\Facades\DB;
 
 class TranskripPage extends Component
 {
     public $mahasiswa;
-    // HAPUS property $transkripGrouped dari sini karena menyebabkan error serialization
     
+    // Statistik Akademik
     public $totalSks = 0;
     public $totalMutu = 0;
     public $ipk = 0;
@@ -19,15 +20,21 @@ class TranskripPage extends Component
     public function mount()
     {
         $user = Auth::user();
-        $this->mahasiswa = Mahasiswa::with(['prodi', 'programKelas'])
-            ->where('user_id', $user->id)
+
+        // [SSOT FIX] Validasi koneksi User ke Person
+        if (!$user->person_id) {
+            abort(403, 'Akun Anda belum terhubung dengan Data Personil (SSOT). Silakan hubungi Admin.');
+        }
+
+        // [SSOT FIX] Ambil Mahasiswa berdasarkan person_id
+        $this->mahasiswa = Mahasiswa::with(['prodi.fakultas', 'programKelas', 'person'])
+            ->where('person_id', $user->person_id)
             ->firstOrFail();
     }
 
     public function render()
     {
-        // Pindahkan logika query ke sini agar data segar setiap render
-        // dan tidak perlu diserialisasi oleh Livewire
+        // Ambil riwayat belajar kumulatif (Semua semester yang sudah dipublish)
         $riwayatBelajar = KrsDetail::join('krs', 'krs_detail.krs_id', '=', 'krs.id')
             ->join('ref_tahun_akademik', 'krs.tahun_akademik_id', '=', 'ref_tahun_akademik.id')
             ->join('jadwal_kuliah', 'krs_detail.jadwal_kuliah_id', '=', 'jadwal_kuliah.id')
@@ -42,7 +49,8 @@ class TranskripPage extends Component
                 'master_mata_kuliahs.nama_mk',
                 'master_mata_kuliahs.sks_default'
             )
-            ->orderBy('ref_tahun_akademik.kode_tahun', 'asc')
+            ->orderBy('ref_tahun_akademik.kode_tahun', 'asc') // Urutkan semester
+            ->orderBy('master_mata_kuliahs.kode_mk', 'asc')
             ->get();
 
         // Hitung Statistik IPK
@@ -58,7 +66,7 @@ class TranskripPage extends Component
             $this->ipk = $this->totalMutu / $this->totalSks;
         }
 
-        // Grouping data untuk View
+        // Grouping data per Semester untuk Tampilan
         $transkripGrouped = $riwayatBelajar->groupBy('nama_semester');
 
         return view('livewire.mahasiswa.transkrip-page', [

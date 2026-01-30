@@ -2,7 +2,8 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Domains\Akademik\Models\Dosen;
+use App\Domains\Mahasiswa\Models\Mahasiswa;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -11,10 +12,10 @@ use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable, HasUuids, HasRoles; 
+    use HasFactory, Notifiable, HasUuids, HasRoles;
 
     /**
-     * Karena kita pakai UUID, type key bukan integer lagi.
+     * Menggunakan UUID sebagai Primary Key.
      */
     protected $keyType = 'string';
     public $incrementing = false;
@@ -22,9 +23,11 @@ class User extends Authenticatable
     protected $fillable = [
         'name',
         'email',
-        'username', // Pastikan username masuk fillable
+        'username',
         'password',
+        'role', // Pastikan role ada di sini agar bisa disimpan
         'is_active',
+        'person_id'
     ];
 
     protected $hidden = [
@@ -35,10 +38,46 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
+        'is_active' => 'boolean',
     ];
 
-    public function profileable()
+    /**
+     * Relasi ke Profil Dosen
+     */
+    public function dosen()
     {
-        return $this->morphTo();
+        return $this->hasOne(Dosen::class, 'user_id');
+    }
+
+    /**
+     * Relasi ke Profil Mahasiswa
+     */
+    public function mahasiswa()
+    {
+        return $this->hasOne(Mahasiswa::class, 'user_id');
+    }
+
+    /**
+     * Shortcut Accessor: $user->profileable
+     * Ini akan secara otomatis mengembalikan objek Dosen atau Mahasiswa 
+     * berdasarkan role user tanpa perlu kolom morph di tabel users.
+     */
+    public function getProfileableAttribute()
+    {
+        if ($this->role === 'dosen') {
+            return $this->dosen;
+        }
+
+        if ($this->role === 'mahasiswa') {
+            return $this->mahasiswa;
+        }
+
+        return null;
+    }
+
+    // /person
+    public function person()
+    {
+        return $this->belongsTo(\App\Domains\Core\Models\Person::class, 'person_id');
     }
 }

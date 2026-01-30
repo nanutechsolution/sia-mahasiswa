@@ -16,7 +16,8 @@ class FakultasManager extends Component
     public $fakultasId;
     public $kode_fakultas;
     public $nama_fakultas;
-    public $nama_dekan;
+    // public $nama_dekan; // Dihapus
+
     public $showForm = false;
     public $editMode = false;
 
@@ -31,7 +32,7 @@ class FakultasManager extends Component
 
     public function create()
     {
-        $this->reset(['kode_fakultas', 'nama_fakultas', 'nama_dekan', 'fakultasId']);
+        $this->reset(['kode_fakultas', 'nama_fakultas', 'fakultasId']);
         $this->showForm = true;
         $this->editMode = false;
     }
@@ -42,7 +43,6 @@ class FakultasManager extends Component
         $this->fakultasId = $id;
         $this->kode_fakultas = $f->kode_fakultas;
         $this->nama_fakultas = $f->nama_fakultas;
-        $this->nama_dekan = $f->nama_dekan;
         
         $this->editMode = true;
         $this->showForm = true;
@@ -52,7 +52,6 @@ class FakultasManager extends Component
     {
         $rules = [
             'nama_fakultas' => 'required',
-            'nama_dekan' => 'nullable|string',
         ];
 
         if ($this->editMode) {
@@ -66,7 +65,6 @@ class FakultasManager extends Component
         $data = [
             'kode_fakultas' => $this->kode_fakultas,
             'nama_fakultas' => $this->nama_fakultas,
-            'nama_dekan' => $this->nama_dekan,
         ];
 
         if ($this->editMode) {

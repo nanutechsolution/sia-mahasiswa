@@ -21,14 +21,14 @@ class ManualTagihanManager extends Component
     public $semesterId;
     public $komponenId;
     public $nominal;
-    public $deskripsi; // Opsional: Keterangan tambahan
+    public $deskripsi; // Opsional
 
     public function mount()
     {
         $this->semesterId = SistemHelper::idTahunAktif();
     }
 
-    // Live Search Mahasiswa
+    // Live Search Mahasiswa SSOT
     public function updatedSearchMhs()
     {
         if (strlen($this->searchMhs) < 3) {
@@ -36,8 +36,10 @@ class ManualTagihanManager extends Component
             return;
         }
 
-        $this->searchResults = Mahasiswa::with('prodi')
-            ->where('nama_lengkap', 'like', '%' . $this->searchMhs . '%')
+        $this->searchResults = Mahasiswa::with(['prodi', 'person']) // Eager load person
+            ->whereHas('person', function($q) {
+                $q->where('nama_lengkap', 'like', '%' . $this->searchMhs . '%');
+            })
             ->orWhere('nim', 'like', '%' . $this->searchMhs . '%')
             ->limit(5)
             ->get();
@@ -45,8 +47,8 @@ class ManualTagihanManager extends Component
 
     public function selectMhs($id)
     {
-        $this->selectedMhs = Mahasiswa::with(['prodi', 'programKelas'])->find($id);
-        $this->searchMhs = ''; // Reset search
+        $this->selectedMhs = Mahasiswa::with(['prodi', 'programKelas', 'person'])->find($id);
+        $this->searchMhs = ''; 
         $this->searchResults = [];
     }
 
@@ -57,7 +59,6 @@ class ManualTagihanManager extends Component
 
     public function updatedKomponenId()
     {
-        // Auto-fill deskripsi berdasarkan nama komponen
         if ($this->komponenId) {
             $komponen = KomponenBiaya::find($this->komponenId);
             if ($komponen && empty($this->deskripsi)) {
@@ -96,16 +97,14 @@ class ManualTagihanManager extends Component
             ]);
         });
 
-        session()->flash('success', 'Tagihan manual berhasil dibuat untuk ' . $this->selectedMhs->nama_lengkap);
+        session()->flash('success', 'Tagihan manual berhasil dibuat untuk ' . ($this->selectedMhs->person->nama_lengkap ?? $this->selectedMhs->nim));
         
-        // Reset Form tapi biarkan semester aktif
         $this->reset(['selectedMhs', 'komponenId', 'nominal', 'deskripsi', 'searchMhs']);
     }
 
     public function render()
     {
         $semesters = TahunAkademik::orderBy('kode_tahun', 'desc')->get();
-        // Ambil komponen tipe INSIDENTAL (Denda, Wisuda, Lain-lain) sebagai prioritas, tapi tampilkan semua juga boleh
         $komponens = KomponenBiaya::orderBy('nama_komponen', 'asc')->get();
 
         return view('livewire.admin.keuangan.manual-tagihan-manager', [

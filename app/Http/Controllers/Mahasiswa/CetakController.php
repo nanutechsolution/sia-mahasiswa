@@ -4,97 +4,141 @@ namespace App\Http\Controllers\Mahasiswa;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
-use Barryvdh\DomPDF\Facade\Pdf; // Import Facade PDF
 use App\Domains\Mahasiswa\Models\Mahasiswa;
 use App\Domains\Akademik\Models\Krs;
-use App\Domains\Akademik\Models\KrsDetail;
+use App\Helpers\SistemHelper;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\DB;
 
 class CetakController extends Controller
 {
+    /**
+     * Helper untuk mengambil data Pejabat secara dinamis
+     */
+    private function getPejabat($kodeJabatan, $prodiId = null)
+    {
+        $today = now()->format('Y-m-d');
+
+        $query = DB::table('ref_person as p')
+            ->join('trx_person_jabatan as pj', 'p.id', '=', 'pj.person_id')
+            ->join('ref_jabatan as j', 'pj.jabatan_id', '=', 'j.id')
+            ->where('j.kode_jabatan', $kodeJabatan)
+            ->where('pj.tanggal_mulai', '<=', $today)
+            ->where(function($q) use ($today) {
+                $q->whereNull('pj.tanggal_selesai')
+                  ->orWhere('pj.tanggal_selesai', '>=', $today);
+            });
+
+        if ($prodiId) {
+            $query->where('pj.prodi_id', $prodiId);
+        }
+
+        $person = $query->select('p.nama_lengkap', 'p.nik', 'p.id')->first();
+        
+        if (!$person) return null;
+
+        $gelars = DB::table('trx_person_gelar as tpg')
+            ->join('ref_gelar as rg', 'tpg.gelar_id', '=', 'rg.id')
+            ->where('tpg.person_id', $person->id)
+            ->select('rg.kode', 'rg.posisi')
+            ->orderBy('tpg.urutan', 'asc')
+            ->get();
+
+        $gelarDepan = $gelars->where('posisi', 'DEPAN')->pluck('kode')->implode(' ');
+        $gelarBelakang = $gelars->where('posisi', 'BELAKANG')->pluck('kode')->implode(', ');
+
+        return (object)[
+            'nama' => trim(($gelarDepan ? $gelarDepan . ' ' : '') . $person->nama_lengkap . ($gelarBelakang ? ', ' . $gelarBelakang : '')),
+            'identitas' => $person->nik
+        ];
+    }
+
+    /**
+     * Cetak Kartu Rencana Studi
+     */
     public function cetakKrs()
     {
         $user = Auth::user();
-        $mahasiswa = Mahasiswa::with(['prodi', 'programKelas'])->where('user_id', $user->id)->firstOrFail();
-        
-        // Ambil KRS Semester Ini (Hardcode ID 1 untuk MVP)
-        $krs = Krs::with(['details.jadwalKuliah.mataKuliah', 'details.jadwalKuliah.dosen', 'tahunAkademik'])
+        $mahasiswa = Mahasiswa::with(['prodi.fakultas', 'programKelas', 'dosenWali'])->where('user_id', $user->id)->firstOrFail();
+        $ta = SistemHelper::getTahunAktif();
+
+        $krs = Krs::with(['details.jadwalKuliah.mataKuliah', 'details.jadwalKuliah.dosen'])
             ->where('mahasiswa_id', $mahasiswa->id)
-            ->where('tahun_akademik_id', 1)
+            ->where('tahun_akademik_id', $ta->id)
             ->firstOrFail();
 
-        // Load View khusus PDF
-        $pdf = Pdf::loadView('pdf.cetak-krs', [
+        return Pdf::loadView('pdf.cetak-krs', [
             'mahasiswa' => $mahasiswa,
-            'krs' => $krs,
-            'details' => $krs->details
-        ]);
-
-        // Stream (Tampilkan di browser) atau Download
-        return $pdf->stream('KRS-' . $mahasiswa->nim . '.pdf');
+            'ta' => $ta,
+            'details' => $krs->details,
+            'kaBaak' => $this->getPejabat('KABAAK'),
+            'kaProdi' => $this->getPejabat('KAPRODI', $mahasiswa->prodi_id)
+        ])->setPaper('a4', 'portrait')->stream('KRS-' . $mahasiswa->nim . '.pdf');
     }
 
+    /**
+     * Cetak Kartu Hasil Studi per Semester
+     */
     public function cetakKhs()
     {
         $user = Auth::user();
-        $mahasiswa = Mahasiswa::with(['prodi'])->where('user_id', $user->id)->firstOrFail();
-        
-        $krs = Krs::with(['details.jadwalKuliah.mataKuliah', 'tahunAkademik'])
-            ->where('mahasiswa_id', $mahasiswa->id)
-            ->where('tahun_akademik_id', 1)
-            ->firstOrFail();
+        $mahasiswa = Mahasiswa::with(['prodi.fakultas', 'programKelas'])->where('user_id', $user->id)->firstOrFail();
+        $ta = SistemHelper::getTahunAktif();
 
-        // Filter hanya yang sudah dipublish
-        $details = $krs->details->where('is_published', true);
-
-        $pdf = Pdf::loadView('pdf.cetak-khs', [
-            'mahasiswa' => $mahasiswa,
-            'krs' => $krs,
-            'details' => $details
-        ]);
-
-        return $pdf->stream('KHS-' . $mahasiswa->nim . '.pdf');
-    }
-
-
-     public function cetakTranskrip()
-    {
-        $user = Auth::user();
-        $mahasiswa = Mahasiswa::with(['prodi', 'programKelas'])->where('user_id', $user->id)->firstOrFail();
-
-        // Logic Query sama dengan Livewire TranskripPage
-        $riwayatBelajar = KrsDetail::join('krs', 'krs_detail.krs_id', '=', 'krs.id')
-            ->join('ref_tahun_akademik', 'krs.tahun_akademik_id', '=', 'ref_tahun_akademik.id')
-            ->join('jadwal_kuliah', 'krs_detail.jadwal_kuliah_id', '=', 'jadwal_kuliah.id')
-            ->join('master_mata_kuliahs', 'jadwal_kuliah.mata_kuliah_id', '=', 'master_mata_kuliahs.id')
+        $details = DB::table('krs_detail as kd')
+            ->join('krs', 'kd.krs_id', '=', 'krs.id')
+            ->join('jadwal_kuliah as jk', 'kd.jadwal_kuliah_id', '=', 'jk.id')
+            ->join('master_mata_kuliahs as mk', 'jk.mata_kuliah_id', '=', 'mk.id')
             ->where('krs.mahasiswa_id', $mahasiswa->id)
-            ->where('krs_detail.is_published', true)
-            ->select(
-                'krs_detail.*',
-                'ref_tahun_akademik.nama_tahun as nama_semester',
-                'ref_tahun_akademik.kode_tahun',
-                'master_mata_kuliahs.kode_mk',
-                'master_mata_kuliahs.nama_mk',
-                'master_mata_kuliahs.sks_default'
-            )
-            ->orderBy('ref_tahun_akademik.kode_tahun', 'asc')
+            ->where('krs.tahun_akademik_id', $ta->id)
+            ->where('kd.is_published', true)
+            ->select('kd.*', 'mk.kode_mk', 'mk.nama_mk', 'mk.sks_default')
             ->get();
 
-        // Hitung IPK
-        $totalSks = 0;
-        $totalMutu = 0;
-        foreach ($riwayatBelajar as $mk) {
-            $totalSks += $mk->sks_default;
-            $totalMutu += ($mk->sks_default * $mk->nilai_indeks);
-        }
-        $ipk = ($totalSks > 0) ? $totalMutu / $totalSks : 0;
+        $totalSks = $details->sum('sks_default');
+        $totalMutu = $details->sum(fn($d) => $d->sks_default * $d->nilai_indeks);
+        $ips = $totalSks > 0 ? ($totalMutu / $totalSks) : 0;
 
-        $pdf = Pdf::loadView('pdf.cetak-transkrip', [
+        return Pdf::loadView('pdf.cetak-khs', [
             'mahasiswa' => $mahasiswa,
-            'transkrip' => $riwayatBelajar,
-            'ipk' => $ipk,
-            'totalSks' => $totalSks
-        ]);
+            'ta' => $ta,
+            'details' => $details,
+            'totalSks' => $totalSks,
+            'totalMutu' => $totalMutu,
+            'ips' => $ips,
+            'kaProdi' => $this->getPejabat('KAPRODI', $mahasiswa->prodi_id)
+        ])->setPaper('a4', 'portrait')->stream('KHS-' . $mahasiswa->nim . '.pdf');
+    }
 
-        return $pdf->stream('Transkrip-' . $mahasiswa->nim . '.pdf');
+    /**
+     * Cetak Transkrip Nilai Sementara (Kumulatif)
+     */
+    public function cetakTranskrip()
+    {
+        $user = Auth::user();
+        $mahasiswa = Mahasiswa::with(['prodi.fakultas', 'programKelas'])->where('user_id', $user->id)->firstOrFail();
+
+        // Ambil semua nilai yang sudah dipublish dari seluruh semester
+        $transkrip = DB::table('krs_detail as kd')
+            ->join('krs', 'kd.krs_id', '=', 'krs.id')
+            ->join('jadwal_kuliah as jk', 'kd.jadwal_kuliah_id', '=', 'jk.id')
+            ->join('master_mata_kuliahs as mk', 'jk.mata_kuliah_id', '=', 'mk.id')
+            ->where('krs.mahasiswa_id', $mahasiswa->id)
+            ->where('kd.is_published', true)
+            ->select('mk.kode_mk', 'mk.nama_mk', 'mk.sks_default', 'kd.nilai_huruf', 'kd.nilai_indeks')
+            ->orderBy('mk.kode_mk', 'asc')
+            ->get();
+
+        $totalSks = $transkrip->sum('sks_default');
+        $totalMutu = $transkrip->sum(fn($mk) => $mk->sks_default * $mk->nilai_indeks);
+        $ipk = $totalSks > 0 ? ($totalMutu / $totalSks) : 0;
+
+        return Pdf::loadView('pdf.cetak-transkrip', [
+            'mahasiswa' => $mahasiswa,
+            'transkrip' => $transkrip,
+            'totalSks' => $totalSks,
+            'ipk' => $ipk,
+            'kaProdi' => $this->getPejabat('KAPRODI', $mahasiswa->prodi_id)
+        ])->setPaper('a4', 'portrait')->stream('Transkrip-' . $mahasiswa->nim . '.pdf');
     }
 }

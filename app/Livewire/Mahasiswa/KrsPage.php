@@ -41,35 +41,58 @@ class KrsPage extends Component
             return;
         }
 
-        $this->mahasiswa = Mahasiswa::with(['programKelas', 'prodi'])
-            ->where('user_id', Auth::id())
+        // [SSOT FIX] Ambil Mahasiswa via Person ID dari User
+        $user = Auth::user();
+        if (!$user->person_id) {
+            abort(403, 'Akun Anda belum terhubung dengan Data Personil (SSOT). Hubungi Admin.');
+        }
+
+        $this->mahasiswa = Mahasiswa::with(['programKelas', 'prodi', 'person', 'dosenWali.person'])
+            ->where('person_id', $user->person_id)
             ->firstOrFail();
 
-        // CEK NIM SEMENTARA (CAMABA)
+        // --- CEK NIM SEMENTARA (CAMABA) ---
         if (str_contains(strtoupper($this->mahasiswa->nim), 'PMB') || strlen($this->mahasiswa->nim) > 15) {
             $this->blockKrs = true;
+
+            // Cek status pembayaran & Dispensasi
             $tagihan = TagihanMahasiswa::where('mahasiswa_id', $this->mahasiswa->id)
                 ->where('tahun_akademik_id', $this->tahunAkademikId)
                 ->first();
             
+            $persenBayar = 0;
+            if ($tagihan && $tagihan->total_tagihan > 0) {
+                $persenBayar = ($tagihan->total_bayar / $tagihan->total_tagihan) * 100;
+            } else if ($tagihan && $tagihan->total_tagihan == 0) {
+                $persenBayar = 100;
+            }
+
+            $minBayar = $this->mahasiswa->programKelas->min_pembayaran_persen ?? 50;
+            $isDispensasi = $this->mahasiswa->data_tambahan['bebas_keuangan'] ?? false;
+
             if ($tagihan && $tagihan->status_bayar == 'LUNAS') {
                 $this->pesanBlock = 'Pembayaran Daftar Ulang Anda sudah LUNAS. Mohon tunggu Bagian Akademik (BAAK) menerbitkan NIM Resmi Anda.';
+            } elseif ($isDispensasi) {
+                $this->pesanBlock = 'Anda mendapatkan DISPENSASI KEUANGAN. Mohon segera hubungi Admin BAAK/Prodi untuk penerbitan NIM Resmi.';
             } else {
-                $this->pesanBlock = 'Status Anda masih CALON MAHASISWA. Silakan selesaikan pembayaran Daftar Ulang agar NIM Resmi diterbitkan.';
+                $this->pesanBlock = "Status Anda masih CALON MAHASISWA. Pembayaran Anda " . number_format($persenBayar, 0) . "% (Min: {$minBayar}%). Silakan lunasi tagihan agar NIM diterbitkan.";
             }
             return; 
         }
 
+        // 1. Cek Dosen Wali
         if (!$this->blockKrs && !$this->mahasiswa->dosen_wali_id) {
             $this->blockKrs = true;
-            $this->pesanBlock = 'Anda belum memiliki Dosen Wali (PA). Silakan hubungi Admin Prodi untuk plotting PA sebelum mengisi KRS.';
+            $this->pesanBlock = 'Anda belum memiliki Dosen Wali (PA). Silakan hubungi Admin Prodi untuk plotting PA.';
         }
 
+        // 2. Cek Jadwal
         if (!$this->blockKrs && !SistemHelper::isMasaKrsOpen()) {
             $this->blockKrs = true;
             $this->pesanBlock = 'Masa pengisian KRS telah berakhir.';
         }
 
+        // 3. Cek Keuangan
         if (!$this->blockKrs) {
             $this->cekStatusKeuangan();
         }
@@ -106,6 +129,9 @@ class KrsPage extends Component
             'semesterMap' => $semesterMap
         ]);
     }
+    
+    // ... Method hitungMaxSks, cekStatusKeuangan, loadKrsHeader TETAP SAMA ...
+    // (Pastikan method-method tersebut ada di file Anda seperti versi sebelumnya)
     
     public function hitungMaxSks()
     {
@@ -158,8 +184,6 @@ class KrsPage extends Component
             : 100;
         
         $minBayar = $this->mahasiswa->programKelas->min_pembayaran_persen ?? 50;
-        
-        // Cek Dispensasi Khusus
         $dispensasi = $this->mahasiswa->data_tambahan['bebas_keuangan'] ?? false;
 
         if ($persenBayar < $minBayar && !$dispensasi) {
@@ -177,15 +201,8 @@ class KrsPage extends Component
         if ($this->blockKrs && (str_contains($this->pesanBlock, 'CALON MAHASISWA') || str_contains($this->pesanBlock, 'Pembayaran Daftar Ulang') || str_contains($this->pesanBlock, 'DISPENSASI'))) return;
 
         $krs = Krs::firstOrCreate(
-            [
-                'mahasiswa_id' => $this->mahasiswa->id,
-                'tahun_akademik_id' => $this->tahunAkademikId
-            ],
-            [
-                'status_krs' => 'DRAFT',
-                'tgl_krs' => now(),
-                'dosen_wali_id' => $this->mahasiswa->dosen_wali_id 
-            ]
+            ['mahasiswa_id' => $this->mahasiswa->id, 'tahun_akademik_id' => $this->tahunAkademikId],
+            ['status_krs' => 'DRAFT', 'tgl_krs' => now(), 'dosen_wali_id' => $this->mahasiswa->dosen_wali_id]
         );
         
         $this->krsId = $krs->id;
@@ -196,12 +213,9 @@ class KrsPage extends Component
     {
         if (!$this->tahunAkademikId) return [];
 
-        $takenJadwalIds = [];
-        if ($this->krsDiambil) {
-            $takenJadwalIds = $this->krsDiambil->pluck('jadwal_kuliah_id')->toArray();
-        }
+        $takenJadwalIds = $this->krsDiambil ? $this->krsDiambil->pluck('jadwal_kuliah_id')->toArray() : [];
 
-        return JadwalKuliah::with(['mataKuliah', 'dosen'])
+        return JadwalKuliah::with(['mataKuliah', 'dosen.person']) // Load person dosen
             ->where('tahun_akademik_id', $this->tahunAkademikId)
             ->where(function($q) {
                 $q->whereNull('id_program_kelas_allow')
@@ -215,119 +229,70 @@ class KrsPage extends Component
     public function getKrsDiambilProperty()
     {
         if (!$this->krsId) return collect();
-
         return KrsDetail::with(['jadwalKuliah.mataKuliah', 'jadwalKuliah.dosen'])
-            ->where('krs_id', $this->krsId)
-            ->get();
+            ->where('krs_id', $this->krsId)->get();
     }
 
     public function ambilMatkul($jadwalId)
     {
-        if ($this->blockKrs) return;
-        
-        if ($this->statusKrs !== 'DRAFT') {
-            session()->flash('error', 'KRS sudah diajukan/disetujui. Tidak bisa ubah KRS.');
-            return;
-        }
+        if ($this->blockKrs || $this->statusKrs !== 'DRAFT') return;
 
         $jadwal = JadwalKuliah::with('mataKuliah')->find($jadwalId);
         if (!$jadwal) return;
 
-        // 1. Validasi Batas SKS
         $sksBaru = $jadwal->mataKuliah->sks_default;
-        
         if (($this->totalSks + $sksBaru) > $this->maxSks) {
-            session()->flash('error', "Gagal ambil: Total SKS akan melebihi batas maksimal ({$this->maxSks} SKS).");
+            session()->flash('error', "Gagal ambil: Melebihi batas {$this->maxSks} SKS.");
             return;
         }
 
-        // 2. VALIDASI PRASYARAT (BARU)
-        $kurikulum = Kurikulum::where('prodi_id', $this->mahasiswa->prodi_id)
-            ->where('is_active', true)
-            ->orderBy('tahun_mulai', 'desc')
-            ->first();
-
+        // Cek Prasyarat (Simplified)
+        $kurikulum = Kurikulum::where('prodi_id', $this->mahasiswa->prodi_id)->where('is_active', true)->orderBy('tahun_mulai', 'desc')->first();
         if ($kurikulum) {
-            $syarat = DB::table('kurikulum_mata_kuliah')
-                ->where('kurikulum_id', $kurikulum->id)
-                ->where('mata_kuliah_id', $jadwal->mata_kuliah_id)
-                ->first();
-
+            $syarat = DB::table('kurikulum_mata_kuliah')->where('kurikulum_id', $kurikulum->id)->where('mata_kuliah_id', $jadwal->mata_kuliah_id)->first();
             if ($syarat && $syarat->prasyarat_mk_id) {
-                // Cek apakah sudah lulus MK Prasyarat (Nilai bukan E)
                 $sudahLulus = KrsDetail::join('krs', 'krs_detail.krs_id', '=', 'krs.id')
                     ->join('jadwal_kuliah', 'krs_detail.jadwal_kuliah_id', '=', 'jadwal_kuliah.id')
                     ->where('krs.mahasiswa_id', $this->mahasiswa->id)
                     ->where('jadwal_kuliah.mata_kuliah_id', $syarat->prasyarat_mk_id)
                     ->where('krs_detail.is_published', true)
-                    ->where('krs_detail.nilai_huruf', '!=', 'E') // Minimal lulus
-                    ->exists();
-
+                    ->where('krs_detail.nilai_huruf', '!=', 'E')->exists();
                 if (!$sudahLulus) {
-                    $namaPrasyarat = MataKuliah::find($syarat->prasyarat_mk_id)->nama_mk ?? 'Unknown';
-                    session()->flash('error', "Gagal ambil: Anda belum lulus mata kuliah prasyarat: {$namaPrasyarat}");
+                    $nm = MataKuliah::find($syarat->prasyarat_mk_id)->nama_mk ?? 'Unknown';
+                    session()->flash('error', "Belum lulus prasyarat: {$nm}");
                     return;
                 }
             }
         }
 
         try {
-            KrsDetail::create([
-                'krs_id' => $this->krsId,
-                'jadwal_kuliah_id' => $jadwalId,
-                'status_ambil' => 'B'
-            ]);
-            
+            KrsDetail::create(['krs_id' => $this->krsId, 'jadwal_kuliah_id' => $jadwalId, 'status_ambil' => 'B']);
             session()->flash('success', 'Mata kuliah berhasil diambil.');
-        } catch (\Exception $e) {
-            session()->flash('error', 'Gagal: MK sudah diambil.');
-        }
+        } catch (\Exception $e) { session()->flash('error', 'Gagal: MK sudah diambil.'); }
     }
 
     public function hapusMatkul($detailId)
     {
-        if ($this->statusKrs !== 'DRAFT') {
-            session()->flash('error', 'KRS terkunci.');
-            return;
-        }
-
+        if ($this->statusKrs !== 'DRAFT') return;
         KrsDetail::destroy($detailId);
     }
 
     public function ajukanKrs()
     {
-        unset($this->krsDiambil);
-        $this->hitungSks();
-
-        if ($this->totalSks < 2) {
-            session()->flash('error', 'Minimal ambil 2 SKS untuk mengajukan.');
-            return;
-        }
-
-        $krs = Krs::find($this->krsId);
+        unset($this->krsDiambil); $this->hitungSks();
+        if ($this->totalSks < 2) { session()->flash('error', 'Minimal 2 SKS.'); return; }
         
+        $krs = Krs::find($this->krsId);
         if ($krs) {
-            $krs->update([
-                'status_krs' => 'AJUKAN',
-                'tgl_krs' => now()
-            ]);
-
+            $krs->update(['status_krs' => 'AJUKAN', 'tgl_krs' => now()]);
             $this->statusKrs = 'AJUKAN';
-            session()->flash('success', 'KRS Berhasil diajukan ke Dosen Wali. Menunggu Persetujuan.');
-        } else {
-            session()->flash('error', 'Data KRS tidak ditemukan.');
+            session()->flash('success', 'KRS Berhasil diajukan.');
         }
     }
-
+    
     public function hitungSks()
     {
-        if (!$this->krsDiambil) {
-            $this->totalSks = 0;
-            return;
-        }
-        
-        $this->totalSks = $this->krsDiambil->sum(function($detail) {
-            return $detail->jadwalKuliah->mataKuliah->sks_default ?? 0;
-        });
+        if (!$this->krsDiambil) { $this->totalSks = 0; return; }
+        $this->totalSks = $this->krsDiambil->sum(function($detail) { return $detail->jadwalKuliah->mataKuliah->sks_default ?? 0; });
     }
 }

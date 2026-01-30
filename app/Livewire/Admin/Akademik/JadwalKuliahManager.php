@@ -11,18 +11,19 @@ use App\Domains\Akademik\Models\MataKuliah;
 use App\Domains\Akademik\Models\Dosen;
 use App\Domains\Core\Models\ProgramKelas;
 use App\Helpers\SistemHelper;
-use Carbon\Carbon; // Pastikan import Carbon
+use Carbon\Carbon;
 
 class JadwalKuliahManager extends Component
 {
     use WithPagination;
 
-    // Filter State
+    // Filter Table State
     public $filterSemesterId;
     public $filterProdiId;
 
     // Form State
     public $jadwalId;
+    public $form_prodi_id; 
     public $mata_kuliah_id;
     public $dosen_id;
     public $nama_kelas;
@@ -33,8 +34,31 @@ class JadwalKuliahManager extends Component
     public $kuota_kelas = 40;
     public $id_program_kelas_allow;
 
+    // Searchable Select State
+    public $searchMk = '';
+    public $searchDosen = '';
+    public $selectedMkName = '';
+    public $selectedDosenName = '';
+
     public $showForm = false;
     public $editMode = false;
+
+    // [BARU] Custom Error Messages Bahasa Indonesia
+    protected $messages = [
+        'form_prodi_id.required' => 'Mohon pilih Program Studi terlebih dahulu.',
+        'mata_kuliah_id.required' => 'Mata Kuliah wajib dipilih.',
+        'dosen_id.required' => 'Dosen Pengampu wajib dipilih dari daftar.',
+        'nama_kelas.required' => 'Identitas Kelas (A/B/Pagi) wajib diisi.',
+        'nama_kelas.max' => 'Nama Kelas terlalu panjang (maksimal 10 karakter).',
+        'hari.required' => 'Hari perkuliahan wajib ditentukan.',
+        'jam_mulai.required' => 'Jam mulai perkuliahan wajib diisi.',
+        'jam_selesai.required' => 'Jam selesai perkuliahan wajib diisi.',
+        'jam_selesai.after' => 'Jam selesai harus lebih akhir dari jam mulai.',
+        'ruang.required' => 'Ruangan kelas wajib diisi.',
+        'kuota_kelas.required' => 'Kuota mahasiswa wajib diisi.',
+        'kuota_kelas.min' => 'Kuota kelas minimal harus 1 mahasiswa.',
+        'kuota_kelas.integer' => 'Kuota harus berupa angka bulat.',
+    ];
 
     public function mount()
     {
@@ -43,18 +67,64 @@ class JadwalKuliahManager extends Component
         $this->filterProdiId = $firstProdi ? $firstProdi->id : null;
     }
 
+    public function updatedFormProdiId()
+    {
+        $this->reset(['mata_kuliah_id', 'selectedMkName', 'searchMk']);
+    }
+
+    public function updatedShowForm($value)
+    {
+        if (!$value) {
+            $this->resetSearch();
+        }
+    }
+
+    public function resetSearch()
+    {
+        $this->reset(['searchMk', 'searchDosen', 'selectedMkName', 'selectedDosenName']);
+    }
+
+    public function pilihMk($id, $nama, $kode, $sks)
+    {
+        $this->mata_kuliah_id = $id;
+        $this->selectedMkName = "{$kode} - {$nama} ({$sks} SKS)";
+        $this->searchMk = '';
+    }
+
+    public function pilihDosen($id, $nama)
+    {
+        $this->dosen_id = $id;
+        $this->selectedDosenName = $nama;
+        $this->searchDosen = '';
+    }
+
     public function render()
     {
         $semesters = TahunAkademik::orderBy('kode_tahun', 'desc')->get();
         $prodis = Prodi::all();
         $programKelasList = ProgramKelas::where('is_active', true)->get();
 
-        $mks = [];
+        $formMks = [];
+        if ($this->showForm && $this->form_prodi_id) {
+            $formMks = MataKuliah::where('prodi_id', $this->form_prodi_id)
+                ->where(function($q) {
+                    $q->where('nama_mk', 'like', '%'.$this->searchMk.'%')
+                      ->orWhere('kode_mk', 'like', '%'.$this->searchMk.'%');
+                })
+                ->orderBy('nama_mk')
+                ->take(10)
+                ->get();
+        }
+
         $dosens = [];
-        
-        if ($this->filterProdiId) {
-            $mks = MataKuliah::where('prodi_id', $this->filterProdiId)->orderBy('nama_mk')->get();
-            $dosens = Dosen::where('is_active', true)->orderBy('nama_lengkap_gelar')->get();
+        if ($this->showForm) {
+            $dosens = Dosen::join('ref_person', 'trx_dosen.person_id', '=', 'ref_person.id')
+                ->where('trx_dosen.is_active', true)
+                ->where('ref_person.nama_lengkap', 'like', '%'.$this->searchDosen.'%')
+                ->orderBy('ref_person.nama_lengkap', 'asc')
+                ->select('trx_dosen.id', 'ref_person.nama_lengkap', 'trx_dosen.nidn')
+                ->take(10)
+                ->get();
         }
 
         $jadwals = JadwalKuliah::with(['mataKuliah', 'dosen', 'programKelasAllow'])
@@ -70,7 +140,7 @@ class JadwalKuliahManager extends Component
             'jadwals' => $jadwals,
             'semesters' => $semesters,
             'prodis' => $prodis,
-            'mks' => $mks,
+            'formMks' => $formMks,
             'dosens' => $dosens,
             'programKelasList' => $programKelasList,
             'hariList' => ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']
@@ -80,16 +150,25 @@ class JadwalKuliahManager extends Component
     public function create()
     {
         $this->resetForm();
+        $this->resetSearch();
+        $this->form_prodi_id = $this->filterProdiId; 
         $this->showForm = true;
         $this->editMode = false;
     }
 
     public function edit($id)
     {
-        $jadwal = JadwalKuliah::find($id);
+        $jadwal = JadwalKuliah::with(['mataKuliah', 'dosen'])->find($id);
         $this->jadwalId = $id;
+        
+        $this->form_prodi_id = $jadwal->mataKuliah->prodi_id; 
+        
         $this->mata_kuliah_id = $jadwal->mata_kuliah_id;
         $this->dosen_id = $jadwal->dosen_id;
+        
+        $this->selectedMkName = "{$jadwal->mataKuliah->kode_mk} - {$jadwal->mataKuliah->nama_mk} ({$jadwal->mataKuliah->sks_default} SKS)";
+        $this->selectedDosenName = $jadwal->dosen->nama_lengkap_gelar;
+
         $this->nama_kelas = $jadwal->nama_kelas;
         $this->hari = $jadwal->hari;
         $this->jam_mulai = Carbon::parse($jadwal->jam_mulai)->format('H:i');
@@ -105,6 +184,7 @@ class JadwalKuliahManager extends Component
     public function save()
     {
         $this->validate([
+            'form_prodi_id' => 'required',
             'mata_kuliah_id' => 'required',
             'dosen_id' => 'required',
             'nama_kelas' => 'required|max:10',
@@ -115,10 +195,8 @@ class JadwalKuliahManager extends Component
             'kuota_kelas' => 'required|integer|min:1',
         ]);
 
-        // CEK BENTROK DETIL
         if ($pesanError = $this->cekBentrok()) {
             session()->flash('error', $pesanError);
-            // Trigger event browser untuk scroll ke atas (ditangkap oleh JS di view)
             $this->dispatch('scroll-to-top'); 
             return; 
         }
@@ -144,17 +222,14 @@ class JadwalKuliahManager extends Component
             session()->flash('success', 'Jadwal baru berhasil ditambahkan.');
         }
 
-        $this->dispatch('scroll-to-top'); // Scroll ke atas juga saat sukses
+        $this->dispatch('scroll-to-top'); 
         $this->resetForm();
         $this->showForm = false;
     }
 
-    /**
-     * Logika Deteksi Bentrok dengan Pesan Detail
-     */
     private function cekBentrok()
     {
-        $query = JadwalKuliah::with(['mataKuliah', 'dosen']) // Eager load relasi
+        $query = JadwalKuliah::with(['mataKuliah', 'dosen'])
             ->where('tahun_akademik_id', $this->filterSemesterId)
             ->where('hari', $this->hari)
             ->where(function($q) {
@@ -166,19 +241,17 @@ class JadwalKuliahManager extends Component
             $query->where('id', '!=', $this->jadwalId);
         }
 
-        // A. Cek Bentrok Ruangan
         $bentrokRuang = (clone $query)->where('ruang', $this->ruang)->first();
         if ($bentrokRuang) {
             $jam = Carbon::parse($bentrokRuang->jam_mulai)->format('H:i') . ' - ' . Carbon::parse($bentrokRuang->jam_selesai)->format('H:i');
-            return "GAGAL SIMPAN: Ruang {$this->ruang} SEDANG DIPAKAI pada jam {$jam} untuk mata kuliah {$bentrokRuang->mataKuliah->nama_mk} (Kelas {$bentrokRuang->nama_kelas}).";
+            return "KONFLIK RUANGAN: Ruang {$this->ruang} sudah digunakan oleh mata kuliah {$bentrokRuang->mataKuliah->nama_mk} (Kelas {$bentrokRuang->nama_kelas}) pada jam {$jam}.";
         }
 
-        // B. Cek Bentrok Dosen
         $bentrokDosen = (clone $query)->where('dosen_id', $this->dosen_id)->first();
         if ($bentrokDosen) {
             $jam = Carbon::parse($bentrokDosen->jam_mulai)->format('H:i') . ' - ' . Carbon::parse($bentrokDosen->jam_selesai)->format('H:i');
             $namaDosen = $bentrokDosen->dosen->nama_lengkap_gelar ?? 'Dosen';
-            return "GAGAL SIMPAN: Dosen {$namaDosen} SEDANG MENGAJAR di tempat lain pada jam {$jam} (MK: {$bentrokDosen->mataKuliah->nama_mk} - Ruang {$bentrokDosen->ruang}).";
+            return "KONFLIK DOSEN: {$namaDosen} sudah memiliki jadwal mengajar MK {$bentrokDosen->mataKuliah->nama_mk} di tempat lain pada jam {$jam}.";
         }
         
         return null;
@@ -192,7 +265,7 @@ class JadwalKuliahManager extends Component
 
     public function resetForm()
     {
-        $this->reset(['jadwalId', 'mata_kuliah_id', 'dosen_id', 'nama_kelas', 'hari', 'jam_mulai', 'jam_selesai', 'ruang', 'kuota_kelas', 'id_program_kelas_allow']);
+        $this->reset(['jadwalId', 'form_prodi_id', 'mata_kuliah_id', 'dosen_id', 'nama_kelas', 'hari', 'jam_mulai', 'jam_selesai', 'ruang', 'kuota_kelas', 'id_program_kelas_allow', 'searchMk', 'searchDosen', 'selectedMkName', 'selectedDosenName']);
         $this->kuota_kelas = 40;
     }
 

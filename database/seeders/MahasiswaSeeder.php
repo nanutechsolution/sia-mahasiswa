@@ -9,77 +9,89 @@ use App\Domains\Mahasiswa\Models\Mahasiswa;
 use App\Domains\Core\Models\Prodi;
 use App\Domains\Core\Models\ProgramKelas;
 use App\Domains\Akademik\Models\Dosen;
+use App\Domains\Core\Models\Person as ModelsPerson;
 
 class MahasiswaSeeder extends Seeder
 {
     public function run(): void
     {
-        // Ambil Referensi Data
+        // 1. Ambil Referensi Data
         $prodiTi = Prodi::where('kode_prodi_internal', 'TI')->first();
         $progReg = ProgramKelas::where('kode_internal', 'REG')->first();
         $progEks = ProgramKelas::where('kode_internal', 'EKS')->first();
         $dosenWali = Dosen::first(); 
 
         if (!$prodiTi || !$progReg) {
-            // Safety check jika master data belum ada
+            $this->command->error('Data Prodi atau Program Kelas belum ada. Jalankan ReferenceSeeder dulu.');
             return;
         }
 
         // === MAHASISWA 1: REGULER (Si Budi) ===
-        // Cari User Budi yang dibuat UserSeeder
-        $userBudi = User::where('username', '2401001')->first();
-        
-        if ($userBudi) {
-            Mahasiswa::firstOrCreate(
-                ['nim' => '2401001'], // Kunci pencarian
-                [
-                    'user_id' => $userBudi->id,
-                    'nama_lengkap' => $userBudi->name,
-                    'angkatan_id' => 2024,
-                    'prodi_id' => $prodiTi->id,
-                    'program_kelas_id' => $progReg->id,
-                    'dosen_wali_id' => $dosenWali?->id,
-                    'created_at' => now(),
-                ]
-            );
-        }
+        $this->seedMahasiswa(
+            '2401001', 
+            'Budi Santoso (Reguler)', 
+            'budi@mhs.unmaris.ac.id',
+            $prodiTi, 
+            $progReg, 
+            $dosenWali
+        );
 
         // === MAHASISWA 2: EKSTENSI (Si Ani) ===
-        $userAni = User::where('username', '2401002')->first();
-        
-        if ($userAni) {
-            Mahasiswa::firstOrCreate(
-                ['nim' => '2401002'],
-                [
-                    'user_id' => $userAni->id,
-                    'nama_lengkap' => $userAni->name,
-                    'angkatan_id' => 2024,
-                    'prodi_id' => $prodiTi->id,
-                    'program_kelas_id' => $progEks->id,
-                    'dosen_wali_id' => $dosenWali?->id,
-                    'created_at' => now(),
-                ]
-            );
+        $this->seedMahasiswa(
+            '2401002', 
+            'Ani Wijaya (Ekstensi)', 
+            'ani@mhs.unmaris.ac.id',
+            $prodiTi, 
+            $progEks, 
+            $dosenWali
+        );
+    }
+
+    private function seedMahasiswa($nim, $nama, $email, $prodi, $programKelas, $dosenWali)
+    {
+        // A. Buat/Cari Identitas Person (Pusat Data)
+        $person = ModelsPerson::firstOrCreate(
+            ['nama_lengkap' => $nama], // Cari berdasarkan nama
+            [
+                'email' => $email,
+                'jenis_kelamin' => 'L', // Default dummy
+                'created_at' => now(),
+            ]
+        );
+
+        // B. Hubungkan User Login ke Person (Update kolom person_id di users)
+        $user = User::where('username', $nim)->first();
+        if ($user) {
+            $user->update(['person_id' => $person->id]);
         }
 
-        // Setup Riwayat Status Aktif untuk Semester Ini
+        // C. Buat Data Akademik Mahasiswa (Link ke Person, HANYA DATA AKADEMIK)
+        // Perhatikan: Kita TIDAK memasukkan 'nama_lengkap', 'email_pribadi' dll 
+        // ke tabel mahasiswas karena kolom tersebut sudah dihapus (SSOT).
+        $mhs = Mahasiswa::firstOrCreate(
+            ['nim' => $nim],
+            [
+                'person_id' => $person->id, // Link ke identitas
+                'angkatan_id' => 2024,
+                'prodi_id' => $prodi->id,
+                'program_kelas_id' => $programKelas->id,
+                'dosen_wali_id' => $dosenWali?->id,
+                // 'data_tambahan' bisa diisi jika perlu
+                'created_at' => now(),
+            ]
+        );
+
+        // D. Setup Riwayat Status Aktif untuk Semester Ini
         $ta = DB::table('ref_tahun_akademik')->where('is_active', true)->first();
         if ($ta) {
-            $mhsBudi = Mahasiswa::where('nim', '2401001')->first();
-            if ($mhsBudi) {
-                DB::table('riwayat_status_mahasiswas')->updateOrInsert(
-                    ['mahasiswa_id' => $mhsBudi->id, 'tahun_akademik_id' => $ta->id],
-                    ['status_kuliah' => 'A', 'created_at' => now()]
-                );
-            }
-            
-            $mhsAni = Mahasiswa::where('nim', '2401002')->first();
-            if ($mhsAni) {
-                DB::table('riwayat_status_mahasiswas')->updateOrInsert(
-                    ['mahasiswa_id' => $mhsAni->id, 'tahun_akademik_id' => $ta->id],
-                    ['status_kuliah' => 'A', 'created_at' => now()]
-                );
-            }
+            DB::table('riwayat_status_mahasiswas')->updateOrInsert(
+                ['mahasiswa_id' => $mhs->id, 'tahun_akademik_id' => $ta->id],
+                [
+                    'status_kuliah' => 'A', // Aktif
+                    'created_at' => now(),
+                    'updated_at' => now()
+                ]
+            );
         }
     }
 }
