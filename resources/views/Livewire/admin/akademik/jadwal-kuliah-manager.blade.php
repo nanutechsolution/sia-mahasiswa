@@ -213,12 +213,16 @@
                     Batal
                 </button>
 
-                {{-- Tombol Simpan --}}
                 <button wire:click="save"
-                    class="px-8 py-2.5 bg-[#002855] text-white rounded-xl text-sm font-bold shadow-lg hover:bg-[#001a38] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    class="px-8 py-2.5 bg-[#002855] text-white rounded-xl text-sm font-bold shadow-lg 
+           transform transition-all duration-200 ease-in-out 
+           hover:scale-105 hover:shadow-xl 
+           active:scale-95 active:shadow-inner 
+           disabled:opacity-50 disabled:cursor-not-allowed"
                     @if($conflictMessage) disabled @endif>
                     Simpan Data
                 </button>
+
 
                 {{-- PESAN KONFLIK DI SAMPING TOMBOL --}}
                 @if($conflictMessage)
