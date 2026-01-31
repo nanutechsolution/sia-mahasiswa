@@ -51,8 +51,15 @@ class SkalaNilaiSeeder extends Seeder
         ];
 
         foreach ($data as $item) {
-            // Menggunakan updateOrCreate agar tidak duplikat jika dijalankan berkali-kali
-            SkalaNilai::updateOrCreate(['huruf' => $item['huruf']], $item);
+            SkalaNilai::updateOrCreate(
+                ['huruf' => $item['huruf']], // Kunci pencarian
+                array_merge($item, [
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ])
+            );
         }
+
+        $this->command->info('Skala nilai berhasil di-generate.');
     }
 }

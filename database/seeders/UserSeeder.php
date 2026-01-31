@@ -23,7 +23,7 @@ class UserSeeder extends Seeder
         );
         $super->assignRole('superadmin'); // Spatie Role
 
-        // 2. Admin Keuangan (Biro Keuangan)
+        // 2. Admin Keuangan (Biro Keuangan / BAUK)
         $keuangan = User::firstOrCreate(
             ['username' => 'admin_keuangan'],
             [
@@ -34,9 +34,9 @@ class UserSeeder extends Seeder
                 'is_active' => true,
             ]
         );
-        $keuangan->assignRole('keuangan');
+        $keuangan->assignRole('bauk');
 
-        // 3. Admin BAAK (Biro Administrasi Akademik)
+        // 3. Admin BAAK (Biro Administrasi Akademik / BARA)
         $baak = User::firstOrCreate(
             ['username' => 'admin_baak'],
             [
@@ -47,7 +47,7 @@ class UserSeeder extends Seeder
                 'is_active' => true,
             ]
         );
-        $baak->assignRole('baak');
+        $baak->assignRole('bara');
 
         // 4. Admin LPM (Lembaga Penjaminan Mutu - Optional)
         $lpm = User::firstOrCreate(
@@ -100,5 +100,7 @@ class UserSeeder extends Seeder
             ]
         );
         $mhs2->assignRole('mahasiswa');
+
+        $this->command->info('User seeder berhasil dijalankan. Gunakan password: password');
     }
 }

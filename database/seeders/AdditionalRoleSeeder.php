@@ -21,7 +21,7 @@ class AdditionalRoleSeeder extends Seeder
          */
         $roleMap = [
             // Superadmin: Memiliki akses ke SELURUH permission yang ada di sistem
-            'superadmin' => ['*'], 
+            'superadmin' => ['*'],
 
             // Admin: Operator utama sistem
             'admin' => [
@@ -43,15 +43,14 @@ class AdditionalRoleSeeder extends Seeder
             // User Role: Default tanpa permission khusus panel admin
             'dosen' => [],
             'mahasiswa' => [],
-            
-            // --- AREA PENGEMBANGAN MASA DEPAN (Cukup Uncomment/Tambah) ---
+            'lpm' => [],
             // 'pustakawan' => ['akses_modul_perpustakaan'],
             // 'aset'       => ['akses_modul_inventaris'],
             // 'alumni'     => ['akses_modul_karir'],
         ];
 
         // 2. EKSEKUSI OTOMATIS (JANGAN DIUBAH)
-        
+
         // A. Kumpulkan semua permission unik dari konfigurasi diatas
         // (Mengambil semua value array, membuang tanda '*', dan membuatnya unik)
         $allPermissions = collect($roleMap)
@@ -78,7 +77,7 @@ class AdditionalRoleSeeder extends Seeder
                 $role->syncPermissions($permissions);
             }
         }
-        
+
         $this->command->info('Role & Permission berhasil disinkronisasi dengan konfigurasi master.');
     }
 }
