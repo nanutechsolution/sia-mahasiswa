@@ -6,6 +6,7 @@ use Livewire\Component;
 use Livewire\WithPagination;
 use App\Domains\Keuangan\Models\TagihanMahasiswa;
 use App\Domains\Keuangan\Models\PembayaranMahasiswa;
+use App\Domains\Keuangan\Models\KeuanganSaldoTransaction;
 use App\Domains\Core\Models\Prodi;
 use App\Domains\Core\Models\TahunAkademik;
 use App\Domains\Core\Models\ProgramKelas;
@@ -17,20 +18,22 @@ class LaporanKeuangan extends Component
 {
     use WithPagination;
 
-    // Filter State
+    // Filters
     public $semesterId;
     public $filterProdiId;
     public $filterProgramKelasId;
     public $filterAngkatan;
-    public $filterStatus; // LUNAS, CICIL, BELUM, LEBIH_BAYAR (Anomali)
+    public $filterStatus; // LUNAS, CICIL, BELUM, LEBIH_BAYAR
     public $search = '';
 
     // UI State
     public $showDetailModal = false;
     public $selectedTagihan = null;
-    public $viewMode = 'dashboard'; // 'dashboard' or 'table_only'
+    
+    // Audit Data
+    public $auditTimeline = [];
 
-    // Statistik Global
+    // Statistik Dashboard
     public $globalStats = [];
 
     public function mount()
@@ -39,19 +42,20 @@ class LaporanKeuangan extends Component
         $this->calculateGlobalStats();
     }
 
-    public function updated($fields)
-    {
-        $this->resetPage();
-        $this->calculateGlobalStats(); // Recalculate saat filter berubah
+    public function updated($fields) 
+    { 
+        $this->resetPage(); 
+        $this->calculateGlobalStats(); 
     }
-
-    // --- ANALYTICS ENGINE (POWERFULL FEATURE) ---
     
+    // --- ANALYTICS ENGINE (REAL-TIME) ---
+
     public function calculateGlobalStats()
     {
-        // Query Dasar (Sesuai Filter)
-        $query = $this->buildQuery(true); // true = skip order/paginate
+        $query = $this->buildQuery(true); // Query tanpa limit/order
 
+        // Menggunakan subquery/join untuk menghitung net value secara akurat di level database
+        // Namun untuk performa di Livewire, kita gunakan agregasi kasar dulu, detail di row table
         $aggregates = $query->selectRaw('
             SUM(total_tagihan) as total_bill, 
             SUM(total_bayar) as total_paid,
@@ -71,66 +75,28 @@ class LaporanKeuangan extends Component
         ];
     }
 
-    /**
-     * Mengambil Performa Pembayaran Per Prodi (Untuk Grafik/Bar)
-     */
-    public function getProdiPerformanceProperty()
-    {
-        return TagihanMahasiswa::where('tahun_akademik_id', $this->semesterId)
-            ->join('mahasiswas', 'tagihan_mahasiswas.mahasiswa_id', '=', 'mahasiswas.id')
-            ->join('ref_prodi', 'mahasiswas.prodi_id', '=', 'ref_prodi.id')
-            ->selectRaw('
-                ref_prodi.nama_prodi, 
-                ref_prodi.kode_prodi_internal,
-                SUM(tagihan_mahasiswas.total_tagihan) as target,
-                SUM(tagihan_mahasiswas.total_bayar) as realisasi
-            ')
-            ->groupBy('ref_prodi.nama_prodi', 'ref_prodi.kode_prodi_internal')
-            ->orderByDesc('realisasi')
-            ->get()
-            ->map(function($item) {
-                $item->persen = $item->target > 0 ? ($item->realisasi / $item->target) * 100 : 0;
-                return $item;
-            });
-    }
+    // --- CORE QUERY BUILDER ---
 
-    /**
-     * Mengambil Tren Pembayaran 6 Bulan Terakhir (Cashflow)
-     */
-    public function getMonthlyTrendProperty()
-    {
-        // Menggunakan tabel pembayaran untuk real cashflow
-        return PembayaranMahasiswa::selectRaw("DATE_FORMAT(tanggal_bayar, '%Y-%m') as bulan, SUM(nominal_bayar) as total")
-            ->where('status_verifikasi', 'VERIFIED')
-            ->where('tanggal_bayar', '>=', Carbon::now()->subMonths(5)->startOfMonth())
-            ->groupBy('bulan')
-            ->orderBy('bulan', 'asc')
-            ->get()
-            ->map(function($item) {
-                $item->bulan_label = Carbon::createFromFormat('Y-m', $item->bulan)->isoFormat('MMM Y');
-                return $item;
-            });
-    }
-
-    // --- CORE QUERY ---
     private function buildQuery($isStats = false)
     {
+        // Eager load relasi penting & relasi audit (creator, verifier)
         $query = TagihanMahasiswa::query()
-            ->with(['mahasiswa.prodi', 'mahasiswa.programKelas', 'mahasiswa.person', 'tahunAkademik'])
+            ->with([
+                'mahasiswa.prodi', 
+                'mahasiswa.programKelas', 
+                'mahasiswa.person', 
+                'tahunAkademik', 
+                'adjustments', // Penting untuk hitungan koreksi
+                'pembayarans',
+                'creator' // Siapa pembuat tagihan
+            ])
             ->where('tahun_akademik_id', $this->semesterId);
 
         // Filter Logic
-        if ($this->filterProdiId) {
-            $query->whereHas('mahasiswa', fn($q) => $q->where('prodi_id', $this->filterProdiId));
-        }
-        if ($this->filterProgramKelasId) {
-            $query->whereHas('mahasiswa', fn($q) => $q->where('program_kelas_id', $this->filterProgramKelasId));
-        }
-        if ($this->filterAngkatan) {
-            $query->whereHas('mahasiswa', fn($q) => $q->where('angkatan_id', $this->filterAngkatan));
-        }
+        if ($this->filterProdiId) $query->whereHas('mahasiswa', fn($q) => $q->where('prodi_id', $this->filterProdiId));
+        if ($this->filterProgramKelasId) $query->whereHas('mahasiswa', fn($q) => $q->where('program_kelas_id', $this->filterProgramKelasId));
+        if ($this->filterAngkatan) $query->whereHas('mahasiswa', fn($q) => $q->where('angkatan_id', $this->filterAngkatan));
 
-        // Advanced Status Filter
         if ($this->filterStatus) {
             if ($this->filterStatus == 'LUNAS') $query->where('status_bayar', 'LUNAS');
             elseif ($this->filterStatus == 'CICIL') $query->where('status_bayar', 'BELUM')->where('total_bayar', '>', 0);
@@ -150,7 +116,8 @@ class LaporanKeuangan extends Component
 
     public function render()
     {
-        $tagihans = $this->buildQuery()
+        // Clone query agar tidak konflik dengan perhitungan stats
+        $tagihans = (clone $this->buildQuery())
             ->orderByRaw('total_tagihan - total_bayar DESC') // Prioritaskan penunggak terbesar
             ->paginate(15);
 
@@ -163,40 +130,123 @@ class LaporanKeuangan extends Component
         ]);
     }
 
-    // --- EXPORT CSV (Enterprise Format) ---
-    public function exportLaporan()
+    // --- MODAL DETAILS & AUDIT TRAIL ---
+    
+    public function openDetail($id)
     {
+        // Load data lengkap termasuk Aktor (User)
+        $this->selectedTagihan = TagihanMahasiswa::with([
+            'pembayarans.verifier', // Load Verifikator Pembayaran
+            'adjustments.creator',  // Load Pembuat Koreksi
+            'creator',              // Load Pembuat Tagihan
+            'mahasiswa.person', 
+            'mahasiswa.prodi'
+        ])->find($id);
+
+        $this->buildAuditTimeline(); 
+        $this->showDetailModal = true;
+    }
+
+    /**
+     * Menyusun Kronologi Keuangan Lengkap
+     */
+    private function buildAuditTimeline()
+    {
+        $timeline = [];
+
+        // 1. Tagihan Dibuat (Start)
+        $creatorName = $this->selectedTagihan->creator->name ?? 'System / Generator';
+        $timeline[] = [
+            'type' => 'BILL_CREATED',
+            'date' => $this->selectedTagihan->created_at,
+            'title' => 'Tagihan Diterbitkan',
+            'amount' => $this->selectedTagihan->total_tagihan, // Base amount
+            'user' => $creatorName,
+            'desc' => $this->selectedTagihan->deskripsi,
+            'status' => 'OPEN'
+        ];
+
+        // 2. Koreksi/Adjustment (Beasiswa/Potongan)
+        foreach ($this->selectedTagihan->adjustments as $adj) {
+            $timeline[] = [
+                'type' => 'ADJUSTMENT',
+                'date' => $adj->created_at,
+                'title' => 'Koreksi: ' . $adj->jenis_adjustment,
+                'amount' => -$adj->nominal, // Mengurangi beban
+                'user' => $adj->creator->name ?? 'Admin Keuangan',
+                'desc' => $adj->keterangan,
+                'status' => 'APPROVED'
+            ];
+        }
+
+        // 3. Pembayaran Masuk
+        foreach ($this->selectedTagihan->pembayarans as $pay) {
+            $verifier = $pay->verifier->name ?? 'System Auto-Verif';
+            if ($pay->status_verifikasi == 'PENDING') $verifier = '-';
+
+            $timeline[] = [
+                'type' => 'PAYMENT',
+                'date' => Carbon::parse($pay->created_at),
+                'title' => 'Pembayaran Masuk',
+                'amount' => -$pay->nominal_bayar,
+                'user' => 'Mahasiswa / Teller',
+                'desc' => 'Via ' . $pay->metode_pembayaran . ' | Verifikator: ' . $verifier,
+                'status' => $pay->status_verifikasi
+            ];
+        }
+
+        // 4. Log Deposit/Refund (KeuanganSaldoTransaction)
+        $saldoTrans = KeuanganSaldoTransaction::where('referensi_id', $this->selectedTagihan->kode_transaksi)->get();
+        foreach ($saldoTrans as $st) {
+            if ($st->tipe == 'IN') {
+                $timeline[] = [
+                    'type' => 'WALLET_IN',
+                    'date' => $st->created_at,
+                    'title' => 'Deposit ke Dompet',
+                    'amount' => 0, 
+                    'user' => 'System',
+                    'desc' => $st->keterangan,
+                    'status' => 'DEPOSIT'
+                ];
+            }
+        }
+
+        // Sort: Terlama di atas (Kronologis)
+        usort($timeline, fn($a, $b) => $a['date'] <=> $b['date']);
+        
+        $this->auditTimeline = $timeline;
+    }
+    
+    public function closeDetail() { $this->showDetailModal = false; $this->selectedTagihan = null; }
+    
+    public function exportLaporan() 
+    { 
         return response()->streamDownload(function () {
             $handle = fopen('php://output', 'w');
-            fputcsv($handle, ['NIM', 'Nama Lengkap', 'Prodi', 'Kelas', 'Angkatan', 'Semester', 'Tagihan (Rp)', 'Terbayar (Rp)', 'Sisa (Rp)', 'Status', 'Persentase', 'Last Update']);
+            fputcsv($handle, ['NIM', 'Nama Lengkap', 'Prodi', 'Kelas', 'Semester', 'Tagihan Awal', 'Total Koreksi', 'Tagihan Netto', 'Terbayar', 'Sisa', 'Status']);
 
             $this->buildQuery()->chunk(200, function ($rows) use ($handle) {
                 foreach ($rows as $row) {
-                    $persen = $row->total_tagihan > 0 ? ($row->total_bayar / $row->total_tagihan * 100) : 0;
+                    $koreksi = $row->adjustments->sum('nominal');
+                    $netto = max(0, $row->total_tagihan - $koreksi);
+                    $sisaReal = max(0, $netto - $row->total_bayar);
+
                     fputcsv($handle, [
                         $row->mahasiswa->nim,
-                        $row->mahasiswa->person->nama_lengkap ?? $row->mahasiswa->nama_lengkap,
+                        $row->mahasiswa->person->nama_lengkap ?? '',
                         $row->mahasiswa->prodi->nama_prodi,
                         $row->mahasiswa->programKelas->nama_program,
-                        $row->mahasiswa->angkatan_id,
                         $row->tahunAkademik->nama_tahun,
-                        $row->total_tagihan,
+                        $row->total_tagihan, // Awal
+                        $koreksi,            // Koreksi
+                        $netto,              // Netto
                         $row->total_bayar,
-                        $row->sisa_tagihan,
-                        $row->status_bayar,
-                        number_format($persen, 2) . '%',
-                        $row->updated_at->format('Y-m-d H:i'),
+                        $sisaReal,
+                        $row->status_bayar
                     ]);
                 }
             });
             fclose($handle);
-        }, 'Laporan_Keuangan_BAUK_' . date('Y-m-d_H-i') . '.csv');
+        }, 'Laporan_Keuangan_Lengkap.csv');
     }
-
-    // Modal Details
-    public function openDetail($id) {
-        $this->selectedTagihan = TagihanMahasiswa::with(['pembayarans', 'mahasiswa.person', 'mahasiswa.prodi'])->find($id);
-        $this->showDetailModal = true;
-    }
-    public function closeDetail() { $this->showDetailModal = false; $this->selectedTagihan = null; }
 }

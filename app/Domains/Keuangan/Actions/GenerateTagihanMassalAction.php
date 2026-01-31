@@ -5,6 +5,7 @@ namespace App\Domains\Keuangan\Actions;
 use App\Domains\Keuangan\Models\TagihanMahasiswa;
 use App\Domains\Keuangan\Models\SkemaTarif;
 use App\Domains\Mahasiswa\Models\Mahasiswa;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class GenerateTagihanMassalAction
@@ -18,16 +19,16 @@ class GenerateTagihanMassalAction
         // 1. Cari Mahasiswa Target (Aktif)
         $query = Mahasiswa::query()
             ->where('angkatan_id', $angkatanId);
-            
+
         if ($prodiId) {
             $query->where('prodi_id', $prodiId);
         }
-        
+
         // Eager load untuk performa
         $mahasiswas = $query->with(['programKelas', 'prodi'])->get();
-        
-        $stats = ['sukses' => 0, 'skip' => 0, 'errors' => []];
 
+        $stats = ['sukses' => 0, 'skip' => 0, 'errors' => []];
+        $userId = Auth::id();
         DB::beginTransaction();
         try {
             foreach ($mahasiswas as $mhs) {
@@ -95,10 +96,10 @@ class GenerateTagihanMassalAction
                     // Bandingkan per komponen
                     foreach ($rincianTarget as $namaKomponen => $nominalTarget) {
                         $sudah = $komponenExisting[$namaKomponen] ?? 0;
-                        
+
                         if ($nominalTarget > $sudah) {
                             $selisihItem = $nominalTarget - $sudah;
-                            
+
                             // Safety Cap: Jangan sampai item melebihi total kekurangan global
                             if (($tempTotal + $selisihItem) > $kekuranganBayar) {
                                 $selisihItem = $kekuranganBayar - $tempTotal;
@@ -130,12 +131,13 @@ class GenerateTagihanMassalAction
                 TagihanMahasiswa::create([
                     'mahasiswa_id' => $mhs->id,
                     'tahun_akademik_id' => $tahunAkademikId,
-                    'kode_transaksi' => 'INV-' . $tahunAkademikId . '-' . $mhs->nim . '-' . rand(1000, 9999), 
-                    'deskripsi' => $deskripsiFinal, 
-                    'total_tagihan' => $kekuranganBayar, // Hanya selisihnya
+                    'kode_transaksi' => 'INV-' . $tahunAkademikId . '-' . $mhs->nim . '-' . rand(1000, 9999),
+                    'deskripsi' => $deskripsiFinal,
+                    'total_tagihan' => $kekuranganBayar,
                     'total_bayar' => 0,
                     'status_bayar' => 'BELUM',
-                    'rincian_item' => $rincianBaru
+                    'rincian_item' => $rincianBaru,
+                    'created_by' => $userId
                 ]);
 
                 $stats['sukses']++;

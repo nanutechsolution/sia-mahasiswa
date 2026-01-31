@@ -27,7 +27,8 @@ class TagihanMahasiswa extends Model
         'status_bayar', // BELUM, CICIL, LUNAS
         'tenggat_waktu',
         'rincian_item', // JSON
-        'is_lock'
+        'is_lock',
+        'created_by'
     ];
 
     protected $casts = [
@@ -82,5 +83,10 @@ class TagihanMahasiswa extends Model
     public function adjustments()
     {
         return $this->hasMany(KeuanganAdjustment::class, 'tagihan_id');
+    }
+
+    public function creator()
+    {
+        return $this->belongsTo(\App\Models\User::class, 'created_by');
     }
 }

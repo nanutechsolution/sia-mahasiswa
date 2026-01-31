@@ -63,7 +63,7 @@ class VerifikasiPembayaran extends Component
     public function reject($id)
     {
         $pembayaran = PembayaranMahasiswa::find($id);
-        
+
         $pembayaran->update([
             'status_verifikasi' => 'INVALID',
             'verified_by' => auth()->id() ?? null,

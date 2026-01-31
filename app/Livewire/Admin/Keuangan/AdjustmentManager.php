@@ -7,14 +7,14 @@ use App\Domains\Mahasiswa\Models\Mahasiswa;
 use App\Domains\Keuangan\Models\TagihanMahasiswa;
 use App\Domains\Keuangan\Models\KeuanganAdjustment;
 use App\Domains\Keuangan\Models\KeuanganSaldo;
-use App\Domains\Keuangan\Models\KeuanganSaldoTransaction; // [FIX] Import Model Transaksi
+use App\Domains\Keuangan\Models\KeuanganSaldoTransaction;
 use App\Domains\Keuangan\Actions\RecalculateInvoiceAction;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class AdjustmentManager extends Component
 {
-    // State Pencarian
+    // Search State
     public $search = '';
     public $searchResults = [];
     public $selectedMhsId;
@@ -23,10 +23,11 @@ class AdjustmentManager extends Component
     public $mahasiswa;
     public $tagihans = [];
     public $saldo;
-    public $riwayatSaldo = []; // [BARU] Untuk menampilkan histori di View
+    public $riwayatSaldo = []; 
 
     // Form Adjustment
     public $showAdjustmentModal = false;
+    public $selectedTagihanForAdj = null; // Object tagihan yang sedang diedit
     public $adj_tagihan_id;
     public $adj_jenis = 'BEASISWA'; 
     public $adj_nominal;
@@ -37,6 +38,17 @@ class AdjustmentManager extends Component
     public $refund_nominal;
     public $refund_keterangan;
 
+    // Custom Messages
+    protected $messages = [
+        'adj_jenis.required' => 'Jenis koreksi wajib dipilih.',
+        'adj_nominal.required' => 'Nominal koreksi wajib diisi.',
+        'adj_nominal.min' => 'Nominal minimal Rp 1.000.',
+        'adj_keterangan.required' => 'Keterangan/Dasar koreksi wajib diisi (misal: No SK).',
+        'refund_nominal.required' => 'Nominal refund wajib diisi.',
+        'refund_nominal.max' => 'Nominal melebihi saldo tersedia.',
+        'refund_keterangan.required' => 'Catatan transfer wajib diisi.',
+    ];
+
     public function updatedSearch()
     {
         if (strlen($this->search) < 3) {
@@ -44,6 +56,7 @@ class AdjustmentManager extends Component
             return;
         }
 
+        // Search via SSOT (Person)
         $this->searchResults = Mahasiswa::with(['prodi', 'person'])
             ->whereHas('person', fn($q) => $q->where('nama_lengkap', 'like', '%' . $this->search . '%'))
             ->orWhere('nim', 'like', '%' . $this->search . '%')
@@ -64,7 +77,7 @@ class AdjustmentManager extends Component
 
         $this->mahasiswa = Mahasiswa::with(['prodi', 'person', 'programKelas'])->find($this->selectedMhsId);
         
-        $this->tagihans = TagihanMahasiswa::with(['tahunAkademik', 'adjustments.creator'])
+        $this->tagihans = TagihanMahasiswa::with(['tahunAkademik', 'adjustments.creator', 'pembayarans'])
             ->where('mahasiswa_id', $this->selectedMhsId)
             ->orderBy('created_at', 'desc')
             ->get();
@@ -86,6 +99,7 @@ class AdjustmentManager extends Component
     
     public function openAdjustment($tagihanId)
     {
+        $this->selectedTagihanForAdj = TagihanMahasiswa::find($tagihanId);
         $this->adj_tagihan_id = $tagihanId;
         $this->reset(['adj_jenis', 'adj_nominal', 'adj_keterangan']);
         $this->showAdjustmentModal = true;
@@ -100,6 +114,7 @@ class AdjustmentManager extends Component
         ]);
 
         DB::transaction(function () {
+            // 1. Simpan Adjustment
             KeuanganAdjustment::create([
                 'tagihan_id' => $this->adj_tagihan_id,
                 'jenis_adjustment' => $this->adj_jenis,
@@ -108,12 +123,13 @@ class AdjustmentManager extends Component
                 'created_by' => Auth::id()
             ]);
 
+            // 2. Hitung Ulang Tagihan (Panggil Action)
             $tagihan = TagihanMahasiswa::find($this->adj_tagihan_id);
             $action = new RecalculateInvoiceAction();
             $action->execute($tagihan);
         });
 
-        session()->flash('success', 'Koreksi tagihan berhasil disimpan & dihitung ulang.');
+        session()->flash('success', 'Koreksi berhasil disimpan. Tagihan telah dihitung ulang.');
         $this->showAdjustmentModal = false;
         $this->loadData(); 
     }
@@ -122,7 +138,7 @@ class AdjustmentManager extends Component
 
     public function openRefund()
     {
-        $this->refund_nominal = $this->saldo->saldo;
+        $this->refund_nominal = ''; // Kosongkan agar diketik manual (safety)
         $this->showRefundModal = true;
     }
 
@@ -130,25 +146,25 @@ class AdjustmentManager extends Component
     {
         $this->validate([
             'refund_nominal' => 'required|numeric|min:1000|max:' . $this->saldo->saldo,
-            'refund_keterangan' => 'required'
+            'refund_keterangan' => 'required|string|max:255'
         ]);
 
         DB::transaction(function () {
             // 1. Kurangi Saldo
             $this->saldo->decrement('saldo', $this->refund_nominal);
-            $this->saldo->touch(); // Update updated_at
+            $this->saldo->touch(); 
 
-            // 2. [FIX] Catat Log Transaksi Keluar (OUT)
+            // 2. Catat Log Transaksi Keluar (OUT)
             KeuanganSaldoTransaction::create([
                 'saldo_id' => $this->saldo->id,
                 'tipe' => 'OUT',
                 'nominal' => $this->refund_nominal,
-                'referensi_id' => 'REF-' . date('ymdHis'),
-                'keterangan' => 'Refund/Pencairan: ' . $this->refund_keterangan
+                'referensi_id' => 'REF-' . date('ymdHis'), 
+                'keterangan' => 'Pencairan Dana (Refund): ' . $this->refund_keterangan
             ]);
         });
 
-        session()->flash('success', 'Refund/Penarikan saldo berhasil diproses & dicatat.');
+        session()->flash('success', 'Dana berhasil dicairkan dan saldo telah dipotong.');
         $this->showRefundModal = false;
         $this->loadData();
     }
