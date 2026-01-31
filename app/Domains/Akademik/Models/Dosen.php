@@ -21,13 +21,15 @@ class Dosen extends Model
         'nuptk',
         'jenis_dosen',
         'asal_institusi',
-        'is_active'
+        'is_active',
+        'data_tambahan'
+
     ];
 
     protected $casts = [
+        'data_tambahan' => 'array',
         'is_active' => 'boolean'
     ];
-
     public function person()
     {
         return $this->belongsTo(ModelsPerson::class, 'person_id');

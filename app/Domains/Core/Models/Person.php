@@ -19,7 +19,7 @@ class Person extends Model
     
     protected $fillable = [
         'nama_lengkap', 'nik', 'email', 'no_hp', 
-        'tanggal_lahir', 'jenis_kelamin', 'tempat_lahir'
+        'tanggal_lahir', 'jenis_kelamin', 'tempat_lahir',
     ];
 
     /**

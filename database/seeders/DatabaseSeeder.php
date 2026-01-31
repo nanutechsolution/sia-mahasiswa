@@ -22,7 +22,11 @@ class DatabaseSeeder extends Seeder
             SkalaNilaiSeeder::class,
             KomponenBiayaSeeder::class,
             UserSeeder::class,
+            MataKuliahSeeder::class,
+            KurikulumAutoSeeder::class,
             KurikulumMappingSeeder::class,
+            RealDosenSeeder::class,
+            RealMahasiswaSeeder::class,
         ]);
     }
 }
