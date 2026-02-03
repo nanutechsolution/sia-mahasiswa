@@ -14,7 +14,7 @@ class ProdiManager extends Component
 
     // Filter
     public $search = '';
-    
+
     // Form State
     public $prodiId;
     public $fakultas_id;
@@ -23,7 +23,7 @@ class ProdiManager extends Component
     public $nama_prodi;
     public $jenjang = 'S1';
     public $gelar_lulusan;
-    public $format_nim = '{TAHUN}{KODE}{NO:4}';
+    public $format_nim = '{THN}{KODE}{NO:3}';
     public $is_paket = true; // Default paket
     public $is_active = true;
 
@@ -31,16 +31,19 @@ class ProdiManager extends Component
     public $showForm = false;
     public $editMode = false;
 
-    public function updatedSearch() { $this->resetPage(); }
+    public function updatedSearch()
+    {
+        $this->resetPage();
+    }
 
     public function render()
     {
         $fakultas_list = Fakultas::all();
-        
+
         $prodis = Prodi::with('fakultas')
-            ->where(function($q) {
-                $q->where('nama_prodi', 'like', '%'.$this->search.'%')
-                  ->orWhere('kode_prodi_internal', 'like', '%'.$this->search.'%');
+            ->where(function ($q) {
+                $q->where('nama_prodi', 'like', '%' . $this->search . '%')
+                    ->orWhere('kode_prodi_internal', 'like', '%' . $this->search . '%');
             })
             ->orderBy('fakultas_id', 'asc')
             ->orderBy('kode_prodi_internal', 'asc')
@@ -86,14 +89,18 @@ class ProdiManager extends Component
             'is_paket' => 'boolean',
             'is_active' => 'boolean',
         ];
-
+        $message =
+            [
+                'fakultas_id.required' => 'Silakan pilih fakultas!',
+                'nama_prodi.required' => 'Nama prodi tidak boleh kosong!',
+            ];
         if ($this->editMode) {
             $rules['kode_prodi_internal'] = ['required', 'max:10', Rule::unique('ref_prodi')->ignore($this->prodiId)];
         } else {
             $rules['kode_prodi_internal'] = 'required|unique:ref_prodi,kode_prodi_internal|max:10';
         }
 
-        $this->validate($rules);
+        $this->validate($rules, $message);
 
         $data = [
             'fakultas_id' => $this->fakultas_id,
@@ -135,9 +142,9 @@ class ProdiManager extends Component
         $this->jenjang = 'S1';
         $this->is_paket = true;
         $this->is_active = true;
-        $this->format_nim = '{TAHUN}{KODE}{NO:4}';
+        $this->format_nim = '{THN}{KODE}{NO:3}';
     }
-    
+
     public function batal()
     {
         $this->showForm = false;

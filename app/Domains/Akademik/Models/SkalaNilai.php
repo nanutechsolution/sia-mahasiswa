@@ -12,10 +12,10 @@ class SkalaNilai extends Model
     protected $table = 'ref_skala_nilai';
 
     protected $fillable = [
-        'huruf', 
-        'bobot_indeks', 
-        'nilai_min', 
-        'nilai_max', 
+        'huruf',
+        'bobot_indeks',
+        'nilai_min',
+        'nilai_max',
         'is_lulus'
     ];
 }

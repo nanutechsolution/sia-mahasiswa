@@ -21,7 +21,7 @@
         <aside :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'" class="fixed inset-y-0 left-0 z-50 w-72 bg-unmaris-blue text-white shadow-2xl transition-transform duration-300 ease-in-out md:static md:translate-x-0 flex flex-col h-full border-r border-unmaris-dark">
             <div class="h-20 flex items-center px-6 bg-unmaris-dark border-b border-white/5 relative z-10 shadow-md flex-shrink-0">
                 <div class="flex items-center gap-3">
-                    <div class="bg-white p-1.5 rounded-xl shadow-lg">
+                    <div class="bg-unmaris-blue p-1.5 rounded-xl shadow-lg">
                         <img src="{{ asset('logo.png') }}" alt="UNMARIS" class="w-8 h-8 object-contain">
                     </div>
                     <div class="flex flex-col">

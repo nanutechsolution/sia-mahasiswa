@@ -11,7 +11,7 @@ class FakultasManager extends Component
     use WithPagination;
 
     public $search = '';
-    
+
     // Form
     public $fakultasId;
     public $kode_fakultas;
@@ -23,7 +23,7 @@ class FakultasManager extends Component
 
     public function render()
     {
-        $data = Fakultas::where('nama_fakultas', 'like', '%'.$this->search.'%')
+        $data = Fakultas::where('nama_fakultas', 'like', '%' . $this->search . '%')
             ->orderBy('kode_fakultas', 'asc')
             ->paginate(10);
 
@@ -43,7 +43,7 @@ class FakultasManager extends Component
         $this->fakultasId = $id;
         $this->kode_fakultas = $f->kode_fakultas;
         $this->nama_fakultas = $f->nama_fakultas;
-        
+
         $this->editMode = true;
         $this->showForm = true;
     }
@@ -54,13 +54,19 @@ class FakultasManager extends Component
             'nama_fakultas' => 'required',
         ];
 
+        $message = [
+            'nama_fakultas.required' => 'Nama Fakultas Tidak Boleh Kosong!',
+            'kode_fakultas.unique' => 'Kode Fakultas Sudah digunakan, Silakan ganti kode lain!',
+            'kode_fakultas.required' => 'Kode Fakultas Tidak Boleh Kososng!'
+        ];
+
         if ($this->editMode) {
             $rules['kode_fakultas'] = 'required|unique:ref_fakultas,kode_fakultas,' . $this->fakultasId;
         } else {
             $rules['kode_fakultas'] = 'required|unique:ref_fakultas,kode_fakultas';
         }
 
-        $this->validate($rules);
+        $this->validate($rules, $message);
 
         $data = [
             'kode_fakultas' => $this->kode_fakultas,
