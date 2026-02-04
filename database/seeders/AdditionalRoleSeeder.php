@@ -27,6 +27,7 @@ class AdditionalRoleSeeder extends Seeder
             'admin' => [
                 'akses_modul_akademik',
                 'akses_modul_keuangan',
+                'akses_modul_lpm',
                 'akses_modul_system',
             ],
 
@@ -43,7 +44,7 @@ class AdditionalRoleSeeder extends Seeder
             // User Role: Default tanpa permission khusus panel admin
             'dosen' => [],
             'mahasiswa' => [],
-            'lpm' => [],
+            'lpm' => ['akses_modul_lpm'],
             // 'pustakawan' => ['akses_modul_perpustakaan'],
             // 'aset'       => ['akses_modul_inventaris'],
             // 'alumni'     => ['akses_modul_karir'],

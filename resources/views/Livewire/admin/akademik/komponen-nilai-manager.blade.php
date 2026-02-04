@@ -31,9 +31,12 @@
             <div class="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
                 {{-- Search Area --}}
                 <div class="p-4 bg-slate-50/50 border-b flex items-center justify-between">
-                    <input type="text" wire:model.live.debounce.300ms="search" placeholder="Cari..." class="rounded-xl border-slate-200 text-sm py-2 px-4 focus:ring-[#002855] w-64">
+                    <div class="relative w-64">
+                        <input type="text" wire:model.live.debounce.300ms="search" placeholder="Cari..." class="w-full rounded-xl border-slate-200 text-sm py-2 pl-10 pr-4 focus:ring-[#002855] focus:border-[#002855]">
+                        <svg class="w-4 h-4 absolute left-3 top-2.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                    </div>
                     @if($activeTab == 'master')
-                        <button wire:click="createMaster" class="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-widest shadow-md">Tambah Komponen</button>
+                        <button wire:click="createMaster" class="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-widest shadow-md hover:bg-indigo-700 transition-all">Tambah Komponen</button>
                     @endif
                 </div>
 
@@ -61,7 +64,7 @@
                                         </span>
                                     </td>
                                     <td class="px-6 py-4 text-right">
-                                        <button wire:click="editMaster({{ $m->id }})" class="text-indigo-600 font-bold text-[10px] uppercase">Edit</button>
+                                        <button wire:click="editMaster({{ $m->id }})" class="text-indigo-600 font-bold text-[10px] uppercase hover:underline">Edit</button>
                                     </td>
                                 </tr>
                                 @endforeach
@@ -121,7 +124,7 @@
         {{-- KOLOM KANAN: FORM EDITOR --}}
         <div class="lg:col-span-4">
             @if($showForm)
-                <div class="bg-white rounded-[2rem] shadow-xl border border-slate-200 overflow-hidden sticky top-6 animate-in slide-in-from-right-4">
+                <div class="bg-white rounded-[2rem] shadow-xl border border-slate-200 overflow-hidden sticky top-6 animate-in slide-in-from-right-4 z-10">
                     <div class="bg-[#002855] px-8 py-6 text-white flex justify-between items-center">
                         <h3 class="text-sm font-black uppercase tracking-[0.2em]">Editor Data</h3>
                         <button wire:click="resetForm" class="text-white/50 hover:text-white">&times;</button>
@@ -143,15 +146,20 @@
                         <div class="p-8 space-y-6">
                             <div class="bg-indigo-50 p-4 rounded-2xl border border-indigo-100">
                                 <p class="text-[10px] font-black text-indigo-400 uppercase mb-1">Kurikulum Target</p>
-                                {{-- [FIX] Gunakan Fully Qualified Namespace untuk Model di dalam Blade --}}
                                 <p class="text-xs font-black text-indigo-900">{{ \App\Domains\Akademik\Models\Kurikulum::find($selectedKurikulumId)->nama_kurikulum ?? '' }}</p>
                             </div>
 
                             <div class="space-y-4">
                                 <h4 class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Atur Persentase</h4>
+                                <p class="text-[9px] text-slate-400 italic mb-2">*Isi 0 untuk komponen yang tidak digunakan prodi ini.</p>
                                 @foreach($allMaster as $m)
                                     <div class="flex items-center justify-between gap-4" wire:key="weight-{{ $m->id }}">
-                                        <span class="text-xs font-bold text-slate-600">{{ $m->nama_komponen }}</span>
+                                        <div class="flex flex-col">
+                                            <span class="text-xs font-bold text-slate-600">{{ $m->nama_komponen }}</span>
+                                            @if(($weights[$m->id] ?? 0) == 0)
+                                                <span class="text-[8px] font-black text-slate-300 uppercase tracking-tighter">Tidak Digunakan</span>
+                                            @endif
+                                        </div>
                                         <div class="w-24 relative">
                                             <input type="number" wire:model.live="weights.{{ $m->id }}" class="w-full text-right rounded-lg border-slate-200 bg-slate-50 text-xs font-black py-1.5 pr-6 focus:ring-1 focus:ring-[#fcc000] outline-none">
                                             <span class="absolute right-2 top-1.5 text-[10px] font-bold text-slate-400">%</span>
@@ -160,16 +168,39 @@
                                 @endforeach
                             </div>
 
-                            <div class="pt-4 border-t border-slate-100 flex justify-between items-center">
-                                <div class="text-center">
-                                    <p class="text-[9px] font-black text-slate-400 uppercase">Total Bobot</p>
-                                    <p class="text-2xl font-black {{ array_sum($weights) == 100 ? 'text-emerald-500' : 'text-rose-500' }}">
-                                        {{ array_sum($weights) }}%
-                                    </p>
+                            {{-- UI UX FIX: Perhitungan Total yang Aman --}}
+                            @php
+                                $currentTotal = collect($weights)->map(fn($v) => is_numeric($v) ? (float)$v : 0)->sum();
+                                $isValid = $currentTotal == 100;
+                            @endphp
+
+                            <div class="pt-4 border-t border-slate-100">
+                                <div class="flex justify-between items-center mb-2">
+                                    <div class="text-left">
+                                        <p class="text-[9px] font-black text-slate-400 uppercase">Total Bobot</p>
+                                        <p class="text-2xl font-black {{ $isValid ? 'text-emerald-500' : 'text-rose-500' }}">
+                                            {{ $currentTotal }}%
+                                        </p>
+                                    </div>
+                                    
+                                    <button wire:click="saveWeights" 
+                                        @if(!$isValid) disabled @endif
+                                        class="px-8 py-3 bg-[#002855] text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg shadow-indigo-900/20 hover:bg-black transition-all disabled:opacity-30 disabled:cursor-not-allowed">
+                                        Terapkan
+                                    </button>
                                 </div>
-                                <button wire:click="saveWeights" class="px-8 py-3 bg-[#002855] text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg shadow-indigo-900/20 hover:bg-black transition-all">
-                                    Terapkan
-                                </button>
+
+                                {{-- Progress Bar untuk Visualisasi --}}
+                                <div class="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                                    <div class="h-full transition-all duration-500 {{ $isValid ? 'bg-emerald-500' : ($currentTotal > 100 ? 'bg-rose-500' : 'bg-amber-400') }}" 
+                                        style="width: {{ min($currentTotal, 100) }}%"></div>
+                                </div>
+                                
+                                @if(!$isValid)
+                                    <p class="text-[9px] font-bold text-rose-500 text-center mt-2 animate-pulse">
+                                        {{ $currentTotal > 100 ? 'Bobot melebihi 100%! Kurangi beberapa poin.' : 'Total harus tepat 100% untuk dapat disimpan.' }}
+                                    </p>
+                                @endif
                             </div>
                             @error('total_weight') <p class="text-[10px] text-rose-500 font-bold text-center mt-2">{{ $message }}</p> @enderror
                         </div>

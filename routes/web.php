@@ -4,8 +4,6 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Mahasiswa\CetakController;
 use App\Http\Controllers\Admin\AdminCetakController;
-use App\Http\Controllers\Api\PmbIntegrationController;
-
 // Livewire Components
 use App\Livewire\Mahasiswa\KrsPage;
 use App\Livewire\Mahasiswa\KhsPage;
@@ -19,12 +17,11 @@ use App\Livewire\Admin\Keuangan\KomponenBiayaManager;
 use App\Livewire\Admin\Keuangan\SkemaTarifManager;
 use App\Livewire\Admin\Keuangan\LaporanKeuangan;
 use App\Livewire\Admin\Keuangan\ManualTagihanManager;
-use App\Livewire\Admin\Keuangan\AdjustmentManager; // Tambahkan import ini
+use App\Livewire\Admin\Keuangan\AdjustmentManager;
 
 use App\Livewire\Admin\Akademik\JadwalKuliahManager;
 use App\Livewire\Admin\Akademik\MataKuliahManager;
 use App\Livewire\Admin\Akademik\KurikulumManager;
-use App\Livewire\Admin\Akademik\KurikulumDetail; // Tambahkan jika ada detail kurikulum
 use App\Livewire\Admin\Akademik\MutasiMhsManager;
 use App\Livewire\Admin\Akademik\PlotingPaManager;
 use App\Livewire\Admin\Akademik\CetakAbsensiManager;
@@ -42,7 +39,14 @@ use App\Livewire\Admin\Pengguna\DosenManager;
 use App\Livewire\Admin\Pengguna\CamabaManager;
 
 use App\Livewire\Admin\HR\HRModuleManager;
-
+use App\Livewire\Admin\Lpm\AmiManager;
+use App\Livewire\Admin\Lpm\DokumenManager;
+use App\Livewire\Admin\Lpm\EdomManager;
+use App\Livewire\Admin\Lpm\IkuManager;
+use App\Livewire\Admin\Lpm\IndikatorManager;
+use App\Livewire\Admin\Lpm\KuisionerManager;
+use App\Livewire\Admin\Lpm\LpmDashboard;
+use App\Livewire\Admin\Lpm\StandarManager;
 use App\Livewire\Admin\System\AuditLogViewer;
 use App\Livewire\Admin\System\UserManager;
 use App\Livewire\Admin\System\RoleManager;
@@ -52,6 +56,7 @@ use App\Livewire\Dosen\InputNilai;
 use App\Livewire\Dosen\PerwalianManager;
 use App\Livewire\Dosen\PerwalianDetail;
 use App\Livewire\Dosen\ProfilePage as DosenProfile;
+use App\Livewire\Mahasiswa\SurveiEdomPage;
 
 // 1. PUBLIC ROUTES
 Route::get('/', function () {
@@ -76,6 +81,8 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/keuangan', KeuanganPage::class)->name('mhs.keuangan');
         Route::get('/transkrip', TranskripPage::class)->name('mhs.transkrip');
         Route::get('/profile', MhsProfile::class)->name('mhs.profile');
+        Route::get('/survei-edom/{krsDetailId}', SurveiEdomPage::class)->name('mhs.survei-edom');
+
 
         // Cetak PDF
         Route::get('/cetak/krs', [CetakController::class, 'cetakKrs'])->name('mhs.cetak.krs');
@@ -145,6 +152,20 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/tagihan-manual', ManualTagihanManager::class)->name('admin.keuangan.manual');
             Route::get('/laporan-keu', LaporanKeuangan::class)->name('admin.keuangan.laporan');
             Route::get('/koreksi-saldo', AdjustmentManager::class)->name('admin.keuangan.adjustment');
+        });
+
+        // 4. GRUP LPM (Permission: akses_modul_lpm)
+        // Diakses oleh: Superadmin, Admin, Staf LPM
+        Route::middleware(['permission:akses_modul_lpm'])->prefix('lpm')->name('admin.lpm.')->group(function () {
+            Route::get('/dashboard', LpmDashboard::class)->name('dashboard');
+            // Rute Operasional LPM
+            Route::get('/standar', StandarManager::class)->name('standar');
+            Route::get('/ami', AmiManager::class)->name('ami');
+            Route::get('/dokumen', DokumenManager::class)->name('dokumen');
+            Route::get('/edom', EdomManager::class)->name('edom');
+            Route::get('/iku', IkuManager::class)->name('iku');
+            Route::get('/kuesioner', KuisionerManager::class)->name('kuesioner');
+            Route::get('/indikator', IndikatorManager::class)->name('indikator');
         });
 
         // 3. GRUP SYSTEM (Permission: akses_modul_system)
