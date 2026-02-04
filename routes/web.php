@@ -162,9 +162,9 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/standar', StandarManager::class)->name('standar');
             Route::get('/ami', AmiManager::class)->name('ami');
             Route::get('/dokumen', DokumenManager::class)->name('dokumen');
-            Route::get('/edom', EdomManager::class)->name('edom');
+            Route::get('/edom', EdomManager::class)->name('edom.index');
             Route::get('/iku', IkuManager::class)->name('iku');
-            Route::get('/kuesioner', KuisionerManager::class)->name('kuesioner');
+            Route::get('/edom/setup', KuisionerManager::class)->name('edom.setup');
             Route::get('/indikator', IndikatorManager::class)->name('indikator');
         });
 
