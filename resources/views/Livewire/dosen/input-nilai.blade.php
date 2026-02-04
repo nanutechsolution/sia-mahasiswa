@@ -1,143 +1,118 @@
 <div class="space-y-6">
-    <!-- Header Informasi Mata Kuliah -->
-    <div class="bg-white p-6 shadow-sm rounded-2xl border border-slate-200">
-        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div>
-                <h2 class="text-2xl font-black text-slate-800 uppercase tracking-tight">
-                    {{ $jadwal->mataKuliah->nama_mk }}
-                </h2>
-                <div class="flex items-center gap-3 mt-1 text-sm font-medium text-slate-500">
-                    <span class="bg-slate-100 px-2 py-0.5 rounded text-indigo-600 font-bold">{{ $jadwal->nama_kelas }}</span>
-                    <span>&bull;</span>
-                    <span>{{ $jadwal->tahunAkademik->nama_tahun }}</span>
-                    <span>&bull;</span>
-                    <span class="inline-flex items-center text-xs font-black uppercase {{ $isInputNilaiOpen ? 'text-emerald-600' : 'text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-100' }}">
-                        {{ $isInputNilaiOpen ? 'Input Nilai: Terbuka' : 'Input Nilai: Terkunci/Ditutup' }}
-                    </span>
+    {{-- Info Kelas Card --}}
+    <div class="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-200">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+            <div class="flex items-center gap-6">
+                <div class="w-16 h-16 bg-[#002855] text-[#fcc000] rounded-2xl flex items-center justify-center text-3xl font-black shadow-lg">
+                    {{ substr($jadwal->mataKuliah->nama_mk, 0, 1) }}
+                </div>
+                <div>
+                    <h1 class="text-2xl font-black text-[#002855] uppercase tracking-tight">{{ $jadwal->mataKuliah->nama_mk }}</h1>
+                    <div class="flex items-center gap-3 mt-1">
+                        <span class="text-xs font-bold text-slate-400 uppercase tracking-widest">{{ $jadwal->nama_kelas }}</span>
+                        <span class="text-slate-300">|</span>
+                        <span class="text-xs font-bold text-indigo-600 uppercase tracking-widest">{{ $jadwal->tahunAkademik->nama_tahun }}</span>
+                        <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase {{ $isLocked ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600' }}">
+                            {{ $isLocked ? 'Input Terkunci' : 'Input Terbuka' }}
+                        </span>
+                    </div>
                 </div>
             </div>
             
-            <div class="flex items-center gap-3">
-                @if($isInputNilaiOpen)
-                    <button wire:click="publishNilai" 
-                        wire:confirm="Setelah dipublikasi, mahasiswa dapat melihat nilai di KHS. Lanjutkan?"
-                        class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl font-bold text-sm shadow-lg shadow-indigo-100 transition-all flex items-center gap-2">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
-                        Publikasikan Nilai
-                    </button>
-                @endif
-            </div>
+            @if(!$isLocked)
+            <button wire:click="publishAll" wire:confirm="Publikasikan semua nilai? Mahasiswa akan dapat melihat nilai mereka di KHS." class="px-8 py-3 bg-[#002855] text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-black transition-all shadow-xl shadow-indigo-900/20 flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
+                Publish Ke KHS
+            </button>
+            @endif
         </div>
-
-        {{-- Alert Masa Input Ditutup --}}
-        @if(!$isInputNilaiOpen)
-            <div class="mt-4 p-4 bg-rose-50 border border-rose-100 text-rose-800 rounded-xl text-sm flex items-start">
-                <svg class="w-5 h-5 mr-3 text-rose-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
-                <div>
-                    <span class="font-black uppercase text-xs block mb-1">Akses Terkunci</span>
-                    Masa input nilai untuk semester ini sedang ditutup atau belum dibuka oleh Admin BAAK. Anda hanya dapat melihat nilai yang sudah masuk (Read-Only).
-                </div>
-            </div>
-        @endif
-
-        @if (session()->has('global_success'))
-            <div class="mt-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg text-sm font-bold">
-                {{ session('global_success') }}
-            </div>
-        @endif
-        @if (session()->has('error'))
-            <div class="mt-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm font-bold">
-                {{ session('error') }}
-            </div>
-        @endif
     </div>
 
-    <!-- Tabel Input Nilai -->
-    <div class="bg-white shadow-sm overflow-hidden rounded-2xl border border-slate-200">
+    @if (session()->has('global_success'))
+        <div class="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl text-emerald-800 text-sm font-bold flex items-center shadow-sm animate-in fade-in">
+            <svg class="w-5 h-5 mr-3 text-emerald-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>
+            {{ session('global_success') }}
+        </div>
+    @endif
+
+    {{-- Tabel Input Dinamis --}}
+    <div class="bg-white rounded-[2.5rem] shadow-sm border border-slate-200 overflow-hidden">
         <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-slate-200">
-                <thead class="bg-slate-50">
+            <table class="min-w-full divide-y divide-slate-100">
+                <thead class="bg-slate-50/50">
                     <tr>
-                        <th class="px-6 py-4 text-left text-xs font-black text-slate-500 uppercase tracking-widest">Mahasiswa</th>
-                        <th class="px-4 py-4 text-center text-xs font-black text-slate-500 uppercase tracking-widest w-24">Tugas (30%)</th>
-                        <th class="px-4 py-4 text-center text-xs font-black text-slate-500 uppercase tracking-widest w-24">UTS (30%)</th>
-                        <th class="px-4 py-4 text-center text-xs font-black text-slate-500 uppercase tracking-widest w-24">UAS (40%)</th>
-                        <th class="px-4 py-4 text-center text-xs font-black text-slate-500 uppercase tracking-widest bg-indigo-50/30">Nilai Akhir</th>
-                        <th class="px-4 py-4 text-center text-xs font-black text-slate-500 uppercase tracking-widest">Grade</th>
-                        <th class="px-6 py-4 text-center text-xs font-black text-slate-500 uppercase tracking-widest w-32">Status</th>
-                        <th class="px-6 py-4 text-right"></th>
+                        <th class="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Mahasiswa</th>
+                        
+                        {{-- LOOP HEADER KOMPONEN (DINAMIS) --}}
+                        @foreach($komponenBobot as $kb)
+                            <th class="px-4 py-5 text-center text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] bg-indigo-50/30">
+                                {{ $kb->nama_komponen }}
+                                <div class="text-[8px] text-indigo-400 mt-1">Bobot: {{ number_format($kb->bobot_persen, 0) }}%</div>
+                            </th>
+                        @endforeach
+
+                        <th class="px-4 py-5 text-center text-[10px] font-black text-[#002855] uppercase tracking-[0.2em] bg-slate-100">Nilai Akhir</th>
+                        <th class="px-4 py-5 text-center text-[10px] font-black text-[#002855] uppercase tracking-[0.2em] bg-slate-100">Grade</th>
+                        <th class="px-8 py-5 text-right text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Aksi</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-slate-100 bg-white">
-                    @forelse($pesertaKelas as $mhs)
-                    <tr class="hover:bg-slate-50/50 transition-colors group">
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="flex flex-col">
-                                <span class="text-sm font-bold text-slate-800">{{ $mhs->krs->mahasiswa->nama_lengkap }}</span>
-                                <span class="text-xs font-mono text-slate-400 tracking-tighter">{{ $mhs->krs->mahasiswa->nim }}</span>
-                            </div>
+                <tbody class="divide-y divide-slate-50 bg-white">
+                    @foreach($pesertaKelas as $mhs)
+                    <tr class="hover:bg-slate-50 transition-colors group">
+                        <td class="px-8 py-4">
+                            <div class="text-sm font-black text-slate-800">{{ $mhs->krs->mahasiswa->person->nama_lengkap }}</div>
+                            <div class="text-[10px] font-mono font-bold text-slate-400 mt-0.5 tracking-widest">{{ $mhs->krs->mahasiswa->nim }}</div>
                         </td>
-                        <td class="px-4 py-4">
-                            <input type="number" step="0.01" min="0" max="100" 
-                                wire:model.defer="nilaiTugas.{{ $mhs->id }}" 
-                                class="w-full text-center rounded-lg border-slate-200 focus:ring-indigo-500 focus:border-indigo-500 text-sm font-bold p-1.5 {{ !$isInputNilaiOpen ? 'bg-slate-50 cursor-not-allowed opacity-60' : '' }}"
-                                {{ $mhs->is_published || !$isInputNilaiOpen ? 'disabled' : '' }}>
+
+                        {{-- LOOP INPUT NILAI (DINAMIS) --}}
+                        @foreach($komponenBobot as $kb)
+                            <td class="px-2 py-4 bg-indigo-50/10">
+                                <input type="number" 
+                                    wire:model.defer="inputNilai.{{ $mhs->id }}.{{ $kb->id }}"
+                                    class="w-full text-center rounded-xl border-slate-200 bg-white text-xs font-black py-2 focus:ring-2 focus:ring-[#fcc000] outline-none {{ $mhs->is_published || $isLocked ? 'opacity-50 cursor-not-allowed' : '' }}"
+                                    {{ $mhs->is_published || $isLocked ? 'disabled' : '' }}
+                                >
+                            </td>
+                        @endforeach
+
+                        {{-- Hasil Kalkulasi Real-time dari Action --}}
+                        <td class="px-4 py-4 text-center bg-slate-50 font-black text-slate-800">
+                            {{ number_format($mhs->nilai_angka, 2) }}
                         </td>
-                        <td class="px-4 py-4">
-                            <input type="number" step="0.01" min="0" max="100" 
-                                wire:model.defer="nilaiUts.{{ $mhs->id }}" 
-                                class="w-full text-center rounded-lg border-slate-200 focus:ring-indigo-500 focus:border-indigo-500 text-sm font-bold p-1.5 {{ !$isInputNilaiOpen ? 'bg-slate-50 cursor-not-allowed opacity-60' : '' }}"
-                                {{ $mhs->is_published || !$isInputNilaiOpen ? 'disabled' : '' }}>
-                        </td>
-                        <td class="px-4 py-4">
-                            <input type="number" step="0.01" min="0" max="100" 
-                                wire:model.defer="nilaiUas.{{ $mhs->id }}" 
-                                class="w-full text-center rounded-lg border-slate-200 focus:ring-indigo-500 focus:border-indigo-500 text-sm font-bold p-1.5 {{ !$isInputNilaiOpen ? 'bg-slate-50 cursor-not-allowed opacity-60' : '' }}"
-                                {{ $mhs->is_published || !$isInputNilaiOpen ? 'disabled' : '' }}>
-                        </td>
-                        <td class="px-4 py-4 text-center bg-indigo-50/30">
-                            <span class="text-sm font-black text-slate-700">
-                                {{ number_format($mhs->nilai_angka, 2) }}
-                            </span>
-                        </td>
-                        <td class="px-4 py-4 text-center">
-                            <span class="text-xl font-black {{ in_array($mhs->nilai_huruf, ['A','B']) ? 'text-emerald-600' : ($mhs->nilai_huruf == 'E' ? 'text-rose-600' : 'text-indigo-600') }}">
+                        <td class="px-4 py-4 text-center bg-slate-50">
+                            <span class="text-lg font-black {{ $mhs->nilai_indeks >= 2 ? 'text-emerald-600' : 'text-rose-600' }}">
                                 {{ $mhs->nilai_huruf ?? '-' }}
                             </span>
                         </td>
-                        <td class="px-6 py-4 text-center">
-                            @if($mhs->is_published)
-                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-green-100 text-green-700 border border-green-200 uppercase tracking-tighter">
-                                    Published
-                                </span>
-                            @else
-                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-orange-100 text-orange-700 border border-orange-200 uppercase tracking-tighter">
-                                    Draft
-                                </span>
-                            @endif
-                        </td>
-                        <td class="px-6 py-4 text-right">
-                            @if(!$mhs->is_published && $isInputNilaiOpen)
-                                <div class="flex items-center justify-end gap-2">
-                                    @if (session()->has('success-' . $mhs->id))
-                                        <span class="text-[10px] font-bold text-green-600 animate-bounce">OK!</span>
+
+                        <td class="px-8 py-4 text-right">
+                            @if(!$mhs->is_published && !$isLocked)
+                                <div class="flex items-center justify-end gap-3">
+                                    @if(session()->has('ok-'.$mhs->id))
+                                        <span class="text-[9px] font-black text-emerald-500 uppercase animate-pulse">Berhasil</span>
                                     @endif
-                                    <button wire:click="simpanNilai('{{ $mhs->id }}')" 
-                                        class="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                                        title="Simpan Draft">
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                    <button wire:click="saveLine('{{ $mhs->id }}')" class="p-2 bg-indigo-600 text-white rounded-xl shadow-lg hover:scale-110 transition-all">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" /></svg>
                                     </button>
                                 </div>
+                            @elseif($mhs->is_published)
+                                <span class="inline-flex items-center gap-1 text-[10px] font-black text-emerald-500 uppercase tracking-tighter">
+                                    <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>
+                                    Terbit
+                                </span>
                             @endif
                         </td>
                     </tr>
-                    @empty
-                    <tr>
-                        <td colspan="8" class="px-6 py-12 text-center text-slate-400 italic">Belum ada mahasiswa terdaftar.</td>
-                    </tr>
-                    @endforelse
+                    @endforeach
                 </tbody>
             </table>
         </div>
+        
+        @if(count($pesertaKelas) == 0)
+            <div class="py-20 text-center flex flex-col items-center justify-center bg-slate-50/50">
+                <div class="text-4xl mb-4">👥</div>
+                <p class="text-slate-400 font-bold text-sm">Belum ada mahasiswa yang terdaftar atau KRS belum disetujui PA.</p>
+            </div>
+        @endif
     </div>
 </div>

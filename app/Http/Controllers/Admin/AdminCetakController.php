@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Domains\Akademik\Models\JadwalKuliah;
-use Illuminate\Http\Request;
 use Barryvdh\DomPDF\Facade\Pdf;
 
 class AdminCetakController extends Controller
@@ -13,11 +12,11 @@ class AdminCetakController extends Controller
     {
         // 1. Ambil Jadwal dengan Relasi Lengkap (SSOT)
         $jadwal = JadwalKuliah::with([
-                'mataKuliah.prodi.fakultas', // Eager load hingga fakultas untuk data riil
+                'mataKuliah.prodi.fakultas',
                 'dosen.person', 
                 'tahunAkademik',
                 'krsDetails' => function($q) {
-                    // Filter hanya yang KRS-nya DISETUJUI (Mahasiswa Aktif di Kelas)
+                    // Filter hanya yang KRS-nya DISETUJUI
                     $q->whereHas('krs', function($k) {
                         $k->where('status_krs', 'DISETUJUI');
                     })
@@ -30,11 +29,10 @@ class AdminCetakController extends Controller
             ])
             ->findOrFail($jadwalId);
 
-        // 2. Siapkan Data untuk Laporan (Production Ready)
+        // 2. Siapkan Data (Pastikan nama variabel 'mahasiswas' dikirim ke view)
         $data = [
             'jadwal' => $jadwal,
-            'mahasiswas' => $jadwal->krsDetails,
-            // Data diambil dinamis dari relasi, fallback ke strip (-) jika data master tidak lengkap
+            'mahasiswas' => $jadwal->krsDetails, // Variabel utama untuk loop di Blade
             'fakultas' => $jadwal->mataKuliah->prodi->fakultas->nama_fakultas ?? '-', 
             'prodi' => $jadwal->mataKuliah->prodi->nama_prodi ?? '-',
             'semester' => $jadwal->tahunAkademik->nama_tahun ?? '-',
@@ -44,8 +42,6 @@ class AdminCetakController extends Controller
 
         // 3. Generate PDF
         $pdf = Pdf::loadView('pdf.cetak-absensi', $data);
-        
-        // Setup Kertas A4 Portrait
         $pdf->setPaper('a4', 'portrait');
 
         $namaFile = 'Absensi-' . ($jadwal->mataKuliah->kode_mk ?? 'MK') . '-' . $jadwal->nama_kelas . '.pdf';
