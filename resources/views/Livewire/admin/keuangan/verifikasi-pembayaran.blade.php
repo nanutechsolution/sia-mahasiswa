@@ -44,10 +44,10 @@
                         <td class="px-8 py-6">
                             <div class="flex items-center space-x-4">
                                 <div class="flex-shrink-0 w-11 h-11 bg-unmaris-blue text-unmaris-yellow rounded-2xl flex items-center justify-center font-black text-sm shadow-sm">
-                                    {{ substr($bayar->tagihan->mahasiswa->nama_lengkap, 0, 1) }}
+                                    {{ substr($bayar->tagihan->mahasiswa->person->nama_lengkap, 0, 1) }}
                                 </div>
                                 <div>
-                                    <div class="text-sm font-black text-slate-800 leading-tight">{{ $bayar->tagihan->mahasiswa->nama_lengkap }}</div>
+                                    <div class="text-sm font-black text-slate-800 leading-tight">{{ $bayar->tagihan->mahasiswa->person->nama_lengkap }}</div>
                                     <div class="text-[10px] font-mono font-bold text-indigo-500 mt-1 uppercase tracking-tighter">{{ $bayar->tagihan->mahasiswa->nim }}</div>
                                     <div class="text-[10px] text-slate-400 font-bold mt-0.5">{{ $bayar->tagihan->deskripsi }}</div>
                                 </div>

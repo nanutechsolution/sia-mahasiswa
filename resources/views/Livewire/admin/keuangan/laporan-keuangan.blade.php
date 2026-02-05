@@ -229,7 +229,7 @@
                 
                 <h4 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6 border-b border-slate-200 pb-2 flex justify-between">
                     <span>Kronologi Transaksi</span>
-                    <span>Waktu Server (WIB)</span>
+                    <span>Waktu Server (WITA)</span>
                 </h4>
 
                 {{-- TIMELINE VISUALIZATION --}}

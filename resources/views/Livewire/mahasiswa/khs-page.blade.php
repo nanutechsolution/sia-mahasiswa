@@ -6,10 +6,10 @@
         <div class="p-6 lg:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
              <div class="flex items-center space-x-5">
                 <div class="w-16 h-16 bg-[#002855] text-[#fcc000] rounded-2xl flex items-center justify-center font-black text-3xl shadow-lg ring-4 ring-slate-50">
-                    {{ substr($mahasiswa->nama_lengkap, 0, 1) }}
+                    {{ substr($mahasiswa->person->nama_lengkap, 0, 1) }}
                 </div>
                 <div>
-                     <h2 class="text-2xl font-black text-[#002855] uppercase tracking-tight">{{ $mahasiswa->nama_lengkap }}</h2>
+                     <h2 class="text-2xl font-black text-[#002855] uppercase tracking-tight">{{ $mahasiswa->person->nama_lengkap }}</h2>
                     <div class="flex flex-wrap items-center gap-2 mt-1.5">
                         <span class="text-xs font-mono font-bold text-[#002855] bg-[#002855]/10 px-2 py-0.5 rounded-lg">{{ $mahasiswa->nim }}</span>
                         <span class="text-xs text-slate-500 font-bold uppercase tracking-widest border-l border-slate-300 pl-2 ml-1">{{ $mahasiswa->prodi->nama_prodi }}</span>

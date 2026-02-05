@@ -7,7 +7,7 @@
         body { font-family: 'Arial', sans-serif; font-size: 10px; color: #000; line-height: 1.4; }
         .header { text-align: center; margin-bottom: 10px; position: relative; border-bottom: 2px solid #000; padding-bottom: 10px; }
         .header h1 { font-size: 16px; margin: 0; text-transform: uppercase; font-weight: bold; }
-        .logo { position: absolute; left: 0; top: 0; width: 65px; }
+        .logo { position: absolute; left: 0; top: -15px; width: 65px; }
         .main-title { text-align: center; font-size: 15px; font-weight: 900; text-decoration: underline; margin: 20px 0; text-transform: uppercase; }
         .info-table { width: 100%; margin-bottom: 20px; border-collapse: collapse; }
         .data-table { width: 100%; border-collapse: collapse; }
@@ -24,14 +24,14 @@
     <div class="header">
         <img src="{{ public_path('logo.png') }}" class="logo">
         <h1>UNIVERSITAS STELLA MARIS SUMBA (UNMARIS)</h1>
-        <p style="font-size: 9px; margin:2px 0;">Situs Resmi: www.unmaris.ac.id | Email: info@unmaris.ac.id</p>
+        <p style="font-size: 9px; margin:2px 0;">Situs Resmi: www.unmarissumba.ac.id | Email: info@unmarissumba.ac.id</p>
     </div>
     
     <div class="main-title">TRANSKRIP NILAI SEMENTARA</div>
 
     <table class="info-table">
         <tr>
-            <td width="20%">Nama Mahasiswa</td><td width="2%">:</td><td width="30%" style="font-weight:bold">{{ strtoupper($mahasiswa->nama_lengkap) }}</td>
+            <td width="20%">Nama Mahasiswa</td><td width="2%">:</td><td width="30%" style="font-weight:bold">{{ strtoupper($mahasiswa->person->nama_lengkap) }}</td>
             <td width="20%">NIM</td><td width="2%">:</td><td>{{ $mahasiswa->nim }}</td>
         </tr>
         <tr>
