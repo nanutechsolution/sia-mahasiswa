@@ -5,14 +5,14 @@
             <h1 class="text-2xl font-black text-[#002855] uppercase tracking-tight">Penyetaraan Mata Kuliah</h1>
             <p class="text-[11px] text-slate-500 font-bold uppercase tracking-widest mt-1">Recognition Layer &bull; Kebijakan Lintas Kurikulum</p>
         </div>
-        <button wire:click="$set('showForm', true)" class="px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all">
+        <button wire:click="$set('showForm', true)" class="px-5 py-2.5 bg-unmaris-blue text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-unmaris-blue hover:bg-unmaris-blue hover:scale-105 transition-all">
             Tambah Pemetaan Baru
         </button>
     </div>
 
     {{-- Context Filter --}}
     <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
-        <div class="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center">
+        <div class="w-10 h-10 bg-indigo-50 text-unmaris-blue rounded-xl flex items-center justify-center">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
             </svg>
@@ -43,12 +43,12 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
                 {{-- Source: MK di Kurikulum Lama --}}
                 <div class="space-y-4">
-                    <label class="block text-[10px] font-black text-indigo-600 uppercase tracking-widest">Mata Kuliah Asal (Lama)</label>
+                    <label class="block text-[10px] font-black text-unmaris-blue uppercase tracking-widest">Mata Kuliah Asal (Lama)</label>
                     <div class="relative" x-data="{ open: false }">
                         <input type="text" wire:model.live="searchAsal" @focus="open = true" @click.away="open = false"
                             placeholder="{{ $selectedAsalName ?: 'Cari Kode/Nama MK Lama...' }}"
                             class="w-full rounded-xl border-slate-200 bg-slate-50 text-sm font-bold p-3 focus:ring-indigo-500 shadow-inner">
-
+                        @error('mk_asal_id') <p class="text-[10px] text-rose-500 font-bold text-left mt-2">{{ $message }}</p> @enderror
                         @if(!empty($optionsAsal))
                         <div x-show="open" class="absolute z-50 w-full bg-white shadow-2xl rounded-xl mt-1 border border-slate-100 overflow-hidden">
                             @foreach($optionsAsal as $oa)
@@ -59,17 +59,19 @@
                             </div>
                             @endforeach
                         </div>
+
                         @endif
                     </div>
                 </div>
 
                 {{-- Target: MK di Kurikulum Baru --}}
                 <div class="space-y-4">
-                    <label class="block text-[10px] font-black text-indigo-600 uppercase tracking-widest">Mata Kuliah Tujuan (Baru)</label>
+                    <label class="block text-[10px] font-black text-unmaris-blue uppercase tracking-widest">Mata Kuliah Tujuan (Baru)</label>
                     <div class="relative" x-data="{ open: false }">
                         <input type="text" wire:model.live="searchTujuan" @focus="open = true" @click.away="open = false"
                             placeholder="{{ $selectedTujuanName ?: 'Cari Kode/Nama MK Baru...' }}"
                             class="w-full rounded-xl border-slate-200 bg-slate-50 text-sm font-bold p-3 focus:ring-indigo-500 shadow-inner">
+                        @error('mk_tujuan_id') <p class="text-[10px] text-rose-500 font-bold text-left mt-2">{{ $message }}</p> @enderror
 
                         @if(!empty($optionsTujuan))
                         <div x-show="open" class="absolute z-50 w-full bg-white shadow-2xl rounded-xl mt-1 border border-slate-100 overflow-hidden">
@@ -89,6 +91,7 @@
                     <div class="md:col-span-1">
                         <label class="block text-[10px] font-black text-slate-400 uppercase mb-1">Nomor SK Penyetaraan</label>
                         <input type="text" wire:model="nomor_sk" placeholder="Ex: SK/01/TI/2026" class="w-full rounded-xl border-slate-200 text-sm font-bold">
+
                     </div>
                     <div class="md:col-span-2">
                         <label class="block text-[10px] font-black text-slate-400 uppercase mb-1">Keterangan / Alasan</label>
@@ -135,7 +138,7 @@
                         <div class="text-[10px] font-mono text-slate-400 mt-1 uppercase">{{ $item->mataKuliahTujuan->kode_mk }} &bull; {{ $item->mataKuliahTujuan->sks_default }} SKS</div>
                     </td>
                     <td class="px-6 py-5 text-right space-x-3">
-                        <button wire:click="edit('{{ $item->id }}')" class="text-indigo-600 font-black text-[10px] uppercase hover:underline">Edit</button>
+                        <button wire:click="edit('{{ $item->id }}')" class="text-unmaris-blue font-black text-[10px] uppercase hover:underline">Edit</button>
                         <button wire:click="delete('{{ $item->id }}')" wire:confirm="Hapus pemetaan ini?" class="text-rose-500 font-black text-[10px] uppercase hover:underline">Hapus</button>
                     </td>
                 </tr>

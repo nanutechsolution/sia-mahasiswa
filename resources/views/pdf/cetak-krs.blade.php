@@ -1,30 +1,126 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>KRS - {{ $mahasiswa->nim }}</title>
     <style>
-        @page { margin: 0.8cm 1cm; }
-        body { font-family: 'Arial', sans-serif; font-size: 9px; color: #000; line-height: 1.3; }
-        .header { text-align: center; margin-bottom: 5px; position: relative; }
-        .header h1 { font-size: 15px; margin: 0; text-transform: uppercase; font-weight: bold; }
-        .header h2 { font-size: 10px; margin: 2px 0; font-weight: bold; }
-        .header p { font-size: 8px; margin: 1px 0; }
-        .logo { position: absolute; left: 0; top: 0; width: 60px; }
-        .line-double { border-bottom: 3px double #000; margin-top: 5px; margin-bottom: 15px; }
-        .title-box { text-align: center; margin-bottom: 15px; }
-        .title-box h3 { font-size: 13px; text-decoration: underline; margin: 0; font-weight: 900; text-transform: uppercase; }
-        .info-table { width: 100%; margin-bottom: 10px; border-collapse: collapse; }
-        .info-table td { padding: 2px 0; vertical-align: top; }
-        .data-table { width: 100%; border-collapse: collapse; margin-top: 5px; }
-        .data-table th, .data-table td { border: 1px solid black; padding: 5px 3px; }
-        .data-table th { background-color: #f2f2f2; font-weight: bold; text-transform: uppercase; font-size: 8px; text-align: center; }
-        .sig-container { width: 100%; margin-top: 25px; }
-        .sig-box { width: 33.3%; float: left; text-align: center; }
-        .sig-space { height: 50px; }
-        .clear { clear: both; }
-        .bold { font-weight: bold; }
+        @page {
+            margin: 0.8cm 1cm;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            font-size: 9px;
+            color: #000;
+            line-height: 1.3;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 5px;
+            position: relative;
+        }
+
+        .header h1 {
+            font-size: 15px;
+            margin: 0;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+
+        .header h2 {
+            font-size: 10px;
+            margin: 2px 0;
+            font-weight: bold;
+        }
+
+        .header p {
+            font-size: 8px;
+            margin: 1px 0;
+        }
+
+        .logo {
+            position: absolute;
+            left: 0;
+            top: -5;
+            width: 60px;
+        }
+
+        .line-double {
+            border-bottom: 3px double #000;
+            margin-top: 5px;
+            margin-bottom: 15px;
+        }
+
+        .title-box {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        .title-box h3 {
+            font-size: 13px;
+            text-decoration: underline;
+            margin: 0;
+            font-weight: 900;
+            text-transform: uppercase;
+        }
+
+        .info-table {
+            width: 100%;
+            margin-bottom: 10px;
+            border-collapse: collapse;
+        }
+
+        .info-table td {
+            padding: 2px 0;
+            vertical-align: top;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 5px;
+        }
+
+        .data-table th,
+        .data-table td {
+            border: 1px solid black;
+            padding: 5px 3px;
+        }
+
+        .data-table th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 8px;
+            text-align: center;
+        }
+
+        .sig-container {
+            width: 100%;
+            margin-top: 25px;
+        }
+
+        .sig-box {
+            width: 33.3%;
+            float: left;
+            text-align: center;
+        }
+
+        .sig-space {
+            height: 50px;
+        }
+
+        .clear {
+            clear: both;
+        }
+
+        .bold {
+            font-weight: bold;
+        }
     </style>
 </head>
+
 <body>
     <div class="header">
         <img src="{{ public_path('logo.png') }}" class="logo">
@@ -41,22 +137,32 @@
 
     <table class="info-table">
         <tr>
-            <td width="15%">NIM</td><td width="2%">:</td><td width="33%">{{ $mahasiswa->nim }}</td>
-            <td width="15%">Semester</td><td width="2%">:</td><td>
+            <td width="15%">NIM</td>
+            <td width="2%">:</td>
+            <td width="33%">{{ $mahasiswa->nim }}</td>
+            <td width="15%">Semester</td>
+            <td width="2%">:</td>
+            <td>
                 @php
-                    $tahunTa = (int) substr($ta->kode_tahun, 0, 4);
-                    $smtTipe = (int) substr($ta->kode_tahun, 4, 1); 
-                    $semesterKe = (($tahunTa - (int)$mahasiswa->angkatan_id) * 2) + ($smtTipe >= 2 ? 2 : 1);
+                $tahunTa = (int) substr($ta->kode_tahun, 0, 4);
+                $smtTipe = (int) substr($ta->kode_tahun, 4, 1);
+                $semesterKe = (($tahunTa - (int)$mahasiswa->angkatan_id) * 2) + ($smtTipe >= 2 ? 2 : 1);
                 @endphp
                 {{ $semesterKe }} ({{ $smtTipe == 1 ? 'Ganjil' : 'Genap' }})
             </td>
         </tr>
         <tr>
-            <td>Nama Mahasiswa</td><td>:</td><td class="bold">{{ strtoupper($mahasiswa->nama_lengkap) }}</td>
-            <td>Kelas</td><td>:</td><td>{{ $mahasiswa->programKelas->nama_program }}</td>
+            <td>Nama Mahasiswa</td>
+            <td>:</td>
+            <td class="bold">{{ strtoupper($mahasiswa->person->nama_lengkap) }}</td>
+            <td>Kelas</td>
+            <td>:</td>
+            <td>{{ $mahasiswa->programKelas->nama_program }}</td>
         </tr>
         <tr>
-            <td>Program Studi</td><td>:</td><td>{{ $mahasiswa->prodi->nama_prodi }}</td>
+            <td>Program Studi</td>
+            <td>:</td>
+            <td>{{ $mahasiswa->prodi->nama_prodi }}</td>
             <td colspan="3"></td>
         </tr>
     </table>
@@ -119,4 +225,5 @@
         <div class="clear"></div>
     </div>
 </body>
+
 </html>

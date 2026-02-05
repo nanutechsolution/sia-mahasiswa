@@ -64,7 +64,7 @@ class SkemaTarifManager extends Component
     {
         $this->reset(['skemaId', 'nama_skema', 'prodi_id', 'program_kelas_id', 'items']);
         $this->angkatan_id = date('Y');
-        $this->addItem(); 
+        $this->addItem();
         $this->mode = 'form';
     }
 
@@ -82,7 +82,7 @@ class SkemaTarifManager extends Component
             $this->items[] = [
                 'komponen_id' => $det->komponen_biaya_id,
                 'nominal' => $det->nominal,
-                'semester' => $det->berlaku_semester 
+                'semester' => $det->berlaku_semester
             ];
         }
 
@@ -111,7 +111,7 @@ class SkemaTarifManager extends Component
                 Rule::unique('keuangan_skema_tarif')
                     ->where(function ($query) {
                         return $query->where('prodi_id', $this->prodi_id)
-                                     ->where('program_kelas_id', $this->program_kelas_id);
+                            ->where('program_kelas_id', $this->program_kelas_id);
                     })
                     ->ignore($this->skemaId) // Abaikan diri sendiri jika sedang Edit
             ],
@@ -120,6 +120,11 @@ class SkemaTarifManager extends Component
             'items.*.komponen_id' => 'required',
             'items.*.nominal' => 'required|numeric|min:0',
         ], [
+            'nama_skema' => 'Nama Skema wajib diisi',
+            'prodi_id' => 'Silakan Pilih Prodi',
+            'program_kelas_id' => 'Silakan Program Kelas',
+            'items.*.komponen_id' => 'Komponen Biaya Wajib',
+            'items.*.nominal' => 'Nominal tidak boleh kosong',
             'angkatan_id.unique' => 'Skema Tarif untuk kombinasi Angkatan, Prodi, dan Program Kelas ini SUDAH ADA. Silakan edit skema yang lama.'
         ]);
 
@@ -146,7 +151,7 @@ class SkemaTarifManager extends Component
                     'skema_tarif_id' => $skema->id,
                     'komponen_biaya_id' => $item['komponen_id'],
                     'nominal' => $item['nominal'],
-                    'berlaku_semester' => $item['semester'] ?: null 
+                    'berlaku_semester' => $item['semester'] ?: null
                 ]);
             }
         });

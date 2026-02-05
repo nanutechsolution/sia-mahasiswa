@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
             FakultasProdiSeeder::class,
             AturanSksSeeder::class,
             RefJabatanSeeder::class,
+            RefGelarSeeder::class,
             SkalaNilaiSeeder::class,
             KomponenBiayaSeeder::class,
             UserSeeder::class,
@@ -33,7 +34,7 @@ class DatabaseSeeder extends Seeder
             // KurikulumAutoSeeder::class,
             // KurikulumMappingSeeder::class,
             RealDosenSeeder::class,
-            // RealMahasiswaSeeder::class,
+            RealMahasiswaSeeder::class,
         ]);
     }
 }

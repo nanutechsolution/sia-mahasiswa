@@ -138,7 +138,7 @@
                                     {{ $mhs->nim }}
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-slate-800">
-                                    {{ $mhs->nama_lengkap }}
+                                    {{ $mhs->person->nama_lengkap }}
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-xs text-slate-500">
                                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-slate-100 text-slate-600 border border-slate-200">

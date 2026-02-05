@@ -35,7 +35,7 @@ class RealMahasiswaSeeder extends Seeder
         $countImport = 0;
         $countSkip   = 0;
         $countError  = 0;
-        $limit       = 2000; // Batasi import 100 mahasiswa
+        $limit       = 100; // Batasi import 100 mahasiswa
 
         $prodis = Prodi::pluck('id', 'nama_prodi');
 

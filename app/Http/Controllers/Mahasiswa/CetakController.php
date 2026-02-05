@@ -22,19 +22,20 @@ class CetakController extends Controller
         $query = DB::table('ref_person as p')
             ->join('trx_person_jabatan as pj', 'p.id', '=', 'pj.person_id')
             ->join('ref_jabatan as j', 'pj.jabatan_id', '=', 'j.id')
+            ->join('trx_dosen as d', 'd.person_id', '=', 'p.id')
             ->where('j.kode_jabatan', $kodeJabatan)
             ->where('pj.tanggal_mulai', '<=', $today)
-            ->where(function($q) use ($today) {
+            ->where(function ($q) use ($today) {
                 $q->whereNull('pj.tanggal_selesai')
-                  ->orWhere('pj.tanggal_selesai', '>=', $today);
+                    ->orWhere('pj.tanggal_selesai', '>=', $today);
             });
 
         if ($prodiId) {
             $query->where('pj.prodi_id', $prodiId);
         }
 
-        $person = $query->select('p.nama_lengkap', 'p.nik', 'p.id')->first();
-        
+        $person = $query->select('p.nama_lengkap', 'p.nik', 'p.id', 'd.nidn')->first();
+
         if (!$person) return null;
 
         // Ambil gelar personil tersebut
@@ -47,10 +48,9 @@ class CetakController extends Controller
 
         $gelarDepan = $gelars->where('posisi', 'DEPAN')->pluck('kode')->implode(' ');
         $gelarBelakang = $gelars->where('posisi', 'BELAKANG')->pluck('kode')->implode(', ');
-
         return (object)[
             'nama' => trim(($gelarDepan ? $gelarDepan . ' ' : '') . $person->nama_lengkap . ($gelarBelakang ? ', ' . $gelarBelakang : '')),
-            'identitas' => $person->nik
+            'identitas' => $person->nidn
         ];
     }
 
@@ -60,12 +60,12 @@ class CetakController extends Controller
     public function cetakKrs()
     {
         $user = Auth::user();
-        
+
         // [FIX SSOT] Cari Mahasiswa via person_id dari User
         $mahasiswa = Mahasiswa::with(['prodi.fakultas', 'programKelas', 'dosenWali.person', 'person'])
             ->where('person_id', $user->person_id)
             ->firstOrFail();
-            
+
         $ta = SistemHelper::getTahunAktif();
 
         $krs = Krs::with(['details.jadwalKuliah.mataKuliah', 'details.jadwalKuliah.dosen.person'])
@@ -88,12 +88,12 @@ class CetakController extends Controller
     public function cetakKhs()
     {
         $user = Auth::user();
-        
+
         // [FIX SSOT]
         $mahasiswa = Mahasiswa::with(['prodi.fakultas', 'programKelas', 'person'])
             ->where('person_id', $user->person_id)
             ->firstOrFail();
-            
+
         $ta = SistemHelper::getTahunAktif();
 
         $details = DB::table('krs_detail as kd')
@@ -127,7 +127,7 @@ class CetakController extends Controller
     public function cetakTranskrip()
     {
         $user = Auth::user();
-        
+
         // [FIX SSOT]
         $mahasiswa = Mahasiswa::with(['prodi.fakultas', 'programKelas', 'person'])
             ->where('person_id', $user->person_id)

@@ -8,7 +8,7 @@
         .gov-header { text-align: center; font-weight: bold; margin-bottom: 5px; text-transform: uppercase; font-size: 9px; letter-spacing: 0.5px; }
         .header { text-align: center; margin-bottom: 5px; position: relative; border-bottom: 2px solid #000; padding-bottom: 10px; }
         .header h1 { font-size: 15px; margin: 0; text-transform: uppercase; font-weight: bold; }
-        .logo { position: absolute; left: 0; top: 0; width: 60px; }
+        .logo { position: absolute; left: 0; top: -20px; width: 60px; }
         .main-title { text-align: center; font-size: 14px; font-weight: 900; text-decoration: underline; margin: 15px 0; text-transform: uppercase; }
         .info-table { width: 100%; margin-bottom: 15px; border-collapse: collapse; }
         .data-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
@@ -91,7 +91,7 @@
         <p style="font-weight:bold; text-decoration:underline;">
             ( {{ $kaProdi->nama ?? '..................................' }} )
         </p>
-        <p>NIK/NIP. {{ $kaProdi->identitas ?? '.........................' }}</p>
+        <p>NIDN/NUPTK. {{ $kaProdi->identitas ?? '.........................' }}</p>
     </div>
 </body>
 </html>

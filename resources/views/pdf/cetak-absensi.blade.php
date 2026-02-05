@@ -48,6 +48,9 @@
             margin: 0;
             font-size: 11px;
         }
+        .header img{
+            top : -3px;
+        }
 
         .doc-title {
             text-align: center;
@@ -142,7 +145,7 @@
 
 <body>
     <div class="header">
-        <img src="{{ public_path('logo.png') }}" onerror="this.style.display='none'">
+        <img src="{{ public_path('logo.png') }}" onerror="this.style.display='none'" >
         <h1>UNIVERSITAS STELLA MARIS SUMBA</h1>
         <h2>{{ strtoupper($fakultas) }}</h2>
         <p>Alamat: Jl. Karya Kasih No. 5, Tambolaka, Sumba Barat Daya, NTT</p>
