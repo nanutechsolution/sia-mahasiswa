@@ -19,6 +19,7 @@ class JadwalKuliah extends Model
 
     protected $fillable = [
         'tahun_akademik_id',
+        'kurikulum_id',
         'mata_kuliah_id',
         'dosen_id',
         'nama_kelas',
@@ -28,6 +29,10 @@ class JadwalKuliah extends Model
         'ruang',
         'kuota_kelas',
         'id_program_kelas_allow'
+    ];
+    protected $casts = [
+        'jam_mulai' => 'datetime:H:i',
+        'jam_selesai' => 'datetime:H:i',
     ];
 
     /**
@@ -95,5 +100,12 @@ class JadwalKuliah extends Model
     public function tahunAkademik()
     {
         return $this->belongsTo(TahunAkademik::class, 'tahun_akademik_id');
+    }
+
+
+
+    public function kurikulum()
+    {
+        return $this->belongsTo(Kurikulum::class, 'kurikulum_id');
     }
 }

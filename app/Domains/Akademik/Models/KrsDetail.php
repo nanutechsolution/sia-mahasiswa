@@ -14,6 +14,10 @@ class KrsDetail extends Model
     protected $fillable = [
         'krs_id',
         'jadwal_kuliah_id',
+        'kode_mk_snapshot', // Snapshot Kode
+        'nama_mk_snapshot', // Snapshot Nama
+        'sks_snapshot',      // Snapshot SKS
+        'ekuivalensi_id',   // Referensi SK Penyetaraan
         'status_ambil',
         'nilai_tugas',
         'nilai_uts',

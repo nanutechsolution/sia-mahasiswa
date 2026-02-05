@@ -43,7 +43,7 @@ class FakultasProdiSeeder extends Seeder
                 'nama' => 'D3 Manajemen Informatika',
                 'jenjang' => 'D3',
                 'gelar' => 'A.Md.Kom',
-                'format_nim' => '{TAHUN}57401{NO:4}'
+                'format_nim' => '{TAHUN}57401{NO:3}'
             ],
             [
                 'fakultas_id' => $ft->id,
@@ -52,35 +52,35 @@ class FakultasProdiSeeder extends Seeder
                 'nama' => 'S1 Teknik Informatika',
                 'jenjang' => 'S1',
                 'gelar' => 'S.Kom',
-                'format_nim' => '{TAHUN}55201{NO:4}'
+                'format_nim' => '{TAHUN}55201{NO:3}'
             ],
             [
                 'fakultas_id' => $ft->id,
                 'kode_internal' => 'TL',
-                'kode_dikti' => '21201',
+                'kode_dikti' => '25302',
                 'nama' => 'S1 Teknik Lingkungan',
                 'jenjang' => 'S1',
                 'gelar' => 'S.T',
-                'format_nim' => '{TAHUN}21201{NO:4}'
+                'format_nim' => '{TAHUN}25302{NO:3}'
             ],
             // Fakultas Kesehatan
             [
                 'fakultas_id' => $fe->id,
                 'kode_internal' => 'K3',
-                'kode_dikti' => '13262',
+                'kode_dikti' => '13242',
                 'nama' => 'S1 Keselamatan dan Kesehatan Kerja (K3)',
                 'jenjang' => 'S1',
                 'gelar' => 'S.KKK',
-                'format_nim' => '{TAHUN}13262{NO:4}'
+                'format_nim' => '{TAHUN}13242{NO:3}'
             ],
             [
                 'fakultas_id' => $fe->id,
                 'kode_internal' => 'ARS',
-                'kode_dikti' => '13241',
+                'kode_dikti' => '13261',
                 'nama' => 'S1 Administrasi Rumah Sakit',
                 'jenjang' => 'S1',
                 'gelar' => 'S.ARS',
-                'format_nim' => '{TAHUN}13241{NO:4}'
+                'format_nim' => '{TAHUN}13261{NO:3}'
             ],
             // Fakultas Keguruan
             [
@@ -90,7 +90,7 @@ class FakultasProdiSeeder extends Seeder
                 'nama' => 'S1 Pendidikan Teknologi Informasi',
                 'jenjang' => 'S1',
                 'gelar' => 'S.Pd',
-                'format_nim' => '{TAHUN}83207{NO:4}'
+                'format_nim' => '{TAHUN}83207{NO:3}'
             ],
             // Fakultas Ekonomi Dan Bisnis
             [
@@ -100,7 +100,7 @@ class FakultasProdiSeeder extends Seeder
                 'nama' => 'S1 Bisnis Digital',
                 'jenjang' => 'S1',
                 'gelar' => 'S.Bis',
-                'format_nim' => '{TAHUN}61205{NO:4}'
+                'format_nim' => '{TAHUN}61205{NO:3}'
             ],
         ];
 

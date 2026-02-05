@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ $title ?? 'SIAKAD UNMARIS' }}</title>
 
+    <!-- icon -->
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
 </head>
@@ -90,6 +91,7 @@
                         <a href="{{ route('admin.kurikulum') }}" class="nav-link text-xs py-2 {{ request()->routeIs('admin.kurikulum*') ? 'text-unmaris-gold font-bold bg-white/5' : 'text-slate-400' }}" wire:navigate>Kurikulum</a>
                         <a href="{{ route('admin.skala-nilai') }}" class="nav-link text-xs py-2 {{ request()->routeIs('admin.skala-nilai') ? 'text-unmaris-gold font-bold bg-white/5' : 'text-slate-400' }}" wire:navigate>Skala Nilai</a>
                         <a href="{{ route('admin.aturan-sks') }}" class="nav-link text-xs py-2 {{ request()->routeIs('admin.aturan-sks') ? 'text-unmaris-gold font-bold bg-white/5' : 'text-slate-400' }}" wire:navigate>Aturan SKS</a>
+                        <a href="{{ route('admin.akademik.ekuivalensi-mk') }}" class="nav-link text-xs py-2 {{ request()->routeIs('admin.akademik.ekuivalensi-mk') ? 'text-unmaris-gold font-bold bg-white/5' : 'text-slate-400' }}" wire:navigate>Ekuivalensi</a>
                     </div>
                 </div>
 

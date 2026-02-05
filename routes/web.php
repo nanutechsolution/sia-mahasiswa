@@ -25,6 +25,7 @@ use App\Livewire\Admin\Akademik\KurikulumManager;
 use App\Livewire\Admin\Akademik\MutasiMhsManager;
 use App\Livewire\Admin\Akademik\PlotingPaManager;
 use App\Livewire\Admin\Akademik\CetakAbsensiManager;
+use App\Livewire\Admin\Akademik\EkuivalensiManager;
 use App\Livewire\Admin\Akademik\SkalaNilaiManager;
 
 use App\Livewire\Admin\Konfigurasi\TahunAkademikManager;
@@ -137,9 +138,10 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/mahasiswa', MahasiswaManager::class)->name('admin.mahasiswa');
             Route::get('/camaba', CamabaManager::class)->name('admin.camaba');
             Route::get('/dosen', DosenManager::class)->name('admin.dosen');
-
             // SDM & Pejabat
             Route::get('/hr-manager', HRModuleManager::class)->name('admin.hr.manager');
+            Route::get('/akademik/ekuivalensi-mata-kuliah', EkuivalensiManager::class)
+                ->name('admin.akademik.ekuivalensi-mk');
         });
 
         // 2. GRUP KEUANGAN (Permission: akses_modul_keuangan)
