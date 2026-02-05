@@ -33,7 +33,7 @@ class DatabaseSeeder extends Seeder
             // KurikulumAutoSeeder::class,
             // KurikulumMappingSeeder::class,
             RealDosenSeeder::class,
-            RealMahasiswaSeeder::class,
+            // RealMahasiswaSeeder::class,
         ]);
     }
 }
