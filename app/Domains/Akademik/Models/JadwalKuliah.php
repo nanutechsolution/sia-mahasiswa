@@ -30,10 +30,10 @@ class JadwalKuliah extends Model
         'kuota_kelas',
         'id_program_kelas_allow'
     ];
-    protected $casts = [
-        'jam_mulai' => 'datetime:H:i',
-        'jam_selesai' => 'datetime:H:i',
-    ];
+    // protected $casts = [
+    //     'jam_mulai' => 'datetime:H:i',
+    //     'jam_selesai' => 'datetime:H:i',
+    // ];
 
     /**
      * Konfigurasi Spatie Activitylog
