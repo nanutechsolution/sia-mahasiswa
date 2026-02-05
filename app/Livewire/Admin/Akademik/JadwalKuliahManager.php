@@ -41,10 +41,11 @@ class JadwalKuliahManager extends Component
     public $selectedDosenName = '';
     public $showForm = false;
 
-    // REAL-TIME VALIDATION STATES (The Guardrails)
-    public $roomConflict = null;     // Detail bentrok ruangan
-    public $lecturerConflict = null; // Detail bentrok dosen
-    public $curriculumNotice = null; // Peringatan kurikulum
+    // REAL-TIME VALIDATION STATES
+    public $roomConflict = null;     
+    public $lecturerConflict = null; 
+    public $curriculumNotice = null; 
+    public $timeFormatError = null; // Tambahan state untuk format jam
     public $formStatus = 'neutral';  // green, amber, red
 
     public function mount()
@@ -53,45 +54,58 @@ class JadwalKuliahManager extends Component
         $this->filterProdiId = Prodi::first()->id ?? null;
     }
 
-    /**
-     * Reaktif: Setiap kali properti berubah, jalankan validasi silang
-     */
     public function updated($propertyName)
     {
-        // 1. Reset MK jika Kurikulum berubah
         if ($propertyName === 'kurikulum_id') {
             $this->reset(['mata_kuliah_id', 'selectedMkName', 'searchMk']);
         }
 
-        // 2. Trigger Cross-Validation Engine
-        $this->validateRealTime();
+        // Validasi real-time saat ada perubahan input sensitif
+        if (in_array($propertyName, ['hari', 'jam_mulai', 'jam_selesai', 'ruang', 'dosen_id'])) {
+            $this->validateRealTime();
+        }
     }
 
     /**
-     * CORE ENGINE: Validasi Real-Time tanpa refresh
+     * CORE ENGINE: Validasi Real-Time dengan format 24 Jam
      */
     protected function validateRealTime()
     {
         $this->roomConflict = null;
         $this->lecturerConflict = null;
+        $this->timeFormatError = null;
         $this->formStatus = 'green';
 
-        // Hanya validasi jika parameter waktu sudah lengkap
+        // 1. Validasi Format Jam (Harus HH:mm - 24 Jam)
+        $timeRegex = '/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/';
+        
+        if ($this->jam_mulai && !preg_match($timeRegex, $this->jam_mulai)) {
+            $this->timeFormatError = "Format Jam Mulai salah (Gunakan 00:00 - 23:59)";
+            $this->formStatus = 'red';
+            return;
+        }
+
+        if ($this->jam_selesai && !preg_match($timeRegex, $this->jam_selesai)) {
+            $this->timeFormatError = "Format Jam Selesai salah (Gunakan 00:00 - 23:59)";
+            $this->formStatus = 'red';
+            return;
+        }
+
         if (!$this->hari || !$this->jam_mulai || !$this->jam_selesai) {
             $this->formStatus = 'neutral';
             return;
         }
 
-        // Query dasar pencarian overlap waktu
+        // 2. Query dasar overlap waktu (Mencegah Bentrok)
         $baseQuery = JadwalKuliah::where('tahun_akademik_id', $this->filterSemesterId)
             ->where('hari', $this->hari)
             ->where(function ($q) {
                 $q->whereBetween('jam_mulai', [$this->jam_mulai, $this->jam_selesai])
-                    ->orWhereBetween('jam_selesai', [$this->jam_mulai, $this->jam_selesai])
-                    ->orWhere(function ($sub) {
-                        $sub->where('jam_mulai', '<=', $this->jam_mulai)
-                            ->where('jam_selesai', '>=', $this->jam_selesai);
-                    });
+                  ->orWhereBetween('jam_selesai', [$this->jam_mulai, $this->jam_selesai])
+                  ->orWhere(function($sub) {
+                      $sub->where('jam_mulai', '<=', $this->jam_mulai)
+                          ->where('jam_selesai', '>=', $this->jam_selesai);
+                  });
             });
 
         if ($this->jadwalId) {
@@ -123,21 +137,12 @@ class JadwalKuliahManager extends Component
                 $this->formStatus = 'red';
             }
         }
-
-        // C. CEK KUOTA (Amber Warning)
-        if ($this->kuota_kelas > 60) {
-            $this->curriculumNotice = "Peringatan: Kuota melebihi standar kelas reguler.";
-            if ($this->formStatus !== 'red') $this->formStatus = 'amber';
-        } else {
-            $this->curriculumNotice = null;
-        }
     }
 
     public function render()
     {
-        // Dataset untuk Form
         $kurikulumOptions = Kurikulum::where('prodi_id', $this->filterProdiId)->where('is_active', true)->get();
-
+        
         $formMks = [];
         if ($this->kurikulum_id) {
             $formMks = MataKuliah::join('kurikulum_mata_kuliah', 'master_mata_kuliahs.id', '=', 'kurikulum_mata_kuliah.mata_kuliah_id')
@@ -147,14 +152,13 @@ class JadwalKuliahManager extends Component
                 ->take(8)->get();
         }
 
-        $dosens = Dosen::with('person')->whereHas('person', function ($q) {
+        $dosens = Dosen::with('person')->whereHas('person', function($q) {
             $q->where('nama_lengkap', 'like', "%{$this->searchDosen}%");
         })->take(8)->get();
 
-        // Dataset untuk Tabel
         $jadwals = JadwalKuliah::with(['mataKuliah', 'dosen.person', 'kurikulum'])
             ->where('tahun_akademik_id', $this->filterSemesterId)
-            ->when($this->filterProdiId, function ($q) {
+            ->when($this->filterProdiId, function($q) {
                 $q->whereHas('mataKuliah', fn($mk) => $mk->where('prodi_id', $this->filterProdiId));
             })
             ->orderBy('hari')->orderBy('jam_mulai')
@@ -170,48 +174,32 @@ class JadwalKuliahManager extends Component
         ]);
     }
 
-    public function pilihMk($id, $nama)
-    {
-        $this->mata_kuliah_id = $id;
-        $this->selectedMkName = $nama;
-        $this->searchMk = '';
-    }
-
-    public function pilihDosen($id, $nama)
-    {
-        $this->dosen_id = $id;
-        $this->selectedDosenName = $nama;
-        $this->searchDosen = '';
-        $this->validateRealTime();
-    }
+    public function pilihMk($id, $nama) { $this->mata_kuliah_id = $id; $this->selectedMkName = $nama; $this->searchMk = ''; }
+    public function pilihDosen($id, $nama) { $this->dosen_id = $id; $this->selectedDosenName = $nama; $this->searchDosen = ''; $this->validateRealTime(); }
 
     public function save()
     {
+        // Re-validate format sebelum simpan
+        $this->validateRealTime();
         if ($this->formStatus === 'red') return;
 
-        $this->validate(
-            [
-                'kurikulum_id'   => 'required',
-                'mata_kuliah_id' => 'required',
-                'dosen_id'       => 'required',
-                'hari'           => 'required',
-                'jam_mulai'      => 'required',
-                'jam_selesai'    => 'required',
-                'ruang'          => 'required',
-                'nama_kelas'     => 'required',
-            ],
-            [
-                'kurikulum_id.required'   => 'Silakan pilih kurikulum terlebih dahulu.',
-                'mata_kuliah_id.required' => 'Silakan pilih mata kuliah yang akan dijadwalkan.',
-                'dosen_id.required'       => 'Dosen pengampu belum dipilih.',
-                'hari.required'           => 'Hari perkuliahan belum diisi.',
-                'jam_mulai.required'      => 'Jam mulai perkuliahan belum ditentukan.',
-                'jam_selesai.required'    => 'Jam selesai perkuliahan belum ditentukan.',
-                'ruang.required'          => 'Ruang perkuliahan belum diisi.',
-                'nama_kelas.required'     => 'Nama kelas belum diisi (contoh: TI-1A).',
-            ]
-        );
+        $timeFormat = 'regex:/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/';
 
+        $this->validate([
+            'kurikulum_id' => 'required',
+            'mata_kuliah_id' => 'required',
+            'dosen_id' => 'required',
+            'hari' => 'required',
+            'jam_mulai' => ['required', $timeFormat],
+            'jam_selesai' => ['required', $timeFormat],
+            'ruang' => 'required',
+            'nama_kelas' => 'required',
+            'kuota_kelas' => 'required|numeric|min:1'
+        ], [
+            'jam_mulai.regex' => 'Format jam mulai tidak valid (HH:mm).',
+            'jam_selesai.regex' => 'Format jam selesai tidak valid (HH:mm).',
+            'kuota_kelas.required' => 'Wajib mengisi kuota kelas.',
+        ]);
 
         $data = [
             'tahun_akademik_id' => $this->filterSemesterId,
@@ -227,9 +215,8 @@ class JadwalKuliahManager extends Component
         ];
 
         JadwalKuliah::updateOrCreate(['id' => $this->jadwalId], $data);
-
         $this->resetForm();
-        session()->flash('success', 'Jadwal berhasil diperbarui.');
+        session()->flash('success', 'Jadwal berhasil diterbitkan/diperbarui.');
     }
 
     public function edit($id)
@@ -244,6 +231,7 @@ class JadwalKuliahManager extends Component
         $this->jam_mulai = substr($j->jam_mulai, 0, 5);
         $this->jam_selesai = substr($j->jam_selesai, 0, 5);
         $this->ruang = $j->ruang;
+        $this->kuota_kelas = $j->kuota_kelas;
         $this->selectedMkName = $j->mataKuliah->nama_mk;
         $this->selectedDosenName = $j->dosen->person->nama_lengkap;
         $this->showForm = true;
@@ -252,6 +240,7 @@ class JadwalKuliahManager extends Component
 
     public function resetForm()
     {
-        $this->reset(['jadwalId', 'mata_kuliah_id', 'dosen_id', 'nama_kelas', 'hari', 'jam_mulai', 'jam_selesai', 'ruang', 'selectedMkName', 'selectedDosenName', 'showForm', 'roomConflict', 'lecturerConflict', 'formStatus']);
+        $this->reset(['jadwalId', 'mata_kuliah_id', 'dosen_id', 'nama_kelas', 'hari', 'jam_mulai', 'jam_selesai', 'ruang', 'selectedMkName', 'selectedDosenName', 'showForm', 'roomConflict', 'lecturerConflict', 'formStatus', 'timeFormatError']);
+        $this->kuota_kelas = 40;
     }
 }

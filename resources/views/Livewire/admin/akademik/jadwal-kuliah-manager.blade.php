@@ -107,13 +107,22 @@
                     {{-- WAKTU (HH:mm) --}}
                     <div class="lg:col-span-2 grid grid-cols-2 gap-4 bg-indigo-50/30 p-2 rounded-3xl border border-indigo-100">
                         <div class="space-y-1">
-                            <label class="block text-[9px] font-black text-indigo-400 uppercase text-center tracking-widest">Jam Mulai (24H)</label>
-                            <input type="text" wire:model.live="jam_mulai" placeholder="08:00" maxlength="5" class="w-full bg-white border-none rounded-2xl py-4 text-center text-xl font-black text-[#002855] focus:ring-2 focus:ring-indigo-400 shadow-sm placeholder-slate-200">
+                            <label class="block text-[9px] font-black text-indigo-400 uppercase text-center tracking-widest">Jam Mulai (HH:mm)</label>
+                            <input type="text" wire:model.live="jam_mulai" placeholder="08:00" maxlength="5" 
+                                class="w-full bg-white border-none rounded-2xl py-4 text-center text-xl font-black text-[#002855] focus:ring-2 focus:ring-indigo-400 shadow-sm placeholder-slate-200 @error('jam_mulai') ring-2 ring-rose-500 @enderror">
                         </div>
                         <div class="space-y-1">
-                            <label class="block text-[9px] font-black text-indigo-400 uppercase text-center tracking-widest">Jam Selesai (24H)</label>
-                            <input type="text" wire:model.live="jam_selesai" placeholder="10:30" maxlength="5" class="w-full bg-white border-none rounded-2xl py-4 text-center text-xl font-black text-[#002855] focus:ring-2 focus:ring-indigo-400 shadow-sm placeholder-slate-200">
+                            <label class="block text-[9px] font-black text-indigo-400 uppercase text-center tracking-widest">Jam Selesai (HH:mm)</label>
+                            <input type="text" wire:model.live="jam_selesai" placeholder="10:30" maxlength="5" 
+                                class="w-full bg-white border-none rounded-2xl py-4 text-center text-xl font-black text-[#002855] focus:ring-2 focus:ring-indigo-400 shadow-sm placeholder-slate-200 @error('jam_selesai') ring-2 ring-rose-500 @enderror">
                         </div>
+                    </div>
+                    <div class="lg:col-start-2 lg:col-span-2">
+                        @if($timeFormatError)
+                            <span class="text-rose-500 text-[10px] font-black uppercase text-center block animate-pulse">{{ $timeFormatError }}</span>
+                        @endif
+                        @error('jam_mulai') <span class="text-rose-500 text-[10px] font-bold text-center block">Format jam mulai tidak valid.</span> @enderror
+                        @error('jam_selesai') <span class="text-rose-500 text-[10px] font-bold text-center block">Format jam selesai tidak valid.</span> @enderror
                     </div>
 
                     {{-- RUANG & KELAS --}}
@@ -132,12 +141,13 @@
 
                     <div class="space-y-2 text-center">
                         <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Identitas Kelas *</label>
-                        <input type="text" wire:model="nama_kelas" placeholder="Cth: TI-2A" class="w-full rounded-2xl border-slate-200 py-4 text-base font-black uppercase text-center text-[#002855]">
+                        <input type="text" wire:model="nama_kelas" placeholder="Cth: TI-2A" class="w-full rounded-2xl border-slate-200 py-4 text-base font-black uppercase text-center text-[#002855] @error('nama_kelas') border-rose-500 @enderror">
                     </div>
 
                     <div class="space-y-2 text-center">
-                        <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Kuota Kursi</label>
-                        <input type="number" wire:model="kuota_kelas" class="w-full rounded-2xl border-slate-200 py-4 text-base font-black text-center text-[#002855]">
+                        <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Kuota Kursi *</label>
+                        <input type="number" wire:model="kuota_kelas" class="w-full rounded-2xl border-slate-200 py-4 text-base font-black text-center text-[#002855] @error('kuota_kelas') border-rose-500 @enderror">
+                        @error('kuota_kelas') <span class="text-rose-500 text-[10px] font-bold mt-1 block text-center">Wajib isi kuota.</span> @enderror
                     </div>
                 </div>
             </div>
@@ -174,6 +184,7 @@
                             </p>
                         </div>
                     @endif
+                    @error('dosen_id') <span class="text-rose-500 text-[10px] font-bold mt-1 block">Wajib memilih dosen pengampu.</span> @enderror
                 </div>
             </div>
 
@@ -181,7 +192,7 @@
             <div class="pt-10 border-t border-slate-100 flex flex-col md:flex-row items-center justify-between gap-6">
                 <div class="flex items-center gap-6">
                     <div class="flex items-center gap-2">
-                        <div class="w-3 h-3 rounded-full {{ $formStatus == 'red' ? 'bg-rose-500' : ($formStatus == 'green' ? 'bg-emerald-500' : 'bg-slate-300') }}"></div>
+                        <div class="w-3 h-3 rounded-full {{ $formStatus == 'red' ? 'bg-rose-500 animate-pulse' : ($formStatus == 'green' ? 'bg-emerald-500' : 'bg-slate-300') }}"></div>
                         <span class="text-[10px] font-black uppercase tracking-widest text-slate-400">Status Kelayakan</span>
                     </div>
                     @if($curriculumNotice)
