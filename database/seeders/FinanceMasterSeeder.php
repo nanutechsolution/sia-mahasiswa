@@ -30,8 +30,8 @@ class FinanceMasterSeeder extends Seeder
 
         // 2. Skema Tarif: REGULER (Mahal di SPP, Gratis SKS)
         $skemaReg = DB::table('keuangan_skema_tarif')->insertGetId([
-            'nama_skema' => 'Tarif TI Reguler 2024',
-            'angkatan_id' => 2024,
+            'nama_skema' => 'Tarif TI Reguler 2018',
+            'angkatan_id' => 2018,
             'prodi_id' => $prodiTi,
             'program_kelas_id' => $progReg,
             'created_at' => now(),
@@ -44,8 +44,8 @@ class FinanceMasterSeeder extends Seeder
 
         // 3. Skema Tarif: EKSTENSI (Murah di SPP, Bayar per SKS)
         $skemaEks = DB::table('keuangan_skema_tarif')->insertGetId([
-            'nama_skema' => 'Tarif TI Ekstensi 2024',
-            'angkatan_id' => 2024,
+            'nama_skema' => 'Tarif TI Ekstensi 2018',
+            'angkatan_id' => 2018,
             'prodi_id' => $prodiTi,
             'program_kelas_id' => $progEks,
             'created_at' => now(),

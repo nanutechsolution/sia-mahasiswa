@@ -21,8 +21,7 @@ class RefJabatanSeeder extends Seeder
             ['kode_jabatan' => 'WR1', 'nama_jabatan' => 'Wakil Rektor I (Akademik)', 'jenis' => 'STRUKTURAL'],
             ['kode_jabatan' => 'WR2', 'nama_jabatan' => 'Wakil Rektor II (Keuangan & SDM)', 'jenis' => 'STRUKTURAL'],
             ['kode_jabatan' => 'WR3', 'nama_jabatan' => 'Wakil Rektor III (Kemahasiswaan & Kerjasama)', 'jenis' => 'STRUKTURAL'],
-            ['kode_jabatan' => 'DEKAN_FTI', 'nama_jabatan' => 'Dekan Fakultas Teknologi Informasi', 'jenis' => 'STRUKTURAL'],
-            ['kode_jabatan' => 'DEKAN_FEKON', 'nama_jabatan' => 'Dekan Fakultas Ekonomi', 'jenis' => 'STRUKTURAL'],
+            ['kode_jabatan' => 'DEKAN', 'nama_jabatan' => 'Dekan Fakultas', 'jenis' => 'STRUKTURAL'],
             ['kode_jabatan' => 'KAPRODI', 'nama_jabatan' => 'Ketua Program Studi', 'jenis' => 'STRUKTURAL'],
             // ['kode_jabatan' => 'KABAAK', 'nama_jabatan' => 'Ketua Program Studi', 'jenis' => 'STRUKTURAL'],
 

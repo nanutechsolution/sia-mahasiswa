@@ -18,7 +18,7 @@
             <div class="flex-1 min-w-0">
                 <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Tahun Akademik</label>
                 <select wire:model.live="filterSemesterId" class="w-full border-none p-0 font-black text-[#002855] focus:ring-0 text-base bg-transparent cursor-pointer">
-                    @foreach($semesters as $s) <option value="{{ $s->id }}">{{ $s->nama_tahun }}</option> @endforeach
+                    @foreach($semesters as $s) <option value="{{ $s->id }}">{{ $s->nama_tahun }} {{ $s->is_active ? '(Aktif)' : '' }}</option> @endforeach
                 </select>
             </div>
         </div>

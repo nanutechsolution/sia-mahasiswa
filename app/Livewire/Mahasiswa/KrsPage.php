@@ -12,8 +12,6 @@ use App\Domains\Akademik\Models\KrsDetail;
 use App\Domains\Akademik\Models\JadwalKuliah;
 use App\Domains\Akademik\Models\Kurikulum;
 use App\Domains\Akademik\Models\MataKuliah;
-use App\Domains\Akademik\Models\AturanSks;
-use App\Domains\Keuangan\Models\TagihanMahasiswa;
 use App\Domains\Core\Models\TahunAkademik;
 use App\Helpers\SistemHelper;
 
@@ -34,7 +32,7 @@ class KrsPage extends Component
     // State & Blocking
     public $blockKrs = false;
     public $pesanBlock = '';
-    public $logs = []; 
+    public $logs = [];
 
     public function mount()
     {
@@ -50,7 +48,12 @@ class KrsPage extends Component
             abort(403, 'Akun Anda belum terhubung dengan Data Personil (SSOT).');
         }
 
+        // load mahasiswa
         $this->mahasiswas_load();
+
+        // cek pembayaran minimal bayar spp minimal cicl sesuai aturan program kelas atau dispensasi baru bisa krs
+        // cek juga sudah diterbitkan nim apa belum
+        // syarat terbit nim minimal cicil spp dan sudah diverifikasi keuangan untuk pembaran spp dnn
 
         // 1. Inisialisasi Header
         $this->loadKrsHeader();
@@ -64,6 +67,7 @@ class KrsPage extends Component
             $this->ambilPaketOtomatis();
         }
     }
+
 
     public function mahasiswas_load()
     {
@@ -109,7 +113,7 @@ class KrsPage extends Component
             'kode_mk_snapshot' => $mk->kode_mk,
             'nama_mk_snapshot' => $mk->nama_mk,
             'sks_snapshot' => $mk->sks_default,
-            
+
             // Simpan referensi penyetaraan jika ini pengambilan lintas kurikulum
             'ekuivalensi_id' => $ekuivalensi->id ?? null,
             'status_ambil' => 'B'
@@ -125,7 +129,7 @@ class KrsPage extends Component
     public function ambilPaketOtomatis()
     {
         $this->logs = [];
-        
+
         $activeKurikulum = Kurikulum::where('prodi_id', $this->mahasiswa->prodi_id)
             ->where('is_active', true)
             ->orderBy('tahun_mulai', 'desc')
@@ -196,27 +200,48 @@ class KrsPage extends Component
         $smtTipe = (int) substr($ta->kode_tahun, 4, 1);
         $angkatanMhs = (int) preg_replace('/[^0-9]/', '', $this->mahasiswa->angkatan_id);
         $this->semesterBerjalan = max(1, (($tahunTa - $angkatanMhs) * 2) + ($smtTipe >= 2 ? 2 : 1));
-        $this->maxSks = 24; 
+        $this->maxSks = 24;
     }
 
     private function cekValidasiAwal()
     {
-        if (!$this->mahasiswa->dosen_wali_id) { $this->blockAccess('PA belum ditentukan.'); return true; }
-        if (!SistemHelper::isMasaKrsOpen()) { $this->blockAccess('Masa KRS ditutup.'); return true; }
+        if (!$this->mahasiswa->dosen_wali_id) {
+            $this->blockAccess('PA belum ditentukan.');
+            return true;
+        }
+        if (!SistemHelper::isMasaKrsOpen()) {
+            $this->blockAccess('Masa KRS ditutup.');
+            return true;
+        }
         return false;
     }
 
-    private function blockAccess($msg) { $this->blockKrs = true; $this->pesanBlock = $msg; }
-    private function addLog($type, $msg) { $this->logs[] = ['type' => $type, 'msg' => $msg]; }
+    private function blockAccess($msg)
+    {
+        $this->blockKrs = true;
+        $this->pesanBlock = $msg;
+    }
+    private function addLog($type, $msg)
+    {
+        $this->logs[] = ['type' => $type, 'msg' => $msg];
+    }
 
-    public function ajukanKrs() { Krs::find($this->krsId)->update(['status_krs' => 'AJUKAN']); $this->statusKrs = 'AJUKAN'; }
-    public function hapusMatkul($id) { if($this->statusKrs == 'DRAFT') KrsDetail::destroy($id); $this->hitungSks(); }
+    public function ajukanKrs()
+    {
+        Krs::find($this->krsId)->update(['status_krs' => 'AJUKAN']);
+        $this->statusKrs = 'AJUKAN';
+    }
+    public function hapusMatkul($id)
+    {
+        if ($this->statusKrs == 'DRAFT') KrsDetail::destroy($id);
+        $this->hitungSks();
+    }
 
     public function render()
     {
         $diambil = KrsDetail::with(['jadwalKuliah.mataKuliah', 'jadwalKuliah.dosen.person'])
             ->where('krs_id', $this->krsId)->get();
-        
+
         $takenMkIds = $diambil->pluck('jadwalKuliah.mata_kuliah_id')->toArray();
 
         // Query Utama Jadwal (Event Layer)
@@ -232,25 +257,25 @@ class KrsPage extends Component
                 ->where('is_active', true)
                 ->value('id');
 
-            $query->where(function($q) use ($activeKurikulumId) {
+            $query->where(function ($q) use ($activeKurikulumId) {
                 // Skenario A: MK memang ada di kurikulum sekarang
-                $q->whereIn('mata_kuliah_id', function($sub) use ($activeKurikulumId) {
+                $q->whereIn('mata_kuliah_id', function ($sub) use ($activeKurikulumId) {
                     $sub->select('mata_kuliah_id')
                         ->from('kurikulum_mata_kuliah')
                         ->where('kurikulum_id', $activeKurikulumId)
                         ->where('semester_paket', $this->semesterBerjalan);
                 })
-                // Skenario B: MK di jadwal adalah tujuan dari ekuivalensi MK di kurikulum mhs
-                ->orWhereIn('mata_kuliah_id', function($sub) use ($activeKurikulumId) {
-                    $sub->select('mk_tujuan_id')
-                        ->from('akademik_ekuivalensi')
-                        ->where('is_active', true)
-                        ->whereIn('mk_asal_id', function($origin) use ($activeKurikulumId) {
-                            $origin->select('mata_kuliah_id')
-                                   ->from('kurikulum_mata_kuliah')
-                                   ->where('kurikulum_id', $activeKurikulumId);
-                        });
-                });
+                    // Skenario B: MK di jadwal adalah tujuan dari ekuivalensi MK di kurikulum mhs
+                    ->orWhereIn('mata_kuliah_id', function ($sub) use ($activeKurikulumId) {
+                        $sub->select('mk_tujuan_id')
+                            ->from('akademik_ekuivalensi')
+                            ->where('is_active', true)
+                            ->whereIn('mk_asal_id', function ($origin) use ($activeKurikulumId) {
+                                $origin->select('mata_kuliah_id')
+                                    ->from('kurikulum_mata_kuliah')
+                                    ->where('kurikulum_id', $activeKurikulumId);
+                            });
+                    });
             });
         }
 

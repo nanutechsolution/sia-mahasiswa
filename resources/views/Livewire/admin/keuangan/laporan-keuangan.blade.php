@@ -87,7 +87,7 @@
         <div class="md:col-span-1">
             <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Periode</label>
             <select wire:model.live="semesterId" class="w-full rounded-xl border-slate-200 bg-slate-50 text-xs font-bold py-2.5 focus:ring-[#002855]">
-                @foreach($semesters as $sem) <option value="{{ $sem->id }}">{{ $sem->nama_tahun }}</option> @endforeach
+                @foreach($semesters as $sem) <option value="{{ $sem->id }}">{{ $sem->nama_tahun }} {{ $sem->is_active ? '(Aktif)' : '' }}</option> @endforeach
             </select>
         </div>
         <div class="md:col-span-1">

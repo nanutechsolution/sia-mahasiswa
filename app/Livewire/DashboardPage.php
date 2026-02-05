@@ -27,7 +27,7 @@ class DashboardPage extends Component
     public function mount()
     {
         $this->user = Auth::user();
-        
+
         // Eager load person untuk performa SSOT
         if ($this->user->person_id) {
             $this->user->load('person.mahasiswa', 'person.dosen');
@@ -35,7 +35,7 @@ class DashboardPage extends Component
 
         $this->role = $this->user->role;
         $this->taAktif = SistemHelper::getTahunAktif();
-        
+
         $this->setGreeting();
         $this->loadDashboardData();
     }
@@ -54,32 +54,31 @@ class DashboardPage extends Component
         $taId = SistemHelper::idTahunAktif();
         $today = Carbon::now()->locale('id')->isoFormat('dddd');
 
-        // [FIX] Inisialisasi default lengkap untuk mencegah error Undefined Key di View
         $this->stats = [
             // Mahasiswa Stats
-            'ipk' => 0, 
-            'sks_total' => 0, 
-            'status_bayar' => '-', 
-            'tagihan_nominal' => 0, 
+            'ipk' => 0,
+            'sks_total' => 0,
+            'status_bayar' => '-',
+            'tagihan_nominal' => 0,
             'sisa_tagihan' => 0,
-            
+
             // Dosen Stats
-            'kelas_ajar' => 0, 
-            'mhs_wali' => 0, 
+            'kelas_ajar' => 0,
+            'mhs_wali' => 0,
             'krs_perlu_acc' => 0,
-            
+
             // Admin Stats
-            'total_mhs_aktif' => 0, 
-            'pembayaran_pending' => 0, 
-            'kelas_aktif' => 0, 
+            'total_mhs_aktif' => 0,
+            'pembayaran_pending' => 0,
+            'kelas_aktif' => 0,
             'user_online' => 0
         ];
 
         // === DASHBOARD MAHASISWA ===
         if ($this->role == 'mahasiswa') {
-            // [SSOT FIX] Ambil data via Person, bukan user_id langsung
+            // Ambil data via Person, bukan user_id langsung
             $mhs = $this->user->person ? $this->user->person->mahasiswa : null;
-            
+
             if (!$mhs) {
                 $this->announcements[] = [
                     'type' => 'warning',
@@ -92,11 +91,10 @@ class DashboardPage extends Component
             // Stats Akademik
             $riwayat = RiwayatStatusMahasiswa::where('mahasiswa_id', $mhs->id)
                 ->orderBy('tahun_akademik_id', 'desc')->first();
-            
+
             // Stats Keuangan
             $tagihan = TagihanMahasiswa::where('mahasiswa_id', $mhs->id)
                 ->where('tahun_akademik_id', $taId)->first();
-
             $this->stats['ipk'] = $riwayat->ipk ?? 0.00;
             $this->stats['sks_total'] = $riwayat->sks_total ?? 0;
             $this->stats['status_bayar'] = $tagihan ? $tagihan->status_bayar : 'BELUM';
@@ -112,14 +110,13 @@ class DashboardPage extends Component
                     ->get()
                     ->sortBy('jadwalKuliah.jam_mulai');
             }
-            
-        } 
-        
+        }
+
         // === DASHBOARD DOSEN ===
         elseif ($this->role == 'dosen') {
             // [SSOT FIX] Ambil data via Person
             $dosen = $this->user->person ? $this->user->person->dosen : null;
-            
+
             if (!$dosen) {
                 $this->announcements[] = [
                     'type' => 'warning',
@@ -131,14 +128,14 @@ class DashboardPage extends Component
 
             $this->stats['kelas_ajar'] = JadwalKuliah::where('dosen_id', $dosen->id)
                 ->where('tahun_akademik_id', $taId)->count();
-                
+
             $this->stats['mhs_wali'] = \App\Domains\Mahasiswa\Models\Mahasiswa::where('dosen_wali_id', $dosen->id)
                 ->whereHas('riwayatStatus', fn($q) => $q->where('tahun_akademik_id', $taId)->where('status_kuliah', 'A'))
                 ->count();
-                
-            $this->stats['krs_perlu_acc'] = \App\Domains\Akademik\Models\Krs::whereHas('mahasiswa', function($q) use ($dosen) {
-                    $q->where('dosen_wali_id', $dosen->id);
-                })
+
+            $this->stats['krs_perlu_acc'] = \App\Domains\Akademik\Models\Krs::whereHas('mahasiswa', function ($q) use ($dosen) {
+                $q->where('dosen_wali_id', $dosen->id);
+            })
                 ->where('status_krs', 'AJUKAN')
                 ->where('tahun_akademik_id', $taId)
                 ->count();
@@ -149,25 +146,24 @@ class DashboardPage extends Component
                 ->where('hari', $today)
                 ->orderBy('jam_mulai')
                 ->get();
-            
-        } 
-        
+        }
+
         // === DASHBOARD ADMIN ===
         else {
             $this->stats['total_mhs_aktif'] = RiwayatStatusMahasiswa::where('tahun_akademik_id', $taId)
                 ->where('status_kuliah', 'A')->count();
-                
+
             $this->stats['pembayaran_pending'] = PembayaranMahasiswa::where('status_verifikasi', 'PENDING')->count();
-            
+
             $this->stats['kelas_aktif'] = JadwalKuliah::where('tahun_akademik_id', $taId)->count();
-            
+
             $this->stats['user_online'] = User::where('updated_at', '>=', now()->subMinutes(15))->count();
 
             if ($this->stats['pembayaran_pending'] > 0) {
                 $this->todoList[] = [
-                    'title' => 'Verifikasi Pembayaran', 
-                    'count' => $this->stats['pembayaran_pending'], 
-                    'route' => 'admin.keuangan', 
+                    'title' => 'Verifikasi Pembayaran',
+                    'count' => $this->stats['pembayaran_pending'],
+                    'route' => 'admin.keuangan',
                     'color' => 'bg-orange-100 text-orange-700'
                 ];
             }
