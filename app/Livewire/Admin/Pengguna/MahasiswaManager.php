@@ -6,7 +6,7 @@ use App\Domains\Akademik\Models\Dosen;
 use App\Domains\Core\Models\Person;
 use Livewire\Component;
 use Livewire\WithPagination;
-use Livewire\WithFileUploads; // WAJIB untuk upload
+use Livewire\WithFileUploads; 
 use App\Domains\Mahasiswa\Models\Mahasiswa;
 use App\Models\User;
 use App\Domains\Core\Models\Prodi;
@@ -62,9 +62,7 @@ class MahasiswaManager extends Component
     {
         return response()->streamDownload(function () {
             $handle = fopen('php://output', 'w');
-            // Header CSV
             fputcsv($handle, ['NIM', 'Nama Lengkap', 'NIK', 'Email', 'No HP', 'Kode Prodi', 'Kode Kelas (REG/EKS)', 'Tahun Angkatan', 'Jenis Kelamin (L/P)']);
-            // Contoh Data
             fputcsv($handle, ['241001', 'Ahmad Dahlan', '3201123456789001', 'ahmad@gmail.com', '08123456789', 'TI', 'REG', '2024', 'L']);
             fclose($handle);
         }, 'template_import_mahasiswa.csv');
@@ -78,15 +76,13 @@ class MahasiswaManager extends Component
 
         $path = $this->fileImport->getRealPath();
         $file = fopen($path, 'r');
-        fgetcsv($file); // Skip Header
+        fgetcsv($file); 
 
         $countSuccess = 0;
-        $errors = [];
 
         DB::beginTransaction();
         try {
             while (($row = fgetcsv($file)) !== false) {
-                // Validasi jumlah kolom minimal
                 if (count($row) < 9) continue;
 
                 $nim        = trim($row[0]);
@@ -99,17 +95,13 @@ class MahasiswaManager extends Component
                 $angkatan   = trim($row[7]);
                 $gender     = strtoupper(trim($row[8])) == 'P' ? 'P' : 'L';
 
-                // 1. Cari Relasi ID
                 $prodi = Prodi::where('kode_prodi_internal', $kodeProdi)->first();
                 $kelas = ProgramKelas::where('kode_internal', $kodeKelas)->first();
 
                 if (!$prodi || !$kelas) {
-                    // Skip jika prodi/kelas tidak valid
                     continue; 
                 }
 
-                // 2. Handle Person (SSOT)
-                // Cek apakah orang ini sudah ada di sistem (by NIK)
                 $person = Person::where('nik', $nik)->first();
                 
                 if (!$person) {
@@ -122,18 +114,16 @@ class MahasiswaManager extends Component
                         'created_at' => now()
                     ]);
                 } else {
-                    // Update data kontak jika sudah ada
                     $person->update(['email' => $email, 'no_hp' => $hp]);
                 }
 
-                // 3. Handle User Login
                 $user = User::where('username', $nim)->first();
                 if (!$user) {
                     $user = User::create([
                         'name' => $nama,
                         'username' => $nim,
                         'email' => $email ?: $nim.'@student.unmaris.ac.id',
-                        'password' => Hash::make($nim), // Default password = NIM
+                        'password' => Hash::make($nim),
                         'role' => 'mahasiswa',
                         'is_active' => true,
                         'person_id' => $person->id
@@ -141,7 +131,6 @@ class MahasiswaManager extends Component
                     $user->assignRole('mahasiswa');
                 }
 
-                // 4. Handle Data Akademik Mahasiswa
                 Mahasiswa::updateOrCreate(
                     ['nim' => $nim],
                     [
@@ -149,7 +138,6 @@ class MahasiswaManager extends Component
                         'prodi_id' => $prodi->id,
                         'program_kelas_id' => $kelas->id,
                         'angkatan_id' => $angkatan,
-                        // Dosen Wali dikosongkan dulu, nanti di-plotting
                         'dosen_wali_id' => null, 
                         'data_tambahan' => ['bebas_keuangan' => false]
                     ]
@@ -170,12 +158,13 @@ class MahasiswaManager extends Component
 
     public function render()
     {
-        // ... (Query Render tetap sama seperti sebelumnya) ...
-        $dosens = Dosen::join('ref_person', 'trx_dosen.person_id', '=', 'ref_person.id')
-            ->where('trx_dosen.is_active', true)
-            ->orderBy('ref_person.nama_lengkap', 'asc')
-            ->select('trx_dosen.id', 'ref_person.nama_lengkap as nama_lengkap_gelar')
-            ->get();
+        // PERBAIKAN: Menggunakan Eloquent with('person') agar lebih aman daripada Join manual
+        // Pastikan model Dosen punya method `public function person() { return $this->belongsTo(Person::class); }`
+        $dosens = Dosen::with('person')
+            ->where('is_active', true)
+            ->get()
+            ->sortBy(fn($d) => $d->person->nama_lengkap ?? '')
+            ->values(); // Reset key untuk array
 
         $prodis = Prodi::all();
         $programKelasList = ProgramKelas::where('is_active', true)->get();
@@ -209,8 +198,6 @@ class MahasiswaManager extends Component
             'dosens' => $dosens
         ]);
     }
-
-    // ... (Sisa fungsi CRUD create, edit, save, delete, resetForm, batal TETAP SAMA) ...
     
     public function create() { $this->resetForm(); $this->showForm = true; $this->editMode = false; }
 
@@ -224,7 +211,7 @@ class MahasiswaManager extends Component
         $this->angkatan_id = $mhs->angkatan_id;
         $this->prodi_id = $mhs->prodi_id;
         $this->program_kelas_id = $mhs->program_kelas_id;
-        $this->dosen_wali_id = $mhs->dosen_wali_id;
+        $this->dosen_wali_id = $mhs->dosen_wali_id; // Data ini akan mengikat ke select box
         $this->bebas_keuangan = $mhs->data_tambahan['bebas_keuangan'] ?? false;
         $this->editMode = true; $this->showForm = true;
     }
@@ -236,7 +223,6 @@ class MahasiswaManager extends Component
         $this->validate($rules);
 
         DB::transaction(function () {
-            // Logic Save SSOT
             if ($this->editMode) {
                 $mhs = Mahasiswa::find($this->mhsId);
                 $person = Person::updateOrCreate(['id' => $mhs->person_id], ['nama_lengkap' => $this->nama_lengkap, 'email' => $this->email_pribadi, 'no_hp' => $this->nomor_hp]);
@@ -244,7 +230,6 @@ class MahasiswaManager extends Component
                 $person = Person::create(['nama_lengkap' => $this->nama_lengkap, 'email' => $this->email_pribadi, 'no_hp' => $this->nomor_hp, 'created_at' => now()]);
             }
 
-            // User Logic
             $user = User::where('person_id', $person->id)->first();
             if (!$user) {
                 $user = User::create(['name' => $this->nama_lengkap, 'username' => $this->nim, 'email' => $this->nim . '@student.unmaris.ac.id', 'password' => Hash::make($this->password_baru ?? $this->nim), 'role' => 'mahasiswa', 'is_active' => true, 'person_id' => $person->id]);
@@ -254,10 +239,18 @@ class MahasiswaManager extends Component
                 if($this->password_baru) $user->update(['password' => Hash::make($this->password_baru)]);
             }
 
-            // Mahasiswa Logic
             $dataMhs = ['nim' => $this->nim, 'person_id' => $person->id, 'angkatan_id' => $this->angkatan_id, 'prodi_id' => $this->prodi_id, 'program_kelas_id' => $this->program_kelas_id, 'dosen_wali_id' => $this->dosen_wali_id ?: null];
-            if (!$this->editMode) { $dataMhs['data_tambahan'] = ['bebas_keuangan' => $this->bebas_keuangan]; Mahasiswa::create($dataMhs); }
-            else { $mhs = Mahasiswa::find($this->mhsId); $currentData = $mhs->data_tambahan ?? []; $currentData['bebas_keuangan'] = $this->bebas_keuangan; $dataMhs['data_tambahan'] = $currentData; $mhs->update($dataMhs); }
+            
+            if (!$this->editMode) { 
+                $dataMhs['data_tambahan'] = ['bebas_keuangan' => $this->bebas_keuangan]; 
+                Mahasiswa::create($dataMhs); 
+            } else { 
+                $mhs = Mahasiswa::find($this->mhsId); 
+                $currentData = $mhs->data_tambahan ?? []; 
+                $currentData['bebas_keuangan'] = $this->bebas_keuangan; 
+                $dataMhs['data_tambahan'] = $currentData; 
+                $mhs->update($dataMhs); 
+            }
         });
 
         session()->flash('success', 'Data Mahasiswa berhasil disimpan.');

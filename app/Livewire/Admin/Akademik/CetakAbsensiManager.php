@@ -28,22 +28,22 @@ class CetakAbsensiManager extends Component
     {
         $prodis = Prodi::all();
         $semesters = TahunAkademik::orderBy('kode_tahun', 'desc')->get();
-        
+
         $jadwals = JadwalKuliah::with(['mataKuliah', 'dosen.person', 'programKelasAllow'])
             ->where('tahun_akademik_id', $this->filterSemesterId)
-            ->when($this->filterProdiId, function($q) {
-                $q->whereHas('mataKuliah', function($subQ) {
+            ->when($this->filterProdiId, function ($q) {
+                $q->whereHas('mataKuliah', function ($subQ) {
                     $subQ->where('prodi_id', $this->filterProdiId);
                 });
             })
-            ->when($this->search, function($q) {
-                $q->whereHas('mataKuliah', function($subQ) {
-                    $subQ->where('nama_mk', 'like', '%'.$this->search.'%')
-                         ->orWhere('kode_mk', 'like', '%'.$this->search.'%');
+            ->when($this->search, function ($q) {
+                $q->whereHas('mataKuliah', function ($subQ) {
+                    $subQ->where('nama_mk', 'like', '%' . $this->search . '%')
+                        ->orWhere('kode_mk', 'like', '%' . $this->search . '%');
                 })
-                ->orWhereHas('dosen.person', function($subQ) {
-                    $subQ->where('nama_lengkap', 'like', '%'.$this->search.'%');
-                });
+                    ->orWhereHas('dosen.person', function ($subQ) {
+                        $subQ->where('nama_lengkap', 'like', '%' . $this->search . '%');
+                    });
             })
             // Hitung jumlah mahasiswa yang KRS-nya DISETUJUI
             ->withCount(['krsDetails as peserta_count' => function ($query) {

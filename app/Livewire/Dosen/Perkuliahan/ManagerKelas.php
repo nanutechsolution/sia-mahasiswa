@@ -8,6 +8,7 @@ use Carbon\Carbon;
 use App\Domains\Akademik\Models\JadwalKuliah;
 use App\Domains\Akademik\Models\PerkuliahanSesi;
 use App\Domains\Akademik\Models\PerkuliahanAbsensi;
+use App\Domains\Akademik\Models\KrsDetail; // Tambahkan Import KrsDetail
 use Illuminate\Support\Str;
 
 class ManagerKelas extends Component
@@ -16,7 +17,7 @@ class ManagerKelas extends Component
     public $selectedJadwalId;
     public $materi_kuliah;
     public $pertemuan_ke;
-    public $metode_validasi = 'GPS'; // GPS, QR, MANUAL
+    public $metode_validasi = 'GPS'; // Default: GPS
     public $isModalOpen = false;
 
     // Detail Presensi
@@ -24,15 +25,22 @@ class ManagerKelas extends Component
     public $detailSesi;
     public $daftarPeserta = [];
 
-    // Computed Property untuk mengambil data (agar selalu fresh saat render)
+    /**
+     * Mengambil data jadwal hari ini secara real-time.
+     * Menggunakan computed property agar data selalu fresh saat render ulang.
+     */
     public function getJadwalHariIniData()
     {
         $hariIndo = [
             'Sunday' => 'Minggu', 'Monday' => 'Senin', 'Tuesday' => 'Selasa',
             'Wednesday' => 'Rabu', 'Thursday' => 'Kamis', 'Friday' => 'Jumat', 'Saturday' => 'Sabtu'
         ];
-        $hariIni = $hariIndo[Carbon::now()->format('l')];
+        
+        // Paksa Timezone Asia/Makassar (WITA)
+        $now = Carbon::now('Asia/Makassar'); 
+        $hariIni = $hariIndo[$now->format('l')];
 
+        // Ambil ID Dosen (Support Polymorphic atau Relasi Biasa)
         $dosenId = Auth::user()->profileable_id ?? Auth::user()->person->dosen->id ?? null;
 
         if (!$dosenId) return collect();
@@ -43,6 +51,7 @@ class ManagerKelas extends Component
             ->get();
 
         foreach ($jadwals as $jadwal) {
+            // 1. Load Sesi Aktif
             $sesiAktif = PerkuliahanSesi::where('jadwal_kuliah_id', $jadwal->id)
                 ->where('status_sesi', 'dibuka')
                 ->latest('created_at')
@@ -52,6 +61,12 @@ class ManagerKelas extends Component
                 ->first();
             
             $jadwal->setRelation('sesiAktif', $sesiAktif);
+
+            // 2. Hitung Jumlah Peserta Valid (KRS Disetujui)
+            // Disimpan sebagai properti dinamis untuk dipakai di Blade
+            $jadwal->jumlah_peserta = KrsDetail::where('jadwal_kuliah_id', $jadwal->id)
+                ->whereHas('krs', fn($q) => $q->where('status_krs', 'DISETUJUI'))
+                ->count();
         }
 
         return $jadwals;
@@ -59,10 +74,23 @@ class ManagerKelas extends Component
 
     public function openModalBuka($jadwalId)
     {
+        // Validasi Pre-Flight: Cek peserta sebelum buka modal
+        $jumlahPeserta = KrsDetail::where('jadwal_kuliah_id', $jadwalId)
+            ->whereHas('krs', fn($q) => $q->where('status_krs', 'DISETUJUI'))
+            ->count();
+
+        if ($jumlahPeserta === 0) {
+            session()->flash('error', 'Tidak dapat membuka kelas: Belum ada mahasiswa yang mengambil mata kuliah ini (KRS Disetujui).');
+            return;
+        }
+
         $this->selectedJadwalId = $jadwalId;
+        
+        // Auto-increment pertemuan ke-
         $count = PerkuliahanSesi::where('jadwal_kuliah_id', $jadwalId)->count();
         $this->pertemuan_ke = $count + 1;
         $this->materi_kuliah = ''; 
+        
         $this->isModalOpen = true;
     }
 
@@ -73,13 +101,27 @@ class ManagerKelas extends Component
             'pertemuan_ke' => 'required|integer',
         ]);
 
+        // Validasi Ulang (Server-side check)
+        $jumlahPeserta = KrsDetail::where('jadwal_kuliah_id', $this->selectedJadwalId)
+            ->whereHas('krs', fn($q) => $q->where('status_krs', 'DISETUJUI'))
+            ->count();
+
+        if ($jumlahPeserta === 0) {
+            $this->isModalOpen = false;
+            session()->flash('error', 'Gagal: Belum ada mahasiswa dengan status KRS Disetujui.');
+            return;
+        }
+
+        // Simpan waktu menggunakan WITA
+        $waktuSekarang = Carbon::now('Asia/Makassar');
+
         PerkuliahanSesi::create([
             'jadwal_kuliah_id' => $this->selectedJadwalId,
             'pertemuan_ke' => $this->pertemuan_ke,
-            'waktu_mulai_rencana' => Carbon::now(),
-            'waktu_mulai_realisasi' => Carbon::now(),
+            'waktu_mulai_rencana' => $waktuSekarang,
+            'waktu_mulai_realisasi' => $waktuSekarang,
             'materi_kuliah' => $this->materi_kuliah,
-            'token_sesi' => strtoupper(Str::random(6)),
+            'token_sesi' => strtoupper(Str::random(6)), // Token 6 digit
             'status_sesi' => 'dibuka',
             'metode_validasi' => $this->metode_validasi
         ]);
@@ -87,36 +129,32 @@ class ManagerKelas extends Component
         $this->isModalOpen = false;
         $this->reset(['materi_kuliah', 'selectedJadwalId']);
         
-        session()->flash('success', 'Kelas berhasil dibuka! Mahasiswa sekarang bisa absen.');
+        session()->flash('success', 'Kelas berhasil dibuka! Token telah digenerate.');
     }
 
     /**
-     * LOGIKA BARU: Tutup Sesi + Auto Alpha
+     * Menutup sesi dan otomatis menandai Alpha bagi yang tidak absen.
      */
     public function tutupSesi($sesiId)
     {
-        // 1. Ambil Sesi beserta data peserta kelas dan absensi yang sudah ada
         $sesi = PerkuliahanSesi::with(['jadwalKuliah.pesertaKelas', 'absensi'])->findOrFail($sesiId);
         
-        // 2. Identifikasi siapa yang SUDAH absen (Hadir/Ijin/Sakit/Alpha Manual)
+        // Identifikasi mahasiswa yang sudah absen
         $sudahAbsenIds = $sesi->absensi->pluck('krs_detail_id')->toArray();
-        
-        // 3. Ambil SEMUA peserta yang terdaftar di kelas ini
         $semuaPeserta = $sesi->jadwalKuliah->pesertaKelas;
         
         $dataAlpha = [];
-        $now = now();
+        $now = Carbon::now('Asia/Makassar');
 
-        // 4. Loop: Jika peserta BELUM absen, masukkan ke daftar Alpha
         foreach ($semuaPeserta as $mhs) {
             if (!in_array($mhs->id, $sudahAbsenIds)) {
                 $dataAlpha[] = [
                     'id' => (string) Str::uuid(),
                     'perkuliahan_sesi_id' => $sesi->id,
                     'krs_detail_id' => $mhs->id,
-                    'status_kehadiran' => 'A', // Set Alpha
+                    'status_kehadiran' => 'A', // Alpha Otomatis
                     'waktu_check_in' => null,
-                    'bukti_validasi' => json_encode(['auto_alpha' => true]), // Penanda sistem
+                    'bukti_validasi' => json_encode(['auto_alpha' => true]),
                     'is_manual_update' => false,
                     'created_at' => $now,
                     'updated_at' => $now,
@@ -124,22 +162,19 @@ class ManagerKelas extends Component
             }
         }
 
-        // 5. Bulk Insert (Sekali query untuk banyak data)
         if (!empty($dataAlpha)) {
             PerkuliahanAbsensi::insert($dataAlpha);
         }
 
-        // 6. Update status sesi menjadi selesai
         $sesi->update([
             'status_sesi' => 'selesai',
             'waktu_selesai_realisasi' => $now
         ]);
         
-        $jumlahAlpha = count($dataAlpha);
-        session()->flash('success', "Kelas ditutup. $jumlahAlpha mahasiswa yang tidak hadir ditandai Alpha.");
+        session()->flash('success', 'Kelas ditutup. Mahasiswa tanpa keterangan ditandai Alpha.');
     }
 
-    // --- FITUR DETAIL PRESENSI ---
+    // --- MANAJEMEN DETAIL PRESENSI ---
 
     public function bukaDetailPresensi($sesiId)
     {
@@ -152,6 +187,7 @@ class ManagerKelas extends Component
     {
         $this->isDetailOpen = false;
         $this->reset(['detailSesi', 'daftarPeserta']);
+        // Tidak perlu panggil loadJadwal manual karena getJadwalHariIniData jalan di render
     }
 
     public function loadPeserta($sesi)
@@ -161,6 +197,8 @@ class ManagerKelas extends Component
 
         $this->daftarPeserta = $peserta->map(function($p) use ($absensi) {
             $absenRecord = $absensi[$p->id] ?? null;
+            
+            // Null coalescing untuk data relasi
             $nama = $p->krs->mahasiswa->person->nama_lengkap ?? 'Mahasiswa';
             $nim = $p->krs->mahasiswa->nim ?? '-';
 
@@ -184,13 +222,25 @@ class ManagerKelas extends Component
             [
                 'status_kehadiran' => $status,
                 'is_manual_update' => true,
-                'waktu_check_in' => now(), // Timestamp saat dosen mengubah manual
+                'waktu_check_in' => Carbon::now('Asia/Makassar'),
                 'modified_by_user_id' => Auth::id()
             ]
         );
         
         $this->loadPeserta($this->detailSesi);
-        session()->flash('success', 'Status kehadiran diperbarui.');
+        session()->flash('success', 'Status kehadiran berhasil diubah.');
+    }
+
+    // --- CETAK LAPORAN ---
+
+    public function cetakPresensi($sesiId)
+    {
+        return redirect()->route('dosen.cetak.presensi', ['sesiId' => $sesiId]);
+    }
+
+    public function cetakRekap($jadwalId)
+    {
+        return redirect()->route('dosen.cetak.rekap', ['jadwalId' => $jadwalId]);
     }
 
     public function render()

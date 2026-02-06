@@ -6,8 +6,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Domains\Akademik\Models\Dosen;
 use App\Domains\Mahasiswa\Models\Mahasiswa;
-use App\Domains\Akademik\Models\Gelar; // Import Model Gelar
-use App\Domains\Core\Models\Gelar as ModelsGelar;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
@@ -16,10 +14,15 @@ class Person extends Model
     use SoftDeletes;
 
     protected $table = 'ref_person';
-    
+
     protected $fillable = [
-        'nama_lengkap', 'nik', 'email', 'no_hp', 
-        'tanggal_lahir', 'jenis_kelamin', 'tempat_lahir',
+        'nama_lengkap',
+        'nik',
+        'email',
+        'no_hp',
+        'tanggal_lahir',
+        'jenis_kelamin',
+        'tempat_lahir',
     ];
 
     /**
@@ -28,8 +31,7 @@ class Person extends Model
      */
     public function gelars()
     {
-        // [FIX] Parameter pertama harus Model Class, bukan DB::table
-        return $this->belongsToMany(ModelsGelar::class, 'trx_person_gelar', 'person_id', 'gelar_id')
+        return $this->belongsToMany(Gelar::class, 'trx_person_gelar', 'person_id', 'gelar_id')
             ->withPivot('urutan')
             ->orderBy('trx_person_gelar.urutan', 'asc');
     }
@@ -42,7 +44,7 @@ class Person extends Model
     {
         // Kita bisa gunakan relasi yang sudah diload untuk performa (jika eager loading)
         // atau query manual jika relasi belum diload.
-        
+
         if ($this->relationLoaded('gelars')) {
             $gelars = $this->gelars;
         } else {

@@ -88,6 +88,8 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/survei-edom/{krsDetailId}', SurveiEdomPage::class)->name('mhs.survei-edom');
         // --- ROUTE BARU: SCAN ABSENSI MAHASISWA ---
         Route::get('/absensi/scan', ScanHadir::class)->name('mhs.absensi.scan');
+        Route::get('/cetak/rekapan/{jadwalId}', [CetakController::class, 'cetakRekapanAbsensi'])->name('mhs.cetak.rekapan');
+
 
 
 
@@ -106,6 +108,11 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/manager-kelas', ManagerKelas::class)->name('dosen.manager-kelas');
         Route::get('/perwalian', PerwalianManager::class)->name('dosen.perwalian');
         Route::get('/perwalian/{krsId}', PerwalianDetail::class)->name('dosen.perwalian.detail');
+
+        // --- ROUTE CETAK BARU ---
+        Route::get('/cetak/presensi/{sesiId}', [CetakController::class, 'cetakPresensiSesi'])->name('dosen.cetak.presensi');
+        Route::get('/cetak/rekap/{jadwalId}', [CetakController::class, 'cetakRekapSemester'])->name('dosen.cetak.rekap');
+
         Route::get('/profile', DosenProfile::class)->name('dosen.profile');
     });
 

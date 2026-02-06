@@ -53,7 +53,7 @@ class Dosen extends Model
     {
         if ($this->person) {
             // Panggil accessor baru yang kita buat di Model Person
-            return $this->person->nama_lengkap;
+            return $this->person->nama_dengan_gelar;
         }
         return '-';
     }
