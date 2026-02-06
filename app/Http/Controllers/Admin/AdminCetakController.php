@@ -42,7 +42,7 @@ class AdminCetakController extends Controller
 
         // 3. Generate PDF
         $pdf = Pdf::loadView('pdf.cetak-absensi', $data);
-        $pdf->setPaper('a4', 'portrait');
+        $pdf->setPaper('a4', 'landscape');
 
         $namaFile = 'Absensi-' . ($jadwal->mataKuliah->kode_mk ?? 'MK') . '-' . $jadwal->nama_kelas . '.pdf';
         return $pdf->stream($namaFile);
