@@ -16,7 +16,7 @@ class SkalaNilaiSeeder extends Seeder
             [
                 'huruf' => 'A',
                 'bobot_indeks' => 4.00,
-                'nilai_min' => 80.00,
+                'nilai_min' => 86.00,
                 'nilai_max' => 100.00,
                 'is_lulus' => true,
             ],

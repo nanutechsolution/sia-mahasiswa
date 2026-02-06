@@ -4,7 +4,6 @@ namespace App\Livewire;
 
 use Livewire\Component;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use App\Domains\Mahasiswa\Models\Mahasiswa;
 use App\Domains\Mahasiswa\Models\RiwayatStatusMahasiswa;
 use App\Domains\Akademik\Models\JadwalKuliah;
