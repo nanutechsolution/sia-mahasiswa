@@ -49,7 +49,7 @@ class KrsPage extends Component
 
         $this->loadMahasiswaData();
         
-        // 1. Jalankan Validasi Gerbang (NIM & Keuangan)
+        // 1. Jalankan Validasi Gerbang dengan urutan baru: Sistem -> Keuangan -> PA -> NIM
         if ($this->cekValidasiAwal()) return;
 
         // 2. Inisialisasi Data KRS
@@ -70,24 +70,17 @@ class KrsPage extends Component
     }
 
     /**
-     * Logika Gatekeeper: Validasi NIM dan Status Keuangan
+     * Logika Gatekeeper: Validasi Masa KRS, Keuangan, Dosen Wali, dan NIM Resmi
      */
     private function cekValidasiAwal()
     {
-        // A. CEK NIM RESMI
-        $isNimPmb = str_contains(strtoupper($this->mahasiswa->nim), 'PMB') || strlen($this->mahasiswa->nim) > 15;
-        if ($isNimPmb) {
-            $this->blockAccess('Akses Ditolak: Anda masih menggunakan NIM Sementara. Silakan selesaikan Daftar Ulang untuk mendapatkan NIM Resmi.', 'NIM');
-            return true;
-        }
-
-        // B. CEK MASA KRS (Berdasarkan kalender akademik)
+        // 1. CEK MASA KRS (Sistem)
         if (!SistemHelper::isMasaKrsOpen()) {
             $this->blockAccess('Masa pengisian KRS untuk semester ini belum dibuka atau sudah berakhir.', 'SYSTEM');
             return true;
         }
 
-        // C. CEK KEUANGAN (Dispensasi vs Realisasi Pembayaran)
+        // 2. CEK KEUANGAN (SPP & Tagihan)
         $isDispensasi = (bool) ($this->mahasiswa->data_tambahan['bebas_keuangan'] ?? false);
         
         if (!$isDispensasi) {
@@ -96,20 +89,33 @@ class KrsPage extends Component
                 ->first();
 
             if (!$tagihan) {
-                $this->blockAccess('Data tagihan semester ini belum diterbitkan. Silakan hubungi bagian Keuangan.', 'FINANCE');
+                $this->blockAccess('Akses Terkunci: Data tagihan semester berjalan belum diterbitkan oleh bagian Keuangan. Silakan lapor ke bagian Administrasi Keuangan.', 'FINANCE');
                 return true;
             }
 
-            // Ambil ambang batas minimal bayar dari Program Kelas (Reguler/Ekstensi)
             $this->minPercentage = $this->mahasiswa->programKelas->min_pembayaran_persen ?? 50;
             $this->paidPercentage = ($tagihan->total_tagihan > 0) 
                 ? round(($tagihan->total_bayar / $tagihan->total_tagihan) * 100) 
                 : 100;
 
             if ($this->paidPercentage < $this->minPercentage) {
-                $this->blockAccess("Syarat Administrasi: Pembayaran Anda baru {$this->paidPercentage}%. Minimal pembayaran untuk mengisi KRS adalah {$this->minPercentage}%.", 'FINANCE');
+                $this->blockAccess("Syarat Keuangan: Pembayaran Anda baru tercatat {$this->paidPercentage}%. Minimal pembayaran untuk mengisi KRS adalah {$this->minPercentage}% sesuai aturan Program Kelas Anda.", 'FINANCE');
                 return true;
             }
+        }
+
+        // 3. CEK DOSEN WALI (Pembimbing Akademik)
+        // Jika dosen_wali_id kosong, mahasiswa tidak bisa melakukan perwalian
+        if (!$this->mahasiswa->dosen_wali_id) {
+            $this->blockAccess('Akses Terkunci: Anda belum memiliki Dosen Wali (Pembimbing Akademik). Silakan hubungi Admin Program Studi untuk proses penugasan PA.', 'SYSTEM');
+            return true;
+        }
+
+        // 4. CEK NIM RESMI (Administrasi)
+        $isNimPmb = str_contains(strtoupper($this->mahasiswa->nim), 'PMB') || strlen($this->mahasiswa->nim) > 15;
+        if ($isNimPmb) {
+            $this->blockAccess('Akses Ditolak: Pembayaran Anda sudah tervalidasi, namun Anda masih menggunakan NIM Sementara. Silakan selesaikan proses Daftar Ulang di BAAK untuk mendapatkan NIM Resmi.', 'NIM');
+            return true;
         }
 
         return false;
@@ -144,7 +150,6 @@ class KrsPage extends Component
             ->where('is_active', true)
             ->value('id');
 
-        // Cek apakah MK ini ada di kurikulum mahasiswa
         $isInCurriculum = DB::table('kurikulum_mata_kuliah')
             ->where('kurikulum_id', $activeKurikulumId)
             ->where('mata_kuliah_id', $mk->id)
@@ -152,7 +157,6 @@ class KrsPage extends Component
 
         $ekuivalensiId = null;
         if (!$isInCurriculum) {
-            // Jika tidak ada di kurikulum, cek apakah ini MK pengganti yang sah (Ekuivalensi)
             $ekuivalensi = DB::table('akademik_ekuivalensi')
                 ->where('prodi_id', $this->mahasiswa->prodi_id)
                 ->where('mk_tujuan_id', $mk->id)
@@ -178,7 +182,7 @@ class KrsPage extends Component
                 'kode_mk_snapshot' => $mk->kode_mk,
                 'nama_mk_snapshot' => $mk->nama_mk,
                 'sks_snapshot'     => $mk->sks_default,
-                'ekuivalensi_id'   => $ekuivalensiId, // Link ke kebijakan penyetaraan
+                'ekuivalensi_id'   => $ekuivalensiId,
                 'status_ambil'     => 'B'
             ]
         );
@@ -221,7 +225,7 @@ class KrsPage extends Component
     {
         $krs = Krs::firstOrCreate(
             ['mahasiswa_id' => $this->mahasiswa->id, 'tahun_akademik_id' => $this->tahunAkademikId],
-            ['status_krs' => 'DRAFT', 'tgl_krs' => now()]
+            ['status_krs' => 'DRAFT', 'tgl_krs' => now(), 'dosen_wali_id' => $this->mahasiswa->dosen_wali_id]
         );
         
         $this->isPaket = (bool) ($this->mahasiswa->prodi->is_paket ?? true);
@@ -244,7 +248,6 @@ class KrsPage extends Component
         
         $jadwalTersedia = [];
         if (!$this->blockKrs) {
-            // [FIX] Tampilkan hanya jadwal yang relevan dengan kurikulum atau ekuivalensi
             $activeKurikulumId = DB::table('master_kurikulums')
                 ->where('prodi_id', $this->mahasiswa->prodi_id)
                 ->where('is_active', true)
@@ -253,15 +256,13 @@ class KrsPage extends Component
             $jadwalTersedia = JadwalKuliah::with(['mataKuliah', 'dosen.person'])
                 ->where('tahun_akademik_id', $this->tahunAkademikId)
                 ->whereHas('mataKuliah', function($q) use ($activeKurikulumId) {
-                    $q->where('prodi_id', $this->mahasiswa->prodi_id)
+                    $q->where('prodi_id', $this->prodi_id ?? $this->mahasiswa->prodi_id)
                       ->where(function($sq) use ($activeKurikulumId) {
-                          // Filter MK yang ada di kurikulum
                           $sq->whereIn('id', function($sub) use ($activeKurikulumId) {
                               $sub->select('mata_kuliah_id')
                                   ->from('kurikulum_mata_kuliah')
                                   ->where('kurikulum_id', $activeKurikulumId);
                           })
-                          // ATAU MK yang merupakan target ekuivalensi sah
                           ->orWhereIn('id', function($sub) use ($activeKurikulumId) {
                               $sub->select('mk_tujuan_id')
                                   ->from('akademik_ekuivalensi')
@@ -284,6 +285,6 @@ class KrsPage extends Component
         ]);
     }
 
-    public function hapusMatkul($id) { if($this->statusKrs == 'DRAFT') KrsDetail::destroy($id); $this->hitungSks(); }
+    public function confirmHapus($id) { if($this->statusKrs == 'DRAFT') KrsDetail::destroy($id); $this->hitungSks(); }
     public function ajukanKrs() { Krs::find($this->krsId)->update(['status_krs' => 'AJUKAN']); $this->statusKrs = 'AJUKAN'; }
 }

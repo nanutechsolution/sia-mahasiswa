@@ -1,44 +1,39 @@
 <div class="space-y-6">
     <div class="sm:flex sm:items-center sm:justify-between">
         <div>
-            <h1 class="text-2xl font-black text-[#002855]">Daftar Ulang (Camaba)</h1>
-            <p class="mt-2 text-sm text-slate-500">Validasi calon mahasiswa yang masuk dari jalur PMB dan belum memiliki NIM resmi.</p>
+            <h1 class="text-2xl font-black text-[#002855]">Daftar Ulang & Peresmian NIM</h1>
+            <p class="mt-2 text-sm text-slate-500">Proses migrasi dari Calon Mahasiswa (PMB) menjadi Mahasiswa Aktif.</p>
         </div>
     </div>
 
-    <!-- Filter -->
+    <!-- Filter Section -->
     <div class="bg-white p-5 shadow-sm rounded-2xl border border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
             <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Program Studi</label>
-            <div class="relative">
-                <select wire:model.live="filterProdiId" class="block w-full rounded-xl border-slate-200 bg-slate-50 py-3 pl-4 pr-10 text-sm focus:border-[#002855] focus:ring-[#002855] transition-shadow outline-none appearance-none font-bold text-slate-700">
-                    <option value="">Semua Prodi</option>
-                    @foreach($prodis as $p)
-                        <option value="{{ $p->id }}">{{ $p->nama_prodi }}</option>
-                    @endforeach
-                </select>
-                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
-                </div>
-            </div>
+            <select wire:model.live="filterProdiId" class="block w-full rounded-xl border-slate-200 bg-slate-50 py-3 pl-4 pr-10 text-sm font-bold text-slate-700 focus:ring-[#002855] transition-all outline-none appearance-none">
+                <option value="">Semua Prodi</option>
+                @foreach($prodis as $p)
+                    <option value="{{ $p->id }}">{{ $p->nama_prodi }}</option>
+                @endforeach
+            </select>
         </div>
         <div>
-            <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Cari Nama/No Daftar</label>
-            <div class="relative">
-                <input type="text" wire:model.live.debounce.300ms="search" placeholder="Cari..." class="block w-full rounded-xl border-slate-200 bg-slate-50 py-3 pl-10 pr-4 text-sm focus:border-[#002855] focus:ring-[#002855] transition-shadow outline-none font-bold text-slate-700">
-                <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center px-3 text-slate-400">
-                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                </div>
-            </div>
+            <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Cari Nama / No. Daftar</label>
+            <input type="text" wire:model.live.debounce.300ms="search" placeholder="Cari..." class="block w-full rounded-xl border-slate-200 bg-slate-50 py-3 px-4 text-sm font-bold focus:ring-[#002855] outline-none">
         </div>
     </div>
 
     @if (session()->has('success'))
         <div class="bg-emerald-50 border border-emerald-100 p-4 rounded-xl text-emerald-800 text-sm flex items-center shadow-sm animate-in fade-in slide-in-from-top-2">
-            <svg class="w-5 h-5 mr-3 text-emerald-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-            </svg>
+            <svg class="w-5 h-5 mr-3 text-emerald-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>
             <span class="font-bold">{{ session('success') }}</span>
+        </div>
+    @endif
+
+    @if (session()->has('error'))
+        <div class="bg-rose-50 border border-rose-100 p-4 rounded-xl text-rose-800 text-sm flex items-center shadow-sm animate-in shake">
+            <svg class="w-5 h-5 mr-3 text-rose-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" /></svg>
+            <span class="font-bold">{{ session('error') }}</span>
         </div>
     @endif
 
@@ -47,10 +42,9 @@
             <table class="min-w-full divide-y divide-slate-100">
                 <thead class="bg-[#002855] text-white">
                     <tr>
-                        <th class="px-6 py-4 text-left text-[10px] font-bold uppercase tracking-widest">No Pendaftaran</th>
-                        <th class="px-6 py-4 text-left text-[10px] font-bold uppercase tracking-widest">Nama Lengkap</th>
-                        <th class="px-6 py-4 text-left text-[10px] font-bold uppercase tracking-widest">Prodi / Jalur</th>
-                        <th class="px-6 py-4 text-center text-[10px] font-bold uppercase tracking-widest">Status Bayar</th>
+                        <th class="px-6 py-4 text-left text-[10px] font-bold uppercase tracking-widest">Mahasiswa</th>
+                        <th class="px-6 py-4 text-left text-[10px] font-bold uppercase tracking-widest">Kewajiban Keuangan</th>
+                        <th class="px-6 py-4 text-center text-[10px] font-bold uppercase tracking-widest">Dispensasi</th>
                         <th class="px-6 py-4 text-right text-[10px] font-bold uppercase tracking-widest">Aksi</th>
                     </tr>
                 </thead>
@@ -58,68 +52,53 @@
                     @forelse($camabas as $mhs)
                     @php
                         $tagihan = $mhs->tagihan->first();
-                        $lunas = $tagihan && $tagihan->status_bayar == 'LUNAS';
+                        $minPercent = $mhs->programKelas->min_pembayaran_persen ?? 50;
+                        $paidPercent = ($tagihan && $tagihan->total_tagihan > 0) ? round(($tagihan->total_bayar / $tagihan->total_tagihan) * 100) : 0;
                         $dispensasi = $mhs->data_tambahan['bebas_keuangan'] ?? false;
+                        $eligible = $dispensasi || ($paidPercent >= $minPercent);
                     @endphp
                     <tr class="hover:bg-slate-50/80 transition-colors group">
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-mono font-bold text-slate-600 bg-slate-50/50">
-                            {{ $mhs->nim }}
-                            @if($dispensasi)
-                                <div class="mt-1">
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[9px] font-black bg-[#fcc000] text-[#002855]">
-                                        DISPENSASI
-                                    </span>
-                                </div>
-                            @endif
-                        </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <div class="text-sm font-bold text-slate-800">{{ $mhs->nama_lengkap }}</div>
-                            <div class="text-xs text-slate-400 mt-0.5">{{ $mhs->email_pribadi }}</div>
+                            <div class="text-[10px] font-mono text-slate-400 mt-1 uppercase">{{ $mhs->nim }} &bull; {{ $mhs->prodi->nama_prodi }}</div>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="text-sm font-medium text-slate-600">{{ $mhs->prodi->nama_prodi }}</div>
-                            <div class="text-xs text-[#002855] font-bold mt-0.5">{{ $mhs->programKelas->nama_program }}</div>
+                        <td class="px-6 py-4">
+                            <div class="flex flex-col gap-1.5 w-48">
+                                <div class="flex justify-between text-[9px] font-black uppercase">
+                                    <span class="text-slate-400">Bayar: {{ $paidPercent }}%</span>
+                                    <span class="text-[#002855]">Syarat: {{ $minPercent }}%</span>
+                                </div>
+                                <div class="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden shadow-inner">
+                                    <div class="h-full transition-all duration-1000 {{ $paidPercent >= $minPercent ? 'bg-emerald-500' : 'bg-amber-400' }}" style="width: {{ min($paidPercent, 100) }}%"></div>
+                                </div>
+                            </div>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-center">
-                            @if($lunas)
-                                <span class="px-3 py-1 inline-flex text-[10px] font-black uppercase rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">
-                                    LUNAS
-                                </span>
+                        <td class="px-6 py-4 text-center">
+                            @if($dispensasi)
+                                <span class="px-2 py-0.5 rounded text-[9px] font-black bg-[#fcc000] text-[#002855] border border-unmaris-gold shadow-sm">AKTIF</span>
                             @else
-                                <span class="px-3 py-1 inline-flex text-[10px] font-black uppercase rounded-full bg-rose-100 text-rose-700 border border-rose-200">
-                                    BELUM LUNAS
-                                </span>
+                                <span class="text-[9px] font-bold text-slate-300 italic">Tidak Ada</span>
                             @endif
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
-                            @if($lunas || $dispensasi)
+                        <td class="px-6 py-4 whitespace-nowrap text-right space-x-2">
+                            <button wire:click="edit('{{ $mhs->id }}')" class="text-[#002855] hover:text-[#fcc000] text-[10px] font-black uppercase tracking-widest">Dispensasi</button>
+                            
+                            @if($eligible)
                                 <button wire:click="generateNimResmi('{{ $mhs->id }}')" 
-                                    wire:confirm="Yakin resmikan mahasiswa ini? NIM akan digenerate otomatis."
-                                    class="inline-flex items-center px-3 py-1.5 border border-transparent text-[10px] font-black uppercase rounded-lg shadow-sm text-white bg-[#002855] hover:bg-[#001a38] transition-all">
-                                    <svg class="w-3 h-3 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                    wire:confirm="Generate NIM resmi untuk mahasiswa ini?"
+                                    class="inline-flex items-center px-3 py-1.5 bg-[#002855] text-white text-[10px] font-black uppercase rounded-lg shadow-lg hover:bg-black transition-all">
+                                    <svg class="w-3 h-3 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                     Generate NIM
                                 </button>
                             @else
-                                <span class="text-[10px] font-bold text-slate-400 italic bg-slate-100 px-2 py-1 rounded">Menunggu Bayar</span>
+                                <span class="inline-flex items-center px-3 py-1.5 bg-slate-100 text-slate-400 text-[10px] font-black uppercase rounded-lg border border-slate-200 cursor-not-allowed" title="Pembayaran Belum Mencapai Target">
+                                    🔒 Locked
+                                </span>
                             @endif
-                            
-                            {{-- Tombol Atur Dispensasi --}}
-                            <button wire:click="edit('{{ $mhs->id }}')" class="text-[#002855] hover:text-[#fcc000] text-[10px] font-black uppercase hover:underline ml-2">
-                                Dispensasi
-                            </button>
                         </td>
                     </tr>
                     @empty
-                    <tr>
-                        <td colspan="5" class="px-6 py-16 text-center">
-                            <div class="flex flex-col items-center justify-center">
-                                <div class="bg-slate-50 p-4 rounded-full mb-3">
-                                    <svg class="w-10 h-10 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
-                                </div>
-                                <p class="text-slate-500 font-medium">Tidak ada data calon mahasiswa baru.</p>
-                            </div>
-                        </td>
-                    </tr>
+                    <tr><td colspan="4" class="px-6 py-16 text-center text-slate-400 italic text-sm">Tidak ada data camaba.</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -129,52 +108,34 @@
         </div>
     </div>
 
-    <!-- Modal Form Dispensasi (FIXED) -->
+    <!-- Modal Dispensasi -->
     @if($showForm)
-    <div class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-        <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            
-            {{-- Backdrop --}}
-            <div class="fixed inset-0 bg-slate-900/75 transition-opacity" aria-hidden="true" wire:click="batal"></div>
-            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-
-            {{-- Modal Panel --}}
-            <div class="relative inline-block align-bottom bg-white rounded-3xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full border border-white/20 z-50">
-                
-                {{-- Header Modal --}}
-                <div class="bg-[#002855] px-6 py-5 flex items-center gap-4">
-                    <div class="bg-[#fcc000] p-2 rounded-xl text-[#002855]">
-                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                    </div>
-                    <div>
-                        <h3 class="text-lg leading-6 font-black text-white uppercase tracking-tight" id="modal-title">
-                            Dispensasi Camaba
-                        </h3>
-                        <p class="text-[10px] text-slate-300 font-bold mt-0.5">{{ $nama_lengkap }}</p>
-                    </div>
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in">
+        <div class="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden border border-white/20">
+            <div class="bg-[#002855] px-6 py-5 flex items-center gap-4">
+                <div class="bg-[#fcc000] p-2 rounded-xl text-[#002855] shadow-lg">
+                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 </div>
-
-                <div class="px-8 py-8">
-                    <div class="bg-amber-50 p-5 rounded-2xl border border-amber-100">
-                        <label class="flex items-start gap-3 cursor-pointer">
-                            <input type="checkbox" wire:model="bebas_keuangan" class="mt-1 h-5 w-5 text-[#002855] border-gray-300 rounded focus:ring-[#fcc000]">
-                            <div>
-                                <span class="block text-sm font-bold text-gray-900">Aktifkan Dispensasi (Bebas Syarat Bayar)</span>
-                                <span class="block text-xs text-gray-600 mt-1 leading-relaxed">
-                                    Jika dicentang, camaba ini dapat di-generate NIM-nya meskipun pembayaran Daftar Ulang belum lunas.
-                                </span>
-                            </div>
-                        </label>
-                    </div>
+                <div>
+                    <h3 class="text-lg font-black text-white uppercase tracking-tight">Dispensasi Keuangan</h3>
+                    <p class="text-[10px] text-slate-300 font-bold uppercase">{{ $nama_lengkap }}</p>
                 </div>
-
-                <div class="bg-slate-50 px-8 py-5 border-t border-slate-100 flex flex-row-reverse gap-3">
-                    <button wire:click="save" type="button" class="w-full inline-flex justify-center rounded-xl border border-transparent shadow-lg px-6 py-3 bg-[#002855] text-sm font-bold text-white hover:bg-[#001a38] hover:scale-105 transition-all focus:outline-none sm:ml-3 sm:w-auto">
-                        Simpan Perubahan
-                    </button>
-                    <button wire:click="batal" type="button" class="mt-3 w-full inline-flex justify-center rounded-xl border border-slate-300 shadow-sm px-6 py-3 bg-white text-sm font-bold text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-all focus:outline-none sm:mt-0 sm:ml-3 sm:w-auto">
-                        Batal
-                    </button>
+            </div>
+            <div class="p-8 space-y-6">
+                <div class="bg-amber-50 p-6 rounded-2xl border border-amber-100">
+                    <label class="flex items-start gap-4 cursor-pointer group">
+                        <input type="checkbox" wire:model="bebas_keuangan" class="mt-1 h-6 w-6 text-[#002855] border-slate-300 rounded focus:ring-[#fcc000] bg-white transition-all group-hover:scale-110">
+                        <div>
+                            <span class="block text-sm font-black text-[#002855] uppercase tracking-tight">Aktifkan Dispensasi</span>
+                            <span class="block text-xs text-slate-500 mt-1 leading-relaxed italic">
+                                Mengizinkan peresmian NIM tanpa harus melunasi pembayaran minimal tagihan daftar ulang.
+                            </span>
+                        </div>
+                    </label>
+                </div>
+                <div class="flex gap-3">
+                    <button wire:click="batal" class="flex-1 py-3 text-xs font-black text-slate-400 uppercase tracking-widest">Batal</button>
+                    <button wire:click="save" class="flex-1 py-3 bg-[#002855] text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-black transition-all">Simpan Perubahan</button>
                 </div>
             </div>
         </div>

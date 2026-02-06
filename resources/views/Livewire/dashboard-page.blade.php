@@ -1,244 +1,260 @@
-<div class="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-
-    {{-- 1. WELCOME HERO SECTION --}}
-    <div class="relative overflow-hidden rounded-3xl bg-gradient-to-r from-unmaris-blue to-indigo-900 shadow-xl">
-        <div class="absolute top-0 right-0 -mr-16 -mt-16 h-64 w-64 rounded-full bg-white/5 blur-3xl"></div>
-        <div class="absolute bottom-0 left-0 -ml-16 -mb-16 h-64 w-64 rounded-full bg-unmaris-gold/10 blur-3xl"></div>
-
-        <div class="relative px-8 py-10 sm:px-12 sm:py-12 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-            <div>
-                <div class="inline-flex items-center rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-indigo-100 backdrop-blur-sm border border-white/10 mb-4">
-                    <span>{{ $taAktif->nama_tahun ?? 'Semester Belum Aktif' }}</span>
+<div class="space-y-6 md:space-y-8 animate-in fade-in duration-700 pb-12">
+    
+    {{-- 1. CLEAN HERO GREETING --}}
+    <div class="relative overflow-hidden rounded-3xl bg-white border border-slate-200 shadow-sm p-6 md:p-10">
+        <div class="absolute top-0 right-0 p-8 opacity-[0.03] pointer-events-none">
+            <svg class="w-40 h-40 text-[#002855]" fill="currentColor" viewBox="0 0 24 24"><path d="M12 14l9-5-9-5-9 5 9 5z"/><path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"/></svg>
+        </div>
+        
+        <div class="relative flex flex-col md:flex-row items-center md:items-start justify-between gap-6">
+            <div class="flex flex-col md:flex-row items-center gap-5">
+                <div class="w-16 h-16 md:w-20 md:h-20 bg-[#002855] text-[#fcc000] rounded-2xl flex items-center justify-center text-2xl md:text-3xl font-black shadow-lg uppercase shrink-0">
+                    {{ substr($user->name, 0, 1) }}
                 </div>
-                <h1 class="text-3xl font-black text-white tracking-tight sm:text-4xl">
-                    {{ $greeting }}, {{ explode(' ', $user->name)[0] }}! 👋
-                </h1>
-                <p class="mt-2 text-indigo-100 text-sm md:text-base max-w-xl leading-relaxed">
-                    Selamat datang di Sistem Informasi Akademik Terpadu UNMARIS.
-                </p>
+                <div class="text-center md:text-left">
+                    <h1 class="text-2xl md:text-3xl font-black text-[#002855] tracking-tight">
+                        {{ $greeting }}, <span class="text-slate-500 font-bold">{{ explode(' ', $user->name)[0] }}</span>
+                    </h1>
+                    <div class="flex flex-wrap justify-center md:justify-start items-center gap-2 mt-1">
+                        <span class="text-[10px] font-black bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-lg border border-indigo-100 uppercase tracking-widest">{{ $role }}</span>
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{{ $taAktif->nama_tahun ?? 'SIAKAD UNMARIS' }}</span>
+                    </div>
+                </div>
             </div>
-            <div class="hidden md:block">
-                <div class="h-16 w-16 bg-white/10 rounded-2xl flex items-center justify-center backdrop-blur-md border border-white/20 text-3xl">
-                    🎓
-                </div>
+            
+            <div class="hidden md:flex flex-col items-end">
+                <p class="text-slate-800 font-black text-lg">{{ Carbon\Carbon::now()->isoFormat('D MMMM Y') }}</p>
+                <p class="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em]">{{ Carbon\Carbon::now()->isoFormat('dddd') }}</p>
             </div>
         </div>
     </div>
 
-    {{-- Announcements (Error Profil) --}}
-    @foreach($announcements as $ann)
-    <div class="p-4 mb-4 text-sm text-red-800 rounded-2xl bg-red-50 border border-red-100 flex items-center" role="alert">
-        <svg class="flex-shrink-0 inline w-5 h-5 mr-3" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
-        </svg>
-        <div>
-            <span class="font-bold">{{ $ann['title'] }}:</span> {{ $ann['message'] }}
-        </div>
-    </div>
-    @endforeach
-
-    {{-- A. DASHBOARD MAHASISWA --}}
-    @if($role == 'mahasiswa')
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {{-- Statistik Cards --}}
-        <div class="lg:col-span-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            <!-- IPK Card -->
-            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
-                <div class="p-3 bg-indigo-50 rounded-xl text-indigo-600">
-                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                    </svg>
-                </div>
-                <div>
-                    <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">IPK Saat Ini</p>
-                    <p class="text-2xl font-black text-slate-800">{{ number_format($stats['ipk'] ?? 0, 2) }}</p>
-                </div>
+    {{-- 2. DYNAMIC CONTENT BASED ON ROLE --}}
+    
+    @if($role === 'mahasiswa')
+        {{-- MAHASISWA MINIMALIST VIEW --}}
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8">
+            
+            {{-- Alerts & Warnings (Top Priority for Student) --}}
+            @if($stats['edom_pending'] > 0 || $stats['finance']['debt'] > 0)
+            <div class="lg:col-span-12 grid grid-cols-1 md:grid-cols-2 gap-4 animate-in slide-in-from-top-4">
+                @if($stats['edom_pending'] > 0)
+                <a href="{{ route('mhs.khs') }}" class="flex items-center gap-4 p-4 bg-amber-50 border border-amber-100 rounded-2xl group hover:bg-amber-100 transition-all" wire:navigate>
+                    <div class="w-10 h-10 bg-amber-200 text-amber-700 rounded-xl flex items-center justify-center shrink-0">⚖️</div>
+                    <div class="flex-1">
+                        <h4 class="text-xs font-black text-amber-900 uppercase">Evaluasi Dosen (EDOM)</h4>
+                        <p class="text-[10px] font-bold text-amber-700/70">{{ $stats['edom_pending'] }} Mata Kuliah menunggu evaluasi Anda.</p>
+                    </div>
+                    <svg class="w-4 h-4 text-amber-400 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
+                </a>
+                @endif
+                @if($stats['finance']['debt'] > 0)
+                <a href="{{ route('mhs.keuangan') }}" class="flex items-center gap-4 p-4 bg-rose-50 border border-rose-100 rounded-2xl group hover:bg-rose-100 transition-all" wire:navigate>
+                    <div class="w-10 h-10 bg-rose-200 text-rose-700 rounded-xl flex items-center justify-center shrink-0">💳</div>
+                    <div class="flex-1">
+                        <h4 class="text-xs font-black text-rose-900 uppercase">Tunggakan Pembayaran</h4>
+                        <p class="text-[10px] font-bold text-rose-700/70">Terdapat sisa tagihan sebesar Rp {{ number_format($stats['finance']['debt'], 0, ',', '.') }}.</p>
+                    </div>
+                    <svg class="w-4 h-4 text-rose-400 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
+                </a>
+                @endif
             </div>
+            @endif
 
-            <!-- SKS Card -->
-            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
-                <div class="p-3 bg-emerald-50 rounded-xl text-emerald-600">
-                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                    </svg>
-                </div>
-                <div>
-                    <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Total SKS</p>
-                    <p class="text-2xl font-black text-slate-800">{{ $stats['sks_total'] ?? 0 }}</p>
-                </div>
-            </div>
-
-            <!-- Keuangan Card -->
-            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4 col-span-1 sm:col-span-2">
-                <div class="p-3 {{ ($stats['status_bayar'] ?? '') == 'LUNAS' ? 'bg-green-50 text-green-600' : 'bg-rose-50 text-rose-600' }} rounded-xl">
-                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                </div>
-                <div class="flex-1">
-                    <p class="text-xs font-bold text-slate-400 uppercase tracking-wider">Status Keuangan</p>
-                    <div class="flex justify-between items-end">
-                        <p class="text-xl font-black text-slate-800">{{ $stats['status_bayar'] ?? '-' }}</p>
-                        <p class="text-xs font-medium {{ ($stats['sisa_tagihan'] ?? 0) > 0 ? 'text-rose-500' : 'text-green-500' }}">
-                            Sisa: Rp {{ number_format($stats['sisa_tagihan'] ?? 0, 0, ',', '.') }}
-                        </p>
+            {{-- Academic Stats Card --}}
+            <div class="lg:col-span-4 space-y-6">
+                <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-200 flex flex-col justify-between h-full">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Capaian Akademik</p>
+                            <h3 class="text-4xl font-black text-[#002855] tracking-tighter">{{ number_format($stats['academic']['ipk'], 2) }} <span class="text-xs text-slate-300 font-bold uppercase">IPK</span></h3>
+                        </div>
+                        <div class="p-3 bg-indigo-50 text-indigo-600 rounded-2xl font-black text-sm">
+                            {{ $stats['academic']['sks_total'] }} <span class="text-[10px] opacity-50">SKS</span>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-8 grid grid-cols-3 gap-2">
+                        <a href="{{ route('mhs.krs') }}" class="flex flex-col items-center p-3 rounded-2xl hover:bg-slate-50 transition-all border border-transparent hover:border-slate-100 group" wire:navigate>
+                            <span class="text-xl mb-1 group-hover:scale-110 transition-transform">📝</span>
+                            <span class="text-[9px] font-black text-slate-500 uppercase">KRS</span>
+                        </a>
+                        <a href="{{ route('mhs.khs') }}" class="flex flex-col items-center p-3 rounded-2xl hover:bg-slate-50 transition-all border border-transparent hover:border-slate-100 group" wire:navigate>
+                            <span class="text-xl mb-1 group-hover:scale-110 transition-transform">📊</span>
+                            <span class="text-[9px] font-black text-slate-500 uppercase">Nilai</span>
+                        </a>
+                        <a href="{{ route('mhs.transkrip') }}" class="flex flex-col items-center p-3 rounded-2xl hover:bg-slate-50 transition-all border border-transparent hover:border-slate-100 group" wire:navigate>
+                            <span class="text-xl mb-1 group-hover:scale-110 transition-transform">📜</span>
+                            <span class="text-[9px] font-black text-slate-500 uppercase">Log</span>
+                        </a>
                     </div>
                 </div>
             </div>
-        </div>
 
-        {{-- Jadwal Hari Ini --}}
-        <div class="lg:col-span-2 bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
-            <div class="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                <h3 class="font-bold text-slate-800">Jadwal Kuliah Hari Ini</h3>
-                <span class="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded">{{ count($scheduleToday) }} Kelas</span>
-            </div>
-            <div class="divide-y divide-slate-50">
-                @forelse($scheduleToday as $detail)
-                <div class="px-6 py-4 flex items-center group hover:bg-slate-50 transition-colors">
-                    <div class="w-16 text-center mr-4">
-                        <span class="block text-sm font-black text-slate-800">{{ \Carbon\Carbon::parse($detail->jadwalKuliah->jam_mulai)->format('H:i') }}</span>
-                        <span class="block text-[10px] font-bold text-slate-400 uppercase">WITA</span>
-                    </div>
-                    <div class="flex-1 border-l-2 border-slate-100 pl-4">
-                        <h4 class="text-sm font-bold text-indigo-900 group-hover:text-indigo-600 transition-colors">
-                            {{ $detail->jadwalKuliah->mataKuliah->nama_mk }}
-                        </h4>
-                        <p class="text-xs text-slate-500 mt-1">
-                            R. {{ $detail->jadwalKuliah->ruang }} • {{ $detail->jadwalKuliah->dosen->nama_lengkap_gelar ?? 'Dosen' }}
-                        </p>
-                    </div>
-                    <div>
-                        <span class="px-2 py-1 bg-slate-100 text-slate-500 text-[10px] font-bold uppercase rounded">
-                            Kls {{ $detail->jadwalKuliah->nama_kelas }}
+            {{-- Finance & Schedule Grid --}}
+            <div class="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+                {{-- Financial Overview --}}
+                <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-200 flex flex-col">
+                    <div class="flex justify-between items-center mb-6">
+                        <h4 class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Realisasi Keuangan</h4>
+                        <span class="px-2 py-0.5 rounded-lg text-[9px] font-black uppercase {{ $stats['finance']['status_smt'] == 'LUNAS' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700' }}">
+                            {{ $stats['finance']['status_smt'] }}
                         </span>
                     </div>
-                </div>
-                @empty
-                <div class="px-6 py-12 text-center">
-                    <p class="text-slate-400 text-sm italic">Tidak ada jadwal kuliah hari ini. Istirahat yang cukup! ☕</p>
-                </div>
-                @endforelse
-            </div>
-        </div>
-
-        {{-- Quick Links --}}
-        <div class="bg-indigo-900 rounded-3xl shadow-xl p-6 text-white flex flex-col justify-between relative overflow-hidden">
-            <div class="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-10 -mt-10"></div>
-            <div class="relative z-10">
-                <h3 class="font-bold text-lg mb-1">Akses Cepat</h3>
-                <p class="text-indigo-200 text-xs mb-6">Pintasan menu sering digunakan.</p>
-
-                <div class="space-y-3">
-                    <a href="{{ route('mhs.krs') }}" class="flex items-center p-3 bg-white/10 rounded-xl hover:bg-white/20 transition-all border border-white/5">
-                        <span class="text-xl mr-3">📝</span>
-                        <span class="text-sm font-bold">Isi KRS Online</span>
-                    </a>
-                    <a href="{{ route('mhs.khs') }}" class="flex items-center p-3 bg-white/10 rounded-xl hover:bg-white/20 transition-all border border-white/5">
-                        <span class="text-xl mr-3">📊</span>
-                        <span class="text-sm font-bold">Lihat Nilai (KHS)</span>
-                    </a>
-                    <a href="{{ route('mhs.keuangan') }}" class="flex items-center p-3 bg-white/10 rounded-xl hover:bg-white/20 transition-all border border-white/5">
-                        <span class="text-xl mr-3">💳</span>
-                        <span class="text-sm font-bold">Bayar Tagihan</span>
-                    </a>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    {{-- B. DASHBOARD DOSEN --}}
-    @elseif($role == 'dosen')
-    <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
-        {{-- Stats --}}
-        <div class="lg:col-span-4 grid grid-cols-1 sm:grid-cols-3 gap-6">
-            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                <p class="text-xs font-bold text-slate-400 uppercase">Kelas Semester Ini</p>
-                <p class="text-3xl font-black text-indigo-600 mt-2">{{ $stats['kelas_ajar'] ?? 0 }}</p>
-            </div>
-            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                <p class="text-xs font-bold text-slate-400 uppercase">Mahasiswa Bimbingan</p>
-                <p class="text-3xl font-black text-emerald-600 mt-2">{{ $stats['mhs_wali'] ?? 0 }}</p>
-            </div>
-            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 relative overflow-hidden">
-                @if(($stats['krs_perlu_acc'] ?? 0) > 0)
-                <div class="absolute top-0 right-0 w-3 h-3 bg-rose-500 rounded-full animate-ping mt-4 mr-4"></div>
-                @endif
-                <p class="text-xs font-bold text-slate-400 uppercase">KRS Menunggu Approval</p>
-                <p class="text-3xl font-black text-rose-600 mt-2">{{ $stats['krs_perlu_acc'] ?? 0 }}</p>
-                @if(($stats['krs_perlu_acc'] ?? 0) > 0)
-                <a href="{{ route('dosen.perwalian') }}" class="absolute bottom-4 right-4 text-xs font-bold text-indigo-600 hover:underline">Review Sekarang &rarr;</a>
-                @endif
-            </div>
-        </div>
-
-        {{-- Jadwal Mengajar --}}
-        <div class="lg:col-span-3 bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
-            <div class="px-6 py-5 border-b border-slate-100 bg-slate-50/50">
-                <h3 class="font-bold text-slate-800">Jadwal Mengajar Hari Ini</h3>
-            </div>
-            <div class="divide-y divide-slate-50">
-                @forelse($scheduleToday as $jadwal)
-                <div class="px-6 py-4 flex items-center justify-between group hover:bg-slate-50">
-                    <div class="flex items-center gap-4">
-                        <div class="text-center w-14">
-                            <span class="block text-sm font-black text-slate-800">{{ \Carbon\Carbon::parse($jadwal->jam_mulai)->format('H:i') }}</span>
+                    <div class="flex-1 space-y-4">
+                        <div class="flex justify-baseline items-baseline gap-2">
+                            <h3 class="text-2xl font-black text-[#002855]">Rp {{ number_format($stats['finance']['total_paid'], 0, ',', '.') }}</h3>
+                            <span class="text-[10px] font-bold text-slate-300 uppercase">Terbayar</span>
                         </div>
-                        <div>
-                            <h4 class="text-sm font-bold text-indigo-900">{{ $jadwal->mataKuliah->nama_mk }}</h4>
-                            <p class="text-xs text-slate-500">Kelas {{ $jadwal->nama_kelas }} • R. {{ $jadwal->ruang }}</p>
+                        <div class="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                            @php $pct = $stats['finance']['total_bill'] > 0 ? ($stats['finance']['total_paid'] / $stats['finance']['total_bill'] * 100) : 100; @endphp
+                            <div class="bg-indigo-600 h-full transition-all duration-1000" style="width: {{ min($pct, 100) }}%"></div>
+                        </div>
+                        <div class="flex justify-between text-[10px] font-bold">
+                            <span class="text-slate-400 uppercase">Sisa Tunggakan:</span>
+                            <span class="text-rose-600 font-black">Rp {{ number_format($stats['finance']['debt'], 0, ',', '.') }}</span>
                         </div>
                     </div>
-                    <a href="{{ route('dosen.nilai', $jadwal->id) }}" class="px-4 py-2 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-lg hover:bg-indigo-100 transition-colors">
-                        Input Nilai
+                    <a href="{{ route('mhs.keuangan') }}" class="mt-6 w-full py-3 bg-slate-50 hover:bg-indigo-50 text-[#002855] rounded-xl text-[9px] font-black text-center uppercase tracking-widest transition-all" wire:navigate>
+                        Manajemen Tagihan &rarr;
                     </a>
                 </div>
-                @empty
-                <div class="px-6 py-12 text-center text-slate-400 italic text-sm">Tidak ada jadwal mengajar hari ini.</div>
-                @endforelse
+
+                {{-- Today's Schedule --}}
+                <div class="bg-white rounded-[2rem] shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+                    <div class="px-6 py-4 bg-slate-50/50 border-b border-slate-100 flex justify-between items-center">
+                        <h4 class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Jadwal Hari Ini</h4>
+                        <span class="text-[9px] font-black text-indigo-600 uppercase">{{ count($scheduleToday) }} Sesi</span>
+                    </div>
+                    <div class="flex-1 overflow-y-auto max-h-[180px] custom-scrollbar divide-y divide-slate-50">
+                        @forelse($scheduleToday as $item)
+                        <div class="px-6 py-3 flex gap-4 hover:bg-slate-50 transition-colors">
+                            <div class="text-center w-10 shrink-0">
+                                <p class="text-xs font-black text-slate-700 leading-none">{{ \Carbon\Carbon::parse($item->jadwalKuliah->jam_mulai)->format('H:i') }}</p>
+                            </div>
+                            <div class="flex-1 border-l-2 border-indigo-100 pl-3">
+                                <h5 class="text-[11px] font-black text-slate-800 leading-tight truncate uppercase">{{ $item->jadwalKuliah->mataKuliah->nama_mk }}</h5>
+                                <p class="text-[9px] text-slate-400 font-bold uppercase mt-0.5 tracking-tighter">R.{{ $item->jadwalKuliah->ruang }}</p>
+                            </div>
+                        </div>
+                        @empty
+                        <div class="py-10 text-center">
+                            <p class="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Tidak ada kelas</p>
+                        </div>
+                        @endforelse
+                    </div>
+                </div>
             </div>
         </div>
-    </div>
 
-    {{-- C. DASHBOARD ADMIN --}}
+    @elseif($role === 'dosen')
+        {{-- DOSEN MINIMALIST VIEW --}}
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8">
+            <div class="lg:col-span-4 space-y-6">
+                <div class="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-200">
+                    <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">Indikator Kinerja</p>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-indigo-50 p-6 rounded-3xl border border-indigo-100 text-center group">
+                            <p class="text-3xl font-black text-[#002855] group-hover:scale-110 transition-transform">{{ $stats['teaching']['total_kelas'] }}</p>
+                            <p class="text-[9px] font-black text-indigo-400 uppercase mt-1">Kelas Aktif</p>
+                        </div>
+                        <div class="bg-slate-50 p-6 rounded-3xl border border-slate-100 text-center">
+                            <p class="text-3xl font-black text-slate-700">{{ $stats['mentorship']['total_anak_wali'] }}</p>
+                            <p class="text-[9px] font-black text-slate-400 uppercase mt-1">Mhs Wali</p>
+                        </div>
+                    </div>
+                </div>
+
+                @if($stats['mentorship']['krs_pending'] > 0)
+                <a href="{{ route('dosen.perwalian') }}" class="block bg-amber-50 p-6 rounded-[2.5rem] border border-amber-200 group transition-all" wire:navigate>
+                    <div class="flex items-center gap-4">
+                        <div class="h-10 w-10 bg-white rounded-xl flex items-center justify-center text-xl shadow-sm group-hover:rotate-12 transition-transform">⏳</div>
+                        <div>
+                            <h4 class="text-xs font-black text-amber-900 uppercase">Persetujuan KRS</h4>
+                            <p class="text-[10px] font-bold text-amber-700 mt-0.5">{{ $stats['mentorship']['krs_pending'] }} Mhs menunggu ACC</p>
+                        </div>
+                    </div>
+                </a>
+                @endif
+            </div>
+
+            <div class="lg:col-span-8 bg-white rounded-[2.5rem] shadow-sm border border-slate-200 overflow-hidden">
+                <div class="px-8 py-5 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                    <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Jadwal Mengajar Hari Ini</h3>
+                </div>
+                <div class="divide-y divide-slate-50">
+                    @forelse($scheduleToday as $j)
+                    <div class="px-8 py-5 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                        <div class="flex items-center gap-6">
+                            <div class="text-center w-12">
+                                <p class="text-sm font-black text-[#002855]">{{ \Carbon\Carbon::parse($j->jam_mulai)->format('H:i') }}</p>
+                            </div>
+                            <div class="border-l-2 border-indigo-100 pl-6">
+                                <h4 class="text-sm font-black text-slate-800 leading-tight uppercase">{{ $j->mataKuliah->nama_mk }}</h4>
+                                <p class="text-[9px] font-bold text-slate-400 mt-1 uppercase">Kls {{ $j->nama_kelas }} &bull; R.{{ $j->ruang }}</p>
+                            </div>
+                        </div>
+                        <a href="{{ route('dosen.nilai', $j->id) }}" class="px-5 py-2 bg-indigo-50 text-indigo-700 hover:bg-[#002855] hover:text-white rounded-xl text-[9px] font-black uppercase tracking-widest transition-all" wire:navigate>Input Nilai</a>
+                    </div>
+                    @empty
+                    <div class="py-20 text-center">
+                        <p class="text-[10px] font-bold text-slate-300 uppercase tracking-widest italic">Tidak ada jadwal hari ini</p>
+                    </div>
+                    @endforelse
+                </div>
+            </div>
+        </div>
+
     @else
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-            <p class="text-xs font-bold text-slate-400 uppercase">Mahasiswa Aktif</p>
-            <p class="text-2xl font-black text-slate-800 mt-2">{{ $stats['total_mhs_aktif'] ?? 0 }}</p>
+        {{-- ADMIN MINIMALIST VIEW --}}
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 group">
+                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Mhs Aktif</p>
+                <h3 class="text-4xl font-black text-[#002855] tracking-tighter">{{ $stats['system']['mhs_aktif'] }}</h3>
+                <div class="mt-4 h-1 w-8 bg-[#fcc000] rounded-full group-hover:w-full transition-all duration-500"></div>
+            </div>
+            
+            <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
+                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Verifikasi Bayar</p>
+                <h3 class="text-4xl font-black {{ $stats['system']['pembayaran_pending'] > 0 ? 'text-rose-500' : 'text-slate-700' }} tracking-tighter">{{ $stats['system']['pembayaran_pending'] }}</h3>
+                <p class="text-[9px] font-bold text-slate-300 uppercase mt-2">Menunggu Persetujuan</p>
+            </div>
+
+            <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
+                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Persetujuan KRS</p>
+                <h3 class="text-4xl font-black text-[#002855] tracking-tighter">{{ $stats['system']['krs_diajukan'] }}</h3>
+                <p class="text-[9px] font-bold text-slate-300 uppercase mt-2">Dalam Review PA</p>
+            </div>
+
+            <div class="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
+                <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Progres Nilai</p>
+                <h3 class="text-4xl font-black text-[#002855] tracking-tighter">{{ $stats['system']['nilai_unpublished'] }}</h3>
+                <p class="text-[9px] font-bold text-slate-300 uppercase mt-2">Belum Dipublikasi</p>
+            </div>
         </div>
-        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-            <p class="text-xs font-bold text-slate-400 uppercase">Pembayaran Pending</p>
-            <p class="text-2xl font-black text-amber-500 mt-2">{{ $stats['pembayaran_pending'] ?? 0 }}</p>
+
+        <div class="bg-indigo-900 rounded-[2.5rem] p-10 text-white shadow-xl relative overflow-hidden">
+            <div class="absolute right-0 top-0 p-8 opacity-10"><svg class="w-48 h-48" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg></div>
+            <div class="relative z-10 max-w-lg">
+                <h2 class="text-2xl font-black uppercase tracking-tight">Quality Assurance Audit</h2>
+                <p class="mt-4 text-indigo-200 text-sm leading-relaxed font-medium">Lakukan pemantauan berkala terhadap siklus akademik untuk menjamin ketersediaan data akreditasi yang valid.</p>
+                <div class="mt-8 flex gap-3 flex-wrap">
+                    <a href="{{ route('admin.lpm.dashboard') }}" class="px-8 py-3 bg-[#fcc000] text-[#002855] rounded-xl font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-all shadow-lg" wire:navigate>LPM Radar</a>
+                    <button class="px-8 py-3 bg-white/10 border border-white/20 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-white/20 transition-all">Export Data Audit</button>
+                </div>
+            </div>
         </div>
-        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-            <p class="text-xs font-bold text-slate-400 uppercase">Kelas Terbuka</p>
-            <p class="text-2xl font-black text-indigo-600 mt-2">{{ $stats['kelas_aktif'] ?? 0 }}</p>
-        </div>
-        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-            <p class="text-xs font-bold text-slate-400 uppercase">User Online</p>
-            <p class="text-2xl font-black text-emerald-500 mt-2">{{ $stats['user_online'] ?? 0 }}</p>
-        </div>
+    @endif
+
+    {{-- 3. MINIMAL FOOTER --}}
+    <div class="pt-8 flex flex-col items-center gap-2 opacity-30 grayscale pointer-events-none">
+        <p class="text-[9px] font-black uppercase tracking-[0.4em] text-[#002855]">UNMARIS Digital Portal &bull; v4.2</p>
     </div>
 
-    {{-- Todo List Admin --}}
-    @if(count($todoList) > 0)
-    <div class="mt-8">
-        <h3 class="text-lg font-bold text-slate-800 mb-4">Perlu Tindakan Segera</h3>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            @foreach($todoList as $todo)
-            <a href="{{ route($todo['route']) }}" class="flex items-center p-4 bg-white border border-slate-200 rounded-xl shadow-sm hover:shadow-md transition-shadow group">
-                <div class="h-10 w-10 rounded-full {{ $todo['color'] }} flex items-center justify-center font-bold text-sm mr-4">
-                    {{ $todo['count'] }}
-                </div>
-                <div>
-                    <h4 class="text-sm font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">{{ $todo['title'] }}</h4>
-                    <p class="text-xs text-slate-500">Klik untuk memproses</p>
-                </div>
-            </a>
-            @endforeach
-        </div>
-    </div>
-    @endif
-    @endif
+    <style>
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0, 40, 85, 0.05); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(0, 40, 85, 0.1); }
+    </style>
 </div>

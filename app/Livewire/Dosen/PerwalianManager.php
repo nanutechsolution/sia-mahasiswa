@@ -3,60 +3,118 @@
 namespace App\Livewire\Dosen;
 
 use Livewire\Component;
+use Livewire\WithPagination;
 use Illuminate\Support\Facades\Auth;
 use App\Domains\Mahasiswa\Models\Mahasiswa;
 use App\Domains\Akademik\Models\Krs;
+use App\Domains\Core\Models\ProgramKelas;
 use App\Helpers\SistemHelper;
 
 class PerwalianManager extends Component
 {
+    use WithPagination;
+
     public $dosen;
-    public $mahasiswas;
     public $taAktifId;
     public $taAktifNama;
 
+    // Filters
+    public $search = '';
+    public $filterStatus = 'all'; // all, AJUKAN, DISETUJUI, BELUM_ISI
+    public $filterProgramId = '';
+
     // Stats
-    public $totalMhs = 0;
-    public $menungguAcc = 0;
-    public $sudahAcc = 0;
+    public $stats = [
+        'total' => 0,
+        'pending' => 0,
+        'approved' => 0
+    ];
 
     public function mount()
     {
         $user = Auth::user();
         
-        // [SSOT] Ambil Dosen via Person
+        // SSOT: Ambil Dosen melalui Person
         if (!$user->person || !$user->person->dosen) {
-            abort(403, 'Akun Anda belum terhubung dengan Data Dosen (SSOT).');
+            abort(403, 'Profil Dosen Anda tidak ditemukan dalam sistem SSOT.');
         }
         $this->dosen = $user->person->dosen;
 
-        $this->taAktifId = SistemHelper::idTahunAktif();
-        $this->taAktifNama = SistemHelper::getTahunAktif()->nama_tahun ?? '-';
+        $ta = SistemHelper::getTahunAktif();
+        $this->taAktifId = $ta->id ?? null;
+        $this->taAktifNama = $ta->nama_tahun ?? 'Semester Tidak Aktif';
+    }
+
+    /**
+     * Reset pagination saat filter berubah
+     */
+    public function updatedSearch() { $this->resetPage(); }
+    public function updatedFilterStatus() { $this->resetPage(); }
+    public function updatedFilterProgramId() { $this->resetPage(); }
+
+    /**
+     * Kalkulasi Statistik (Tanpa Filter Pagination)
+     */
+    private function calculateStats()
+    {
+        $allBimbingan = Mahasiswa::where('dosen_wali_id', $this->dosen->id)
+            ->with(['krs' => fn($q) => $q->where('tahun_akademik_id', $this->taAktifId)])
+            ->get();
+
+        $this->stats['total'] = $allBimbingan->count();
+        $this->stats['pending'] = 0;
+        $this->stats['approved'] = 0;
+
+        foreach ($allBimbingan as $mhs) {
+            $krs = $mhs->krs->first();
+            if ($krs) {
+                if ($krs->status_krs === 'AJUKAN') $this->stats['pending']++;
+                if ($krs->status_krs === 'DISETUJUI') $this->stats['approved']++;
+            }
+        }
     }
 
     public function render()
     {
-        // Ambil mahasiswa bimbingan & Load KRS semester ini
-        $this->mahasiswas = Mahasiswa::with(['programKelas', 'person', 'prodi', 'krs' => function($q) {
+        $this->calculateStats();
+
+        // Query Utama dengan Filter
+        $query = Mahasiswa::with(['programKelas', 'person', 'prodi', 'krs' => function($q) {
                 $q->where('tahun_akademik_id', $this->taAktifId);
             }])
-            ->where('dosen_wali_id', $this->dosen->id)
-            ->orderBy('nim') // Urutkan by NIM (String di tabel tapi biasanya angka)
-            ->get();
+            ->where('dosen_wali_id', $this->dosen->id);
 
-        // Hitung Statistik
-        $this->totalMhs = $this->mahasiswas->count();
-        $this->menungguAcc = 0;
-        $this->sudahAcc = 0;
+        // Filter: Nama / NIM
+        if ($this->search) {
+            $query->where(function($q) {
+                $q->where('nim', 'like', '%' . $this->search . '%')
+                  ->orWhereHas('person', fn($p) => $p->where('nama_lengkap', 'like', '%' . $this->search . '%'));
+            });
+        }
 
-        foreach ($this->mahasiswas as $mhs) {
-            $krs = $mhs->krs->first();
-            if ($krs) {
-                if ($krs->status_krs == 'AJUKAN') $this->menungguAcc++;
-                if ($krs->status_krs == 'DISETUJUI') $this->sudahAcc++;
+        // Filter: Program Kelas
+        if ($this->filterProgramId) {
+            $query->where('program_kelas_id', $this->filterProgramId);
+        }
+
+        // Filter: Status KRS (Menggunakan whereHas atau whereDoesntHave untuk 'BELUM_ISI')
+        if ($this->filterStatus !== 'all') {
+            if ($this->filterStatus === 'BELUM_ISI') {
+                $query->whereDoesntHave('krs', fn($q) => $q->where('tahun_akademik_id', $this->taAktifId));
+            } else {
+                $query->whereHas('krs', function($q) {
+                    $q->where('tahun_akademik_id', $this->taAktifId)
+                      ->where('status_krs', $this->filterStatus);
+                });
             }
         }
 
-        return view('livewire.dosen.perwalian-manager');
+        $mahasiswas = $query->orderBy('nim', 'asc')->paginate(15);
+        $programKelas = ProgramKelas::where('is_active', true)->get();
+
+        return view('livewire.dosen.perwalian-manager', [
+            'mahasiswas' => $mahasiswas,
+            'programKelas' => $programKelas
+        ]);
     }
 }

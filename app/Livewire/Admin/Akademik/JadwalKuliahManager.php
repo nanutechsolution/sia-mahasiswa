@@ -42,9 +42,9 @@ class JadwalKuliahManager extends Component
     public $showForm = false;
 
     // REAL-TIME VALIDATION STATES
-    public $roomConflict = null;     
-    public $lecturerConflict = null; 
-    public $curriculumNotice = null; 
+    public $roomConflict = null;
+    public $lecturerConflict = null;
+    public $curriculumNotice = null;
     public $timeFormatError = null; // Tambahan state untuk format jam
     public $formStatus = 'neutral';  // green, amber, red
 
@@ -78,7 +78,7 @@ class JadwalKuliahManager extends Component
 
         // 1. Validasi Format Jam (Harus HH:mm - 24 Jam)
         $timeRegex = '/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/';
-        
+
         if ($this->jam_mulai && !preg_match($timeRegex, $this->jam_mulai)) {
             $this->timeFormatError = "Format Jam Mulai salah (Gunakan 00:00 - 23:59)";
             $this->formStatus = 'red';
@@ -101,11 +101,11 @@ class JadwalKuliahManager extends Component
             ->where('hari', $this->hari)
             ->where(function ($q) {
                 $q->whereBetween('jam_mulai', [$this->jam_mulai, $this->jam_selesai])
-                  ->orWhereBetween('jam_selesai', [$this->jam_mulai, $this->jam_selesai])
-                  ->orWhere(function($sub) {
-                      $sub->where('jam_mulai', '<=', $this->jam_mulai)
-                          ->where('jam_selesai', '>=', $this->jam_selesai);
-                  });
+                    ->orWhereBetween('jam_selesai', [$this->jam_mulai, $this->jam_selesai])
+                    ->orWhere(function ($sub) {
+                        $sub->where('jam_mulai', '<=', $this->jam_mulai)
+                            ->where('jam_selesai', '>=', $this->jam_selesai);
+                    });
             });
 
         if ($this->jadwalId) {
@@ -142,7 +142,7 @@ class JadwalKuliahManager extends Component
     public function render()
     {
         $kurikulumOptions = Kurikulum::where('prodi_id', $this->filterProdiId)->where('is_active', true)->get();
-        
+
         $formMks = [];
         if ($this->kurikulum_id) {
             $formMks = MataKuliah::join('kurikulum_mata_kuliah', 'master_mata_kuliahs.id', '=', 'kurikulum_mata_kuliah.mata_kuliah_id')
@@ -152,13 +152,13 @@ class JadwalKuliahManager extends Component
                 ->take(8)->get();
         }
 
-        $dosens = Dosen::with('person')->whereHas('person', function($q) {
+        $dosens = Dosen::with('person')->whereHas('person', function ($q) {
             $q->where('nama_lengkap', 'like', "%{$this->searchDosen}%");
         })->take(8)->get();
 
         $jadwals = JadwalKuliah::with(['mataKuliah', 'dosen.person', 'kurikulum'])
             ->where('tahun_akademik_id', $this->filterSemesterId)
-            ->when($this->filterProdiId, function($q) {
+            ->when($this->filterProdiId, function ($q) {
                 $q->whereHas('mataKuliah', fn($mk) => $mk->where('prodi_id', $this->filterProdiId));
             })
             ->orderBy('hari')->orderBy('jam_mulai')
@@ -174,14 +174,43 @@ class JadwalKuliahManager extends Component
         ]);
     }
 
-    public function pilihMk($id, $nama) { $this->mata_kuliah_id = $id; $this->selectedMkName = $nama; $this->searchMk = ''; }
-    public function pilihDosen($id, $nama) { $this->dosen_id = $id; $this->selectedDosenName = $nama; $this->searchDosen = ''; $this->validateRealTime(); }
+    public function pilihMk($id, $nama)
+    {
+        $this->mata_kuliah_id = $id;
+        $this->selectedMkName = $nama;
+        $this->searchMk = '';
+    }
+    public function pilihDosen($id, $nama)
+    {
+        $this->dosen_id = $id;
+        $this->selectedDosenName = $nama;
+        $this->searchDosen = '';
+        $this->validateRealTime();
+    }
 
     public function save()
     {
         // Re-validate format sebelum simpan
         $this->validateRealTime();
         if ($this->formStatus === 'red') return;
+
+        // $timeFormat = 'regex:/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/';
+
+        // $this->validate([
+        //     'kurikulum_id' => 'required',
+        //     'mata_kuliah_id' => 'required',
+        //     'dosen_id' => 'required',
+        //     'hari' => 'required',
+        //     'jam_mulai' => ['required', $timeFormat],
+        //     'jam_selesai' => ['required', $timeFormat],
+        //     'ruang' => 'required',
+        //     'nama_kelas' => 'required',
+        //     'kuota_kelas' => 'required|numeric|min:1'
+        // ], [
+        //     'jam_mulai.regex' => 'Format jam mulai tidak valid (HH:mm).',
+        //     'jam_selesai.regex' => 'Format jam selesai tidak valid (HH:mm).',
+        //     'kuota_kelas.required' => 'Wajib mengisi kuota kelas.',
+        // ]);
 
         $timeFormat = 'regex:/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/';
 
@@ -190,8 +219,34 @@ class JadwalKuliahManager extends Component
             'mata_kuliah_id' => 'required',
             'dosen_id' => 'required',
             'hari' => 'required',
+
             'jam_mulai' => ['required', $timeFormat],
-            'jam_selesai' => ['required', $timeFormat],
+            'jam_selesai' => [
+                'required',
+                $timeFormat,
+                function ($attr, $value, $fail) {
+
+                    // Proteksi kalau jam_mulai kosong
+                    if (!$this->jam_mulai) {
+                        return;
+                    }
+
+                    $mulai   = strtotime($this->jam_mulai);
+                    $selesai = strtotime($value);
+
+                    // ❌ Jam mundur / sama
+                    if ($selesai <= $mulai) {
+                        $fail('Jam selesai harus lebih besar dari jam mulai.');
+                        return;
+                    }
+
+                    // ⏱ Minimal 30 menit
+                    if (($selesai - $mulai) < 1800) {
+                        $fail('Durasi kelas minimal 30 menit.');
+                    }
+                }
+            ],
+
             'ruang' => 'required',
             'nama_kelas' => 'required',
             'kuota_kelas' => 'required|numeric|min:1'
@@ -200,6 +255,7 @@ class JadwalKuliahManager extends Component
             'jam_selesai.regex' => 'Format jam selesai tidak valid (HH:mm).',
             'kuota_kelas.required' => 'Wajib mengisi kuota kelas.',
         ]);
+
 
         $data = [
             'tahun_akademik_id' => $this->filterSemesterId,
