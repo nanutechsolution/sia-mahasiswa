@@ -92,6 +92,7 @@
                         <a href="{{ route('admin.skala-nilai') }}" class="nav-link text-xs py-2 {{ request()->routeIs('admin.skala-nilai') ? 'text-unmaris-gold font-bold bg-white/5' : 'text-slate-400' }}" wire:navigate>Skala Nilai</a>
                         <a href="{{ route('admin.aturan-sks') }}" class="nav-link text-xs py-2 {{ request()->routeIs('admin.aturan-sks') ? 'text-unmaris-gold font-bold bg-white/5' : 'text-slate-400' }}" wire:navigate>Aturan SKS</a>
                         <a href="{{ route('admin.akademik.ekuivalensi-mk') }}" class="nav-link text-xs py-2 {{ request()->routeIs('admin.akademik.ekuivalensi-mk') ? 'text-unmaris-gold font-bold bg-white/5' : 'text-slate-400' }}" wire:navigate>Ekuivalensi</a>
+                        <a href="{{ route('admin.perbaikan-nilai') }}" class="nav-link text-xs py-2 {{ request()->routeIs('admin.perbaikan-nilai') ? 'text-unmaris-gold font-bold bg-white/5' : 'text-slate-400' }}" wire:navigate>Perbaikan Nilai</a>
                     </div>
                 </div>
 
@@ -375,6 +376,13 @@
             {{-- Top Header --}}
             <header class="flex items-center justify-between px-6 py-4 bg-white border-b border-slate-200 z-30 shadow-sm relative">
 
+                {{-- TAMPILAN SEMESTER AKTIF --}}
+                <div class="hidden md:flex flex-col items-end mr-6 border-r border-slate-200 pr-6 h-8 justify-center">
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Semester Aktif</span>
+                    <span class="text-sm font-black text-unmaris-blue leading-none mt-0.5">
+                        {{ $globalTa->nama_tahun ?? 'Tidak Ada Aktif' }}
+                    </span>
+                </div>
                 <div class="flex items-center gap-4">
                     <button @click="sidebarOpen = true" class="text-slate-500 hover:text-unmaris-blue focus:outline-none md:hidden">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

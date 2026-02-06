@@ -54,31 +54,13 @@ class TahunAkademikSeeder extends Seeder
                     'buka_input_nilai' => false,
                 ]
             );
-
-            // 3. Semester Pendek (Kode: YYYY3) - Opsional
-            // Cth: 20173 (Pendek 2017/2018)
-            // Periode: Agustus
-            TahunAkademik::updateOrCreate(
-                ['kode_tahun' => $year . '3'],
-                [
-                    'nama_tahun' => "Pendek {$year}/{$nextYear}",
-                    'semester' => 3,
-                    'tanggal_mulai' => "{$nextYear}-08-01",
-                    'tanggal_selesai' => "{$nextYear}-08-31",
-                    'tgl_mulai_krs' => "{$nextYear}-07-25",
-                    'tgl_selesai_krs' => "{$nextYear}-08-05",
-                    'is_active' => false,
-                    'buka_krs' => false,
-                    'buka_input_nilai' => false,
-                ]
-            );
         }
 
         // Set Tahun Akademik Aktif secara otomatis berdasarkan tanggal hari ini
         $today = Carbon::now();
         $activeTa = TahunAkademik::where('tanggal_mulai', '<=', $today)
             ->where('tanggal_selesai', '>=', $today)
-            ->orderBy('kode_tahun', 'desc') // Ambil yang paling relevan (misal Ganjil/Genap > Pendek jika overlap)
+            ->orderBy('kode_tahun', 'desc') // Ambil yang paling relevan
             ->first();
 
         if ($activeTa) {

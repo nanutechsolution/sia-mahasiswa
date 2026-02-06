@@ -96,39 +96,54 @@ class TahunAkademikManager extends Component
 
     public function toggleInputNilai($id)
     {
-        $ta = TahunAkademik::find($id);
-        $ta->update(['buka_input_nilai' => !$ta->buka_input_nilai]);
+        DB::transaction(function () use ($id) {
+            $ta = TahunAkademik::findOrFail($id);
+            $newState = !$ta->buka_input_nilai;
+
+            if ($newState) {
+                // Jika akan dibuka, tutup yang lain untuk mencegah overlap
+                TahunAkademik::where('id', '!=', $id)->update(['buka_input_nilai' => false]);
+            }
+
+            $ta->update(['buka_input_nilai' => $newState]);
+        });
+
         $this->loadData();
-        session()->flash('success', 'Status input nilai berhasil diubah.');
+        session()->flash('success', 'Status input nilai berhasil diperbarui.');
     }
 
     public function toggleKrs($id)
     {
-        $ta = TahunAkademik::findOrFail($id);
+        DB::transaction(function () use ($id) {
+            $ta = TahunAkademik::findOrFail($id);
 
-        // Jika sekarang buka KRS, berarti mau ditutup
-        if ($ta->buka_krs) {
-            $ta->update([
-                'buka_krs' => false,
-                'tgl_selesai_krs' => now(), // set otomatis ke waktu sekarang
-            ]);
-        } else {
-            // Jika KRS ditutup sebelumnya, buka lagi (tanggal tetap seperti semula)
-            $ta->update([
-                'buka_krs' => true,
-                // bisa juga reset tgl_mulai_krs jika mau
-            ]);
-        }
+            if ($ta->buka_krs) {
+                // Jika sedang buka, maka tutup
+                $ta->update([
+                    'buka_krs' => false,
+                    'tgl_selesai_krs' => now(), // Opsional: update tgl tutup real
+                ]);
+            } else {
+                // Jika mau buka, pastikan yang lain tertutup
+                TahunAkademik::where('id', '!=', $id)->update(['buka_krs' => false]);
+
+                $ta->update([
+                    'buka_krs' => true,
+                ]);
+            }
+        });
 
         $this->loadData();
-        session()->flash('success', 'Status masa KRS berhasil diubah.');
+        session()->flash('success', 'Status masa KRS berhasil diperbarui.');
     }
 
 
     public function aktifkanSemester($id)
     {
         DB::transaction(function () use ($id) {
+            // Tutup semua semester lain
             TahunAkademik::query()->update(['is_active' => false]);
+            // Aktifkan yang dipilih
             TahunAkademik::where('id', $id)->update(['is_active' => true]);
         });
 
@@ -137,6 +152,7 @@ class TahunAkademikManager extends Component
 
         session()->flash('success', 'Semester aktif berhasil diubah.');
         $this->loadData();
+        return redirect(request()->header('Referer'));
     }
 
     public function batal()

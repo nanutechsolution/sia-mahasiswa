@@ -26,6 +26,7 @@ use App\Livewire\Admin\Akademik\MutasiMhsManager;
 use App\Livewire\Admin\Akademik\PlotingPaManager;
 use App\Livewire\Admin\Akademik\CetakAbsensiManager;
 use App\Livewire\Admin\Akademik\EkuivalensiManager;
+use App\Livewire\Admin\Akademik\PerbaikanNilaiManager;
 use App\Livewire\Admin\Akademik\SkalaNilaiManager;
 
 use App\Livewire\Admin\Konfigurasi\TahunAkademikManager;
@@ -112,7 +113,6 @@ Route::middleware(['auth'])->group(function () {
         // 1. GRUP AKADEMIK (Permission: akses_modul_akademik)
         // Diakses oleh: Superadmin, Admin, BARA
         Route::middleware(['permission:akses_modul_akademik'])->group(function () {
-
             // Konfigurasi Akademik
             Route::get('/semester', TahunAkademikManager::class)->name('admin.semester');
             Route::get('/skala-nilai', SkalaNilaiManager::class)->name('admin.skala-nilai');
@@ -142,6 +142,7 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/hr-manager', HRModuleManager::class)->name('admin.hr.manager');
             Route::get('/akademik/ekuivalensi-mata-kuliah', EkuivalensiManager::class)
                 ->name('admin.akademik.ekuivalensi-mk');
+            Route::get('/perbaikan-nilai', PerbaikanNilaiManager::class)->name('admin.perbaikan-nilai');
         });
 
         // 2. GRUP KEUANGAN (Permission: akses_modul_keuangan)

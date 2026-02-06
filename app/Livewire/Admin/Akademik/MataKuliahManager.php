@@ -4,40 +4,41 @@ namespace App\Livewire\Admin\Akademik;
 
 use Livewire\Component;
 use Livewire\WithPagination;
-use Livewire\WithFileUploads;
 use App\Domains\Akademik\Models\MataKuliah;
 use App\Domains\Core\Models\Prodi;
+use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\DB;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class MataKuliahManager extends Component
 {
-    use WithPagination, WithFileUploads;
+    use WithPagination;
 
-    // Filter
-    public $search = '';
-    public $filterProdiId;
-
-    // Form State
+    // --- State ---
     public $mkId;
     public $kode_mk;
     public $nama_mk;
-
-    // SKS Details
-    public $sks_default = 3;
+    
+    // SKS
+    public $sks_default = 0;
     public $sks_tatap_muka = 0;
     public $sks_praktek = 0;
     public $sks_lapangan = 0;
 
-    public $jenis_mk = 'A';
+    public $jenis_mk = 'B';
     public $prodi_id;
+    public $activity_type = 'REGULAR'; // Default
 
+    // UI
     public $showForm = false;
     public $editMode = false;
+    public $search = '';
+    public $filterProdiId;
 
-    // Import State
-    public $fileImport;
-    public $showImportModal = false;
+    // --- Constants ---
+    const TYPE_REGULAR = 'REGULAR';
+    const TYPE_THESIS = 'THESIS';
+    const TYPE_MBKM = 'MBKM';
+    const TYPE_CONTINUATION = 'CONTINUATION';
 
     public function mount()
     {
@@ -45,254 +46,132 @@ class MataKuliahManager extends Component
         $this->prodi_id = $this->filterProdiId;
     }
 
-    public function updated($propertyName)
+    // --- Logic Inti (Masalah #2 Solved) ---
+
+    public function updatedActivityType($value)
     {
-        if (in_array($propertyName, ['sks_tatap_muka', 'sks_praktek', 'sks_lapangan'])) {
-            $this->sks_default = (int)$this->sks_tatap_muka + (int)$this->sks_praktek + (int)$this->sks_lapangan;
+        // Reset komponen SKS saat tipe berubah
+        if ($value === self::TYPE_THESIS) {
+            // Thesis: Komponen 0, Default boleh diisi manual (set default suggestion 6)
+            $this->sks_tatap_muka = 0; 
+            $this->sks_praktek = 0; 
+            $this->sks_lapangan = 0;
+            $this->sks_default = 6; 
+        } elseif ($value === self::TYPE_CONTINUATION) {
+            // Continuation: Semua 0
+            $this->sks_tatap_muka = 0;
+            $this->sks_praktek = 0;
+            $this->sks_lapangan = 0;
+            $this->sks_default = 0;
+        } else {
+            // Regular/MBKM: Hitung ulang
+            $this->calculateSks();
         }
     }
 
-    public function updatingSearch()
+    public function updated($propertyName)
     {
-        $this->resetPage();
+        // Hanya hitung otomatis jika BUKAN Thesis dan BUKAN Continuation
+        if (in_array($propertyName, ['sks_tatap_muka', 'sks_praktek', 'sks_lapangan'])) {
+            if (!in_array($this->activity_type, [self::TYPE_THESIS, self::TYPE_CONTINUATION])) {
+                $this->calculateSks();
+            }
+        }
     }
 
-    public function render()
+    private function calculateSks()
     {
-        $prodis = Prodi::all();
-
-        $mks = MataKuliah::with('prodi')
-            ->where('prodi_id', $this->filterProdiId)
-            ->where(function ($q) {
-                $q->where('nama_mk', 'like', '%' . $this->search . '%')
-                    ->orWhere('kode_mk', 'like', '%' . $this->search . '%');
-            })
-            ->orderBy('kode_mk', 'asc')
-            ->paginate(10);
-
-        return view('livewire.admin.akademik.mata-kuliah-manager', [
-            'mks' => $mks,
-            'prodis' => $prodis
-        ]);
+        $this->sks_default = (int)$this->sks_tatap_muka + (int)$this->sks_praktek + (int)$this->sks_lapangan;
     }
+
+    // --- CRUD ---
 
     public function create()
     {
         $this->resetForm();
-        $this->prodi_id = $this->filterProdiId;
+        $this->prodi_id = $this->filterProdiId; 
         $this->showForm = true;
         $this->editMode = false;
     }
 
-    public function openImport()
-    {
-        $this->reset(['fileImport']);
-        $this->showImportModal = true;
-    }
-
-    public function downloadTemplate()
-    {
-        $response = new StreamedResponse(function () {
-            $handle = fopen('php://output', 'w');
-
-            // Header CSV
-            fputcsv($handle, ['Kode MK', 'Nama MK', 'Total SKS', 'SKS Teori', 'SKS Praktek', 'Jenis(A/B/C)']);
-
-            // Contoh Data 1
-            fputcsv($handle, ['TI101', 'Algoritma Pemrograman', '3', '2', '1', 'A']);
-
-            // Contoh Data 2
-            fputcsv($handle, ['TI102', 'Basis Data', '3', '3', '0', 'A']);
-
-            fclose($handle);
-        });
-
-        $response->headers->set('Content-Type', 'text/csv');
-        $response->headers->set('Content-Disposition', 'attachment; filename="template_matakuliah.csv"');
-
-        return $response;
-    }
-
-    public function processImport()
-    {
-        $this->validate([
-            'fileImport' => 'required|mimes:csv,txt|max:2048', // Max 2MB, format CSV
-            'filterProdiId' => 'required'
-        ]);
-
-        $path = $this->fileImport->getRealPath();
-        $file = fopen($path, 'r');
-
-        // Skip Header Row
-        fgetcsv($file);
-
-        $count = 0;
-
-        DB::beginTransaction();
-        try {
-            while (($row = fgetcsv($file)) !== false) {
-                // Struktur CSV: Kode, Nama, SKS Total, Teori, Praktek, Jenis(A/B/C)
-                // Contoh: TI101, Algoritma, 3, 2, 1, A
-
-                if (count($row) < 3) continue; // Skip baris tidak lengkap
-
-                $kode = trim($row[0]);
-                $nama = trim($row[1]);
-                $sksTotal = (int) $row[2];
-
-                // Optional columns
-                $teori = isset($row[3]) && $row[3] !== '' ? (int)$row[3] : $sksTotal; // Default teori = total
-                $praktek = isset($row[4]) && $row[4] !== '' ? (int)$row[4] : 0;
-                $jenis = isset($row[5]) ? strtoupper(trim($row[5])) : 'A';
-
-                MataKuliah::updateOrCreate(
-                    [
-                        'kode_mk' => $kode,
-                        'prodi_id' => $this->filterProdiId // Import masuk ke prodi yang sedang difilter
-                    ],
-                    [
-                        'nama_mk' => $nama,
-                        'sks_default' => $sksTotal,
-                        'sks_tatap_muka' => $teori,
-                        'sks_praktek' => $praktek,
-                        'sks_lapangan' => 0,
-                        'jenis_mk' => in_array($jenis, ['A', 'B', 'C', 'D']) ? $jenis : 'A'
-                    ]
-                );
-                $count++;
-            }
-            DB::commit();
-            session()->flash('success', "Berhasil import $count Mata Kuliah.");
-            $this->showImportModal = false;
-        } catch (\Exception $e) {
-            DB::rollBack();
-            session()->flash('error', 'Gagal import: ' . $e->getMessage());
-        }
-
-        fclose($file);
-    }
-
     public function edit($id)
     {
-        $mk = MataKuliah::find($id);
+        $mk = MataKuliah::findOrFail($id);
         $this->mkId = $id;
         $this->kode_mk = $mk->kode_mk;
         $this->nama_mk = $mk->nama_mk;
-
         $this->sks_default = $mk->sks_default;
         $this->sks_tatap_muka = $mk->sks_tatap_muka;
         $this->sks_praktek = $mk->sks_praktek;
         $this->sks_lapangan = $mk->sks_lapangan;
-
         $this->jenis_mk = $mk->jenis_mk;
         $this->prodi_id = $mk->prodi_id;
-
-        $this->editMode = true;
+        $this->activity_type = $mk->activity_type ?? self::TYPE_REGULAR;
+        
         $this->showForm = true;
+        $this->editMode = true;
     }
 
     public function save()
     {
-        $rules = [
-            'nama_mk' => 'required',
-            'sks_default' => 'required|integer|min:0',
-            'sks_tatap_muka' => 'required|integer|min:0',
-            'sks_praktek' => 'required|integer|min:0',
-            'sks_lapangan' => 'required|integer|min:0',
-            'jenis_mk' => 'required',
+        $this->validate([
+            'nama_mk' => 'required|string|max:255',
+            'kode_mk' => ['required', Rule::unique('master_mata_kuliahs', 'kode_mk')->ignore($this->mkId)],
             'prodi_id' => 'required',
-        ];
-
-
-        if ($this->editMode) {
-            $rules['kode_mk'] = 'required|unique:master_mata_kuliahs,kode_mk,' . $this->mkId . ',id,prodi_id,' . $this->prodi_id;
-        } else {
-            $rules['kode_mk'] = 'required|unique:master_mata_kuliahs,kode_mk,NULL,id,prodi_id,' . $this->prodi_id;
-        }
-
-        $this->validate(
-            $rules,
-            [
-                // Custom pesan validasi (opsional, bisa ditambah sesuai kebutuhan)
-                'required' => 'Kolom :attribute wajib diisi.',
-                'unique' => 'Kolom :attribute sudah digunakan.',
-                'integer' => 'Kolom :attribute harus berupa angka.',
-                'min' => 'Kolom :attribute minimal :min.',
+            'activity_type' => 'required',
+            // SKS Default wajib > 0 KECUALI Continuation
+            'sks_default' => [
+                'required', 
+                'integer', 
+                function ($attribute, $value, $fail) {
+                    if ($this->activity_type !== self::TYPE_CONTINUATION && $value < 1) {
+                        $fail('Total SKS minimal 1 untuk tipe ini.');
+                    }
+                }
             ],
-            [
-                // Nama atribut agar pesan lebih profesional
-                'kode_mk' => 'Kode Mata Kuliah',
-                'nama_mk' => 'Nama Mata Kuliah',
-                'sks_default' => 'Total SKS',
-                'sks_tatap_muka' => 'SKS Teori',
-                'sks_praktek' => 'SKS Praktikum',
-                'sks_lapangan' => 'SKS Lapangan',
-                'jenis_mk' => 'Jenis Mata Kuliah',
-                'prodi_id' => 'Program Studi',
-            ]
-        );
+        ]);
 
-        $totalRincian = (int)$this->sks_tatap_muka + (int)$this->sks_praktek + (int)$this->sks_lapangan;
-        if ($totalRincian != $this->sks_default) {
-            $this->sks_default = $totalRincian;
-        }
-
-        $data = [
-            'kode_mk' => $this->kode_mk,
+        MataKuliah::updateOrCreate(['id' => $this->mkId], [
+            'kode_mk' => strtoupper($this->kode_mk),
             'nama_mk' => $this->nama_mk,
             'sks_default' => $this->sks_default,
-            'sks_tatap_muka' => $this->sks_tatap_muka,
-            'sks_praktek' => $this->sks_praktek,
-            'sks_lapangan' => $this->sks_lapangan,
+            'sks_tatap_muka' => $this->sks_tatap_muka ?: 0,
+            'sks_praktek' => $this->sks_praktek ?: 0,
+            'sks_lapangan' => $this->sks_lapangan ?: 0,
             'jenis_mk' => $this->jenis_mk,
             'prodi_id' => $this->prodi_id,
-        ];
+            'activity_type' => $this->activity_type, // Disimpan ke Master
+        ]);
 
-        if ($this->editMode) {
-            MataKuliah::find($this->mkId)->update($data);
-            session()->flash('success', 'Mata Kuliah berhasil diperbarui.');
-        } else {
-            MataKuliah::create($data);
-            session()->flash('success', 'Mata Kuliah baru berhasil ditambahkan.');
-        }
-
-        $this->resetForm();
+        session()->flash('success', 'Data berhasil disimpan.');
         $this->showForm = false;
-    }
-
-    public function delete($id)
-    {
-        try {
-            MataKuliah::destroy($id);
-            session()->flash('success', 'Mata Kuliah berhasil dihapus.');
-        } catch (\Exception $e) {
-            session()->flash('error', 'Gagal hapus. MK ini mungkin sudah dipakai di Kurikulum/Jadwal.');
-        }
+        $this->resetForm();
     }
 
     public function resetForm()
     {
-        $this->reset([
-            'mkId',
-            'kode_mk',
-            'nama_mk',
-            'sks_default',
-            'sks_tatap_muka',
-            'sks_praktek',
-            'sks_lapangan',
-            'jenis_mk',
-            'editMode'
-        ]);
-        $this->sks_default = 3;
-        $this->sks_tatap_muka = 0;
-        $this->sks_praktek = 0;
-        $this->sks_lapangan = 0;
+        $this->reset(['mkId', 'kode_mk', 'nama_mk', 'sks_default', 'sks_tatap_muka', 'sks_praktek', 'sks_lapangan', 'jenis_mk', 'editMode']);
+        $this->activity_type = self::TYPE_REGULAR;
     }
 
-    public function batal()
+    public function render()
     {
-        $this->showForm = false;
-        $this->showImportModal = false;
-        $this->resetForm();
+        $mks = MataKuliah::with('prodi')
+            ->when($this->filterProdiId, fn($q) => $q->where('prodi_id', $this->filterProdiId))
+            ->where('nama_mk', 'like', '%'.$this->search.'%')
+            ->paginate(10);
+
+        return view('livewire.admin.akademik.mata-kuliah-manager', [
+            'mks' => $mks,
+            'prodis' => Prodi::all(),
+            'types' => [
+                self::TYPE_REGULAR => ['icon' => '📚', 'label' => 'Reguler', 'desc' => 'Kuliah Biasa (Auto SKS)'],
+                self::TYPE_MBKM => ['icon' => '🌍', 'label' => 'MBKM', 'desc' => 'Merdeka Belajar (Auto SKS)'],
+                self::TYPE_THESIS => ['icon' => '🎓', 'label' => 'Tugas Akhir', 'desc' => 'Skripsi/Tesis (Manual SKS)'],
+                self::TYPE_CONTINUATION => ['icon' => '⏳', 'label' => 'Lanjutan', 'desc' => 'Masa Studi (0 SKS)'],
+            ]
+        ]);
     }
+
+    public function batal() { $this->showForm = false; }
 }

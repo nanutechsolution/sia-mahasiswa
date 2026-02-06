@@ -22,7 +22,9 @@ class MataKuliah extends Model
         'sks_tatap_muka', // Default Teori (Contoh: 2)
         'sks_praktek',    // Default Praktek (Contoh: 2)
         'sks_lapangan',   // Default Lapangan (Contoh: 0)
-        'jenis_mk'
+        'jenis_mk',
+        'activity_type'
+
     ];  
     public function getActivitylogOptions(): LogOptions
     {
