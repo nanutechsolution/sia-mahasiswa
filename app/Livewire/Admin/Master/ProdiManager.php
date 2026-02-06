@@ -24,12 +24,24 @@ class ProdiManager extends Component
     public $jenjang = 'S1';
     public $gelar_lulusan;
     public $format_nim = '{THN}{KODE}{NO:3}';
-    public $is_paket = true; // Default paket
+    public $is_paket = true; 
     public $is_active = true;
+    public $kaprodi;
 
     // UI State
     public $showForm = false;
     public $editMode = false;
+
+    // Custom Messages
+    protected $messages = [
+        'fakultas_id.required' => 'Fakultas wajib dipilih.',
+        'fakultas_id.exists' => 'Fakultas tidak valid.',
+        'nama_prodi.required' => 'Nama Program Studi wajib diisi.',
+        'kode_prodi_internal.required' => 'Kode Internal wajib diisi.',
+        'kode_prodi_internal.unique' => 'Kode Internal sudah digunakan.',
+        'kode_prodi_internal.max' => 'Kode Internal maksimal 10 karakter.',
+        'jenjang.required' => 'Jenjang pendidikan wajib dipilih.',
+    ];
 
     public function updatedSearch()
     {
@@ -38,12 +50,13 @@ class ProdiManager extends Component
 
     public function render()
     {
-        $fakultas_list = Fakultas::all();
+        $fakultas_list = Fakultas::orderBy('nama_fakultas')->get();
 
         $prodis = Prodi::with('fakultas')
             ->where(function ($q) {
                 $q->where('nama_prodi', 'like', '%' . $this->search . '%')
-                    ->orWhere('kode_prodi_internal', 'like', '%' . $this->search . '%');
+                    ->orWhere('kode_prodi_internal', 'like', '%' . $this->search . '%')
+                    ->orWhere('kode_prodi_dikti', 'like', '%' . $this->search . '%');
             })
             ->orderBy('fakultas_id', 'asc')
             ->orderBy('kode_prodi_internal', 'asc')
@@ -73,6 +86,7 @@ class ProdiManager extends Component
         $this->jenjang = $p->jenjang;
         $this->gelar_lulusan = $p->gelar_lulusan;
         $this->format_nim = $p->format_nim;
+        $this->kaprodi = $p->kaprodi;
         $this->is_paket = (bool) $p->is_paket;
         $this->is_active = (bool) $p->is_active;
 
@@ -88,28 +102,29 @@ class ProdiManager extends Component
             'jenjang' => 'required|in:D3,D4,S1,S2,S3,PROFESI',
             'is_paket' => 'boolean',
             'is_active' => 'boolean',
+            'gelar_lulusan' => 'nullable|string|max:50',
+            'kaprodi' => 'nullable|string|max:100',
+            'format_nim' => 'nullable|string',
+            'kode_prodi_dikti' => 'nullable|string|max:10',
         ];
-        $message =
-            [
-                'fakultas_id.required' => 'Silakan pilih fakultas!',
-                'nama_prodi.required' => 'Nama prodi tidak boleh kosong!',
-            ];
+
         if ($this->editMode) {
             $rules['kode_prodi_internal'] = ['required', 'max:10', Rule::unique('ref_prodi')->ignore($this->prodiId)];
         } else {
             $rules['kode_prodi_internal'] = 'required|unique:ref_prodi,kode_prodi_internal|max:10';
         }
 
-        $this->validate($rules, $message);
+        $this->validate($rules);
 
         $data = [
             'fakultas_id' => $this->fakultas_id,
-            'kode_prodi_dikti' => $this->kode_prodi_dikti,
-            'kode_prodi_internal' => strtoupper($this->kode_prodi_internal),
-            'nama_prodi' => $this->nama_prodi,
+            'kode_prodi_dikti' => trim($this->kode_prodi_dikti),
+            'kode_prodi_internal' => strtoupper(trim($this->kode_prodi_internal)),
+            'nama_prodi' => trim($this->nama_prodi),
             'jenjang' => $this->jenjang,
-            'gelar_lulusan' => $this->gelar_lulusan,
-            'format_nim' => $this->format_nim,
+            'gelar_lulusan' => trim($this->gelar_lulusan),
+            'kaprodi' => trim($this->kaprodi),
+            'format_nim' => trim($this->format_nim),
             'is_paket' => $this->is_paket,
             'is_active' => $this->is_active,
         ];
@@ -122,8 +137,7 @@ class ProdiManager extends Component
             session()->flash('success', 'Prodi baru berhasil ditambahkan.');
         }
 
-        $this->showForm = false;
-        $this->resetForm();
+        $this->batal();
     }
 
     public function delete($id)
@@ -132,17 +146,21 @@ class ProdiManager extends Component
             Prodi::destroy($id);
             session()->flash('success', 'Prodi berhasil dihapus.');
         } catch (\Exception $e) {
-            session()->flash('error', 'Gagal hapus: Prodi mungkin masih digunakan di data lain.');
+            session()->flash('error', 'Gagal hapus: Prodi mungkin masih memiliki data mahasiswa atau kurikulum.');
         }
     }
 
     public function resetForm()
     {
-        $this->reset(['prodiId', 'fakultas_id', 'kode_prodi_dikti', 'kode_prodi_internal', 'nama_prodi', 'gelar_lulusan', 'format_nim']);
+        $this->reset([
+            'prodiId', 'fakultas_id', 'kode_prodi_dikti', 'kode_prodi_internal', 
+            'nama_prodi', 'gelar_lulusan', 'format_nim', 'kaprodi'
+        ]);
         $this->jenjang = 'S1';
         $this->is_paket = true;
         $this->is_active = true;
         $this->format_nim = '{THN}{KODE}{NO:3}';
+        $this->resetErrorBag();
     }
 
     public function batal()

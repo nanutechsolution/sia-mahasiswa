@@ -9,16 +9,16 @@ class SkalaNilaiManager extends Component
 {
     public $huruf, $bobot_indeks, $nilai_min, $nilai_max, $is_lulus = true;
     public $selectedId, $showForm = false;
+    public $editMode = false;
 
-    // Custom Error Messages Bahasa Indonesia
+    // Custom Error Messages
     protected $messages = [
-        'huruf.required' => 'Huruf Mutu wajib diisi (Contoh: A, B+).',
-        'huruf.max' => 'Huruf Mutu maksimal 2 karakter.',
-        'bobot_indeks.required' => 'Bobot Indeks wajib diisi (0.00 - 4.00).',
-        'bobot_indeks.numeric' => 'Bobot harus berupa angka.',
-        'nilai_min.required' => 'Batas Bawah Nilai Angka wajib diisi.',
-        'nilai_max.required' => 'Batas Atas Nilai Angka wajib diisi.',
-        'nilai_max.gt' => 'Nilai Batas Atas harus lebih besar dari Batas Bawah.',
+        'huruf.required' => 'Wajib diisi (Contoh: A).',
+        'huruf.max' => 'Maks 2 karakter.',
+        'bobot_indeks.required' => 'Wajib diisi.',
+        'nilai_min.required' => 'Wajib diisi.',
+        'nilai_max.required' => 'Wajib diisi.',
+        'nilai_max.gt' => 'Harus lebih besar dari Nilai Min.',
     ];
 
     public function render()
@@ -30,9 +30,24 @@ class SkalaNilaiManager extends Component
 
     public function create() 
     { 
-        $this->reset(); 
+        $this->resetInput();
         $this->showForm = true; 
-        $this->is_lulus = true; // Default Lulus
+        $this->editMode = false;
+        $this->is_lulus = true; 
+    }
+
+    public function edit($id)
+    {
+        $data = SkalaNilai::find($id);
+        $this->selectedId = $id;
+        $this->huruf = $data->huruf;
+        $this->bobot_indeks = $data->bobot_indeks;
+        $this->nilai_min = $data->nilai_min;
+        $this->nilai_max = $data->nilai_max;
+        $this->is_lulus = $data->is_lulus;
+        
+        $this->editMode = true;
+        $this->showForm = true;
     }
 
     public function save()
@@ -52,25 +67,25 @@ class SkalaNilaiManager extends Component
             'is_lulus' => $this->is_lulus,
         ]);
 
-        session()->flash('success', 'Skala nilai berhasil disimpan.');
-        $this->showForm = false;
-    }
-
-    public function edit($id)
-    {
-        $data = SkalaNilai::find($id);
-        $this->selectedId = $id;
-        $this->huruf = $data->huruf;
-        $this->bobot_indeks = $data->bobot_indeks;
-        $this->nilai_min = $data->nilai_min;
-        $this->nilai_max = $data->nilai_max;
-        $this->is_lulus = $data->is_lulus;
-        $this->showForm = true;
+        session()->flash('success', 'Data skala nilai berhasil disimpan.');
+        $this->batal();
     }
 
     public function delete($id)
     {
         SkalaNilai::find($id)->delete();
         session()->flash('success', 'Skala nilai berhasil dihapus.');
+    }
+
+    public function batal()
+    {
+        $this->showForm = false;
+        $this->resetInput();
+    }
+
+    private function resetInput()
+    {
+        $this->reset(['huruf', 'bobot_indeks', 'nilai_min', 'nilai_max', 'is_lulus', 'selectedId', 'editMode']);
+        $this->resetErrorBag();
     }
 }

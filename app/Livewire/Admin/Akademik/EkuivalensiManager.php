@@ -39,6 +39,11 @@ class EkuivalensiManager extends Component
         $this->filterProdiId = Prodi::first()->id ?? null;
     }
 
+    public function updatedFilterProdiId() 
+    { 
+        $this->resetPage(); 
+    }
+
     public function render()
     {
         // 1. Ambil List Ekuivalensi (Recognition Layer)
@@ -47,24 +52,24 @@ class EkuivalensiManager extends Component
             ->latest()
             ->paginate(10);
 
-        // 2. Opsi Mata Kuliah Asal (Searchable)
+        // 2. Opsi Mata Kuliah Asal (Searchable - Autocomplete)
         $optionsAsal = [];
         if (strlen($this->searchAsal) >= 2) {
             $optionsAsal = MataKuliah::where('prodi_id', $this->filterProdiId)
                 ->where(function($q) {
                     $q->where('nama_mk', 'like', "%{$this->searchAsal}%")
                       ->orWhere('kode_mk', 'like', "%{$this->searchAsal}%");
-                })->take(5)->get();
+                })->take(10)->get();
         }
 
-        // 3. Opsi Mata Kuliah Tujuan (Searchable)
+        // 3. Opsi Mata Kuliah Tujuan (Searchable - Autocomplete)
         $optionsTujuan = [];
         if (strlen($this->searchTujuan) >= 2) {
             $optionsTujuan = MataKuliah::where('prodi_id', $this->filterProdiId)
                 ->where(function($q) {
                     $q->where('nama_mk', 'like', "%{$this->searchTujuan}%")
                       ->orWhere('kode_mk', 'like', "%{$this->searchTujuan}%");
-                })->take(5)->get();
+                })->take(10)->get();
         }
 
         return view('livewire.admin.akademik.ekuivalensi-manager', [
@@ -75,18 +80,25 @@ class EkuivalensiManager extends Component
         ]);
     }
 
+    public function create()
+    {
+        $this->resetForm();
+        $this->showForm = true;
+        $this->editMode = false;
+    }
+
     public function selectAsal($id, $name, $code)
     {
         $this->mk_asal_id = $id;
         $this->selectedAsalName = "[$code] $name";
-        $this->searchAsal = '';
+        $this->searchAsal = ''; // Reset search text
     }
 
     public function selectTujuan($id, $name, $code)
     {
         $this->mk_tujuan_id = $id;
         $this->selectedTujuanName = "[$code] $name";
-        $this->searchTujuan = '';
+        $this->searchTujuan = ''; // Reset search text
     }
 
     public function save()
@@ -114,7 +126,7 @@ class EkuivalensiManager extends Component
         );
 
         session()->flash('success', 'Kebijakan ekuivalensi berhasil disimpan.');
-        $this->resetForm();
+        $this->batal();
     }
 
     public function edit($id)
@@ -146,5 +158,11 @@ class EkuivalensiManager extends Component
             'searchAsal', 'searchTujuan', 'selectedAsalName', 'selectedTujuanName',
             'showForm', 'editMode'
         ]);
+    }
+
+    public function batal()
+    {
+        $this->showForm = false;
+        $this->resetForm();
     }
 }

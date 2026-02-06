@@ -18,4 +18,11 @@ class SkalaNilai extends Model
         'nilai_max',
         'is_lulus'
     ];
+
+    protected $casts = [
+        'is_lulus' => 'boolean',    
+        'bobot_indeks' => 'float',
+        'nilai_min' => 'float',
+        'nilai_max' => 'float',
+    ];
 }

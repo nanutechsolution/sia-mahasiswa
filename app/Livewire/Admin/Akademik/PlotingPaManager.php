@@ -27,7 +27,6 @@ class PlotingPaManager extends Component
     public function mount()
     {
         $this->filterAngkatan = date('Y');
-        // Default prodi pertama biar langsung tampil data
         $this->filterProdiId = Prodi::first()->id ?? null;
     }
 
@@ -36,6 +35,24 @@ class PlotingPaManager extends Component
     public function updatedFilterAngkatan() { $this->resetPage(); $this->resetSelection(); }
     public function updatedFilterStatusPa() { $this->resetPage(); $this->resetSelection(); }
     public function updatedSearch() { $this->resetPage(); $this->resetSelection(); }
+    
+    // Handle Select All di Halaman Ini
+    public function updatedSelectAll($value)
+    {
+        if ($value) {
+            // Hanya ambil ID dari halaman saat ini agar tidak berat
+            $ids = $this->getMahasiswaQuery()
+                ->orderBy('nim', 'asc')
+                ->paginate(50)
+                ->pluck('id')
+                ->map(fn($id) => (string) $id)
+                ->toArray();
+            
+            $this->selectedMhs = $ids;
+        } else {
+            $this->selectedMhs = [];
+        }
+    }
 
     public function resetSelection()
     {
@@ -43,54 +60,45 @@ class PlotingPaManager extends Component
         $this->selectAll = false;
     }
 
-    // Logic Select All (Hanya halaman ini atau semua query? Kita buat per halaman dulu biar aman/ringan)
-    public function updatedSelectAll($value)
-    {
-        if ($value) {
-            $this->selectedMhs = $this->getMahasiswaQuery()->pluck('id')->map(fn($id) => (string) $id)->toArray();
-        } else {
-            $this->selectedMhs = [];
-        }
-    }
-
     private function getMahasiswaQuery()
     {
         return Mahasiswa::query()
+            ->with(['person', 'programKelas', 'dosenWali.person']) // Eager load relations
             ->where('prodi_id', $this->filterProdiId)
             ->where('angkatan_id', $this->filterAngkatan)
             ->when($this->search, function($q) {
-                // Fix Search: Cari Nama via relasi Person
-                $q->whereHas('person', function($qp) {
-                    $qp->where('nama_lengkap', 'like', '%'.$this->search.'%');
-                })
-                ->orWhere('nim', 'like', '%'.$this->search.'%');
+                $q->where(function($sub) {
+                    $sub->whereHas('person', fn($p) => $p->where('nama_lengkap', 'like', '%'.$this->search.'%'))
+                        ->orWhere('nim', 'like', '%'.$this->search.'%');
+                });
             })
-            ->when($this->filterStatusPa == 'belum', function($q) {
-                $q->whereNull('dosen_wali_id');
-            })
-            ->when($this->filterStatusPa == 'sudah', function($q) {
-                $q->whereNotNull('dosen_wali_id');
-            });
+            ->when($this->filterStatusPa == 'belum', fn($q) => $q->whereNull('dosen_wali_id'))
+            ->when($this->filterStatusPa == 'sudah', fn($q) => $q->whereNotNull('dosen_wali_id'));
     }
 
     public function simpanPloting()
     {
+        // Validasi Ketat
         $this->validate([
-            'targetDosenId' => 'required',
+            'targetDosenId' => 'required|exists:trx_dosen,id',
             'selectedMhs' => 'required|array|min:1',
+            'selectedMhs.*' => 'exists:mahasiswas,id' // Pastikan setiap ID valid
         ], [
-            'targetDosenId.required' => 'Pilih Dosen Wali terlebih dahulu.',
-            'selectedMhs.required' => 'Pilih minimal satu mahasiswa.',
+            'targetDosenId.required' => 'Silakan pilih Dosen Wali terlebih dahulu.',
+            'targetDosenId.exists' => 'Dosen yang dipilih tidak valid.',
+            'selectedMhs.required' => 'Pilih minimal satu mahasiswa dari tabel.',
         ]);
 
         $count = count($this->selectedMhs);
-        $dosen = Dosen::find($this->targetDosenId);
+        $dosen = Dosen::with('person')->find($this->targetDosenId);
+        $namaDosen = $dosen->person->nama_dengan_gelar ?? $dosen->person->nama_lengkap;
 
-        // Bulk Update
-        Mahasiswa::whereIn('id', $this->selectedMhs)
-            ->update(['dosen_wali_id' => $this->targetDosenId]);
+        DB::transaction(function () {
+            Mahasiswa::whereIn('id', $this->selectedMhs)
+                ->update(['dosen_wali_id' => $this->targetDosenId]);
+        });
 
-        session()->flash('success', "Berhasil memploting $count mahasiswa ke Dosen Wali: {$dosen->nama_lengkap_gelar}.");
+        session()->flash('success', "Berhasil! $count Mahasiswa telah dipindahkan ke Dosen Wali: $namaDosen.");
         
         $this->resetSelection();
     }
@@ -100,18 +108,16 @@ class PlotingPaManager extends Component
         $prodis = Prodi::all();
         $angkatans = DB::table('ref_angkatan')->orderBy('id_tahun', 'desc')->get();
         
-        // [FIX] Ambil Dosen dengan Join ke Person untuk sorting nama
-        // Agar tidak error "column nama_lengkap_gelar not found"
-        $dosens = Dosen::join('ref_person', 'trx_dosen.person_id', '=', 'ref_person.id')
-            ->where('trx_dosen.is_active', true)
-            ->orderBy('ref_person.nama_lengkap', 'asc')
-            ->select('trx_dosen.*') // Ambil kolom dosen saja agar model hydration benar
-            ->get();
+        // Ambil data dosen untuk dropdown (Searchable)
+        $dosens = Dosen::with('person')
+            ->where('is_active', true)
+            ->get()
+            ->sortBy(fn($d) => $d->person->nama_lengkap ?? '')
+            ->values();
 
         $mahasiswas = $this->getMahasiswaQuery()
-            ->with(['dosenWali.person', 'programKelas', 'person']) // Load person
             ->orderBy('nim', 'asc')
-            ->paginate(50); // Tampilkan banyak biar enak check-nya
+            ->paginate(50);
 
         return view('livewire.admin.akademik.ploting-pa-manager', [
             'mahasiswas' => $mahasiswas,

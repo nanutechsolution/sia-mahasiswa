@@ -137,8 +137,14 @@
 
                     <div>
                         <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">NIM *</label>
-                        <input type="text" wire:model="nim" class="block w-full rounded-lg border-slate-300 bg-slate-50 p-2.5 focus:border-[#002855] focus:ring-[#002855] text-sm font-bold placeholder-slate-400" placeholder="24xxxxx">
+                        {{-- PERBAIKAN: Input NIM tetap editable tapi otomatis terisi --}}
+                        <input type="text" wire:model="nim" 
+                            class="block w-full rounded-lg border-slate-300 bg-slate-50 p-2.5 focus:border-[#002855] focus:ring-[#002855] text-sm font-bold placeholder-slate-400 transition-all" 
+                            placeholder="Akan muncul otomatis setelah pilih Prodi & Angkatan">
                         @error('nim') <span class="text-rose-500 text-xs font-bold mt-1 block">{{ $message }}</span> @enderror
+                        @if(!$editMode)
+                        <p class="text-[10px] text-slate-400 mt-1 italic">NIM digenerate otomatis, namun dapat disesuaikan jika perlu.</p>
+                        @endif
                     </div>
 
                     <div>
@@ -173,7 +179,8 @@
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Tahun Angkatan *</label>
-                            <select wire:model="angkatan_id" class="block w-full rounded-lg border-slate-300 bg-slate-50 p-2.5 focus:border-[#002855] focus:ring-[#002855] text-sm font-bold text-slate-700">
+                            {{-- PERBAIKAN: wire:model.live agar men-trigger updatedAngkatanId --}}
+                            <select wire:model.live="angkatan_id" class="block w-full rounded-lg border-slate-300 bg-slate-50 p-2.5 focus:border-[#002855] focus:ring-[#002855] text-sm font-bold text-slate-700">
                                 @foreach($angkatans as $akt) <option value="{{ $akt->id_tahun }}">{{ $akt->id_tahun }}</option> @endforeach
                             </select>
                         </div>
@@ -189,7 +196,8 @@
 
                     <div>
                         <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Program Studi *</label>
-                        <select wire:model="prodi_id" class="block w-full rounded-lg border-slate-300 bg-slate-50 p-2.5 focus:border-[#002855] focus:ring-[#002855] text-sm font-bold text-slate-700">
+                        {{-- PERBAIKAN: wire:model.live agar men-trigger updatedProdiId --}}
+                        <select wire:model.live="prodi_id" class="block w-full rounded-lg border-slate-300 bg-slate-50 p-2.5 focus:border-[#002855] focus:ring-[#002855] text-sm font-bold text-slate-700">
                             <option value="">Pilih Prodi</option>
                             @foreach($prodis as $p) <option value="{{ $p->id }}">{{ $p->nama_prodi }}</option> @endforeach
                         </select>
@@ -197,7 +205,7 @@
 
                     {{-- Dosen Wali (Searchable) --}}
                     <div class="bg-[#002855]/5 p-4 rounded-xl border border-[#002855]/10"
-                        wire:ignore {{-- Ignore to prevent re-render issues while searching --}}
+                        wire:ignore 
                         x-data="{
                             open: false,
                             search: '',
@@ -206,8 +214,8 @@
                             dosens: {{ $dosens->map(function($d) {
                                 return [
                                     'id' => $d->id,
-                                    'name' => ($d->nama_lengkap_gelar ?? 'Nama Tidak Tersedia') . ($d->nidn ? ' (' . $d->nidn . ')' : ''),
-                                    'search_text' => strtolower(($d->nama_lengkap_gelar ?? '') . ' ' . ($d->nidn ?? ''))
+                                    'name' => ($d->person->nama_lengkap ?? 'Nama Tidak Tersedia') . ($d->nidn ? ' (' . $d->nidn . ')' : ''),
+                                    'search_text' => strtolower(($d->person->nama_lengkap ?? '') . ' ' . ($d->nidn ?? ''))
                                 ];
                             })->toJson() }},
                             
@@ -217,7 +225,6 @@
                                     if(found) this.selectedName = found.name;
                                 }
                                 
-                                // Watch for external changes
                                 this.$watch('selectedId', value => {
                                     if(!value) {
                                         this.selectedName = '-- Belum Ditentukan --';
@@ -323,19 +330,7 @@
     @endif
 
     <!-- Tabel Data -->
-    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden relative">
-        {{-- Loading Overlay --}}
-        <div wire:loading.flex wire:target="search, filterProdiId, filterAngkatan, gotoPage, nextPage, previousPage" 
-             class="absolute inset-0 z-20 bg-white/60 backdrop-blur-[1px] items-center justify-center hidden">
-             <div class="flex flex-col items-center justify-center p-4 bg-white rounded-2xl shadow-xl border border-slate-100">
-                 <svg class="w-8 h-8 text-[#002855] animate-spin mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                 </svg>
-                 <span class="text-xs font-bold text-slate-500 animate-pulse">Memperbarui Data...</span>
-             </div>
-        </div>
-
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <div class="px-6 py-3 border-b border-slate-100 bg-slate-50/80 flex items-center justify-between">
             <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Data: {{ $mahasiswas->total() }}</span>
         </div>
@@ -375,7 +370,7 @@
                                 <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                                 </svg>
-                                PA: {{ $mhs->dosenWali->nama_lengkap_gelar ?? 'Belum Ada' }}
+                                PA: {{ $mhs->dosenWali->person->nama_lengkap ?? 'Belum Ada' }}
                             </div>
                         </td>
                         <td class="px-6 py-4 align-top text-center">

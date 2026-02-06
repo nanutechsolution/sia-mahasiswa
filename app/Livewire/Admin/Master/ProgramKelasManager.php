@@ -24,14 +24,17 @@ class ProgramKelasManager extends Component
     public $showForm = false;
     public $editMode = false;
 
-    public function updatedSearch() { $this->resetPage(); }
+    public function updatedSearch()
+    {
+        $this->resetPage();
+    }
 
     public function render()
     {
-        $programs = ProgramKelas::where(function($q) {
-                $q->where('nama_program', 'like', '%'.$this->search.'%')
-                  ->orWhere('kode_internal', 'like', '%'.$this->search.'%');
-            })
+        $programs = ProgramKelas::where(function ($q) {
+            $q->where('nama_program', 'like', '%' . $this->search . '%')
+                ->orWhere('kode_internal', 'like', '%' . $this->search . '%');
+        })
             ->orderBy('kode_internal', 'asc')
             ->paginate(10);
 

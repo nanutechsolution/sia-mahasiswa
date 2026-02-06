@@ -17,12 +17,23 @@ class AturanSksManager extends Component
 
     protected $rules = [
         'min_ips' => 'required|numeric|min:0|max:4',
-        'max_ips' => 'required|numeric|min:0|max:4|gte:min_ips',
+        'max_ips' => 'required|numeric|min:0|max:4|gte:min_ips', // Max harus >= Min
         'max_sks' => 'required|integer|min:1|max:30',
+    ];
+
+    protected $messages = [
+        'min_ips.required' => 'IPS Minimal wajib diisi.',
+        'min_ips.min' => 'Nilai minimal 0.00.',
+        'min_ips.max' => 'Nilai maksimal 4.00.',
+        'max_ips.required' => 'IPS Maksimal wajib diisi.',
+        'max_ips.gte' => 'Nilai harus lebih besar atau sama dengan IPS Minimal.',
+        'max_sks.required' => 'Jatah SKS wajib diisi.',
+        'max_sks.integer' => 'SKS harus berupa angka bulat.',
     ];
 
     public function render()
     {
+        // Urutkan dari IPS kecil ke besar agar logis
         $aturan = AturanSks::orderBy('min_ips', 'asc')->get();
         return view('livewire.admin.konfigurasi.aturan-sks-manager', [
             'aturan' => $aturan
@@ -63,11 +74,10 @@ class AturanSksManager extends Component
             session()->flash('success', 'Aturan SKS berhasil diperbarui.');
         } else {
             AturanSks::create($data);
-            session()->flash('success', 'Aturan SKS berhasil ditambahkan.');
+            session()->flash('success', 'Aturan SKS baru berhasil ditambahkan.');
         }
 
-        $this->resetForm();
-        $this->showForm = false;
+        $this->batal(); // Tutup form & reset
     }
 
     public function delete($id)
@@ -79,6 +89,7 @@ class AturanSksManager extends Component
     public function resetForm()
     {
         $this->reset(['aturanId', 'min_ips', 'max_ips', 'max_sks', 'showForm', 'editMode']);
+        $this->resetErrorBag();
     }
 
     public function batal()

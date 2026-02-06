@@ -13,6 +13,7 @@ use App\Domains\Core\Models\Prodi;
 use App\Domains\Core\Models\ProgramKelas;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 
 class MahasiswaManager extends Component
 {
@@ -49,6 +50,89 @@ class MahasiswaManager extends Component
     }
 
     public function updatedSearch() { $this->resetPage(); }
+
+    // --- REAL-TIME NIM GENERATOR HOOKS ---
+
+    // Trigger otomatis saat Prodi dipilih di Form
+    public function updatedProdiId()
+    {
+        $this->fillNimOtomatis();
+    }
+
+    // Trigger otomatis saat Angkatan dipilih di Form
+    public function updatedAngkatanId()
+    {
+        $this->fillNimOtomatis();
+    }
+
+    // Logika Pengisi NIM
+    public function fillNimOtomatis()
+    {
+        // Hanya jalan jika mode Input Baru (bukan Edit) dan kedua field (Prodi & Angkatan) terisi
+        if (!$this->editMode && $this->prodi_id && $this->angkatan_id) {
+            $generated = $this->generateNim($this->prodi_id, $this->angkatan_id);
+            if ($generated) {
+                $this->nim = $generated;
+            }
+        }
+    }
+
+    /**
+     * Generate NIM otomatis berdasarkan Format Prodi
+     */
+    private function generateNim($prodiId, $angkatan)
+    {
+        $prodi = Prodi::find($prodiId);
+        if (!$prodi) return null;
+
+        // Ambil Format, default: {THN}{KODE}{NO:3}
+        $format = $prodi->format_nim ?? '{THN}{KODE}{NO:3}';
+        
+        // 1. Replace Variable Statis
+        $thn2 = substr($angkatan, 2, 2); // 24
+        $thn4 = $angkatan; // 2024
+        $kode = $prodi->kode_prodi_internal;
+
+        $prefix = str_replace(
+            ['{THN}', '{TAHUN}', '{KODE}', '{INTERNAL}'],
+            [$thn2, $thn4, $kode, $kode],
+            $format
+        );
+
+        // 2. Handle Sequence {NO:x}
+        // Cari pattern {NO:angka}
+        if (preg_match('/\{NO:(\d+)\}/', $prefix, $matches)) {
+            $length = (int) $matches[1]; // Panjang digit, misal 3
+            $patternToken = $matches[0]; // String "{NO:3}"
+            
+            // Base prefix adalah string sebelum token NO
+            $basePrefix = explode($patternToken, $prefix)[0];
+
+            // Cari NIM terakhir dengan prefix ini di DB
+            $lastMhs = Mahasiswa::where('nim', 'like', $basePrefix . '%')
+                ->whereRaw("LENGTH(nim) = " . (strlen($basePrefix) + $length)) // Pastikan panjangnya pas
+                ->orderBy('nim', 'desc')
+                ->first();
+
+            $nextNo = 1;
+            if ($lastMhs) {
+                // Ambil angka belakangnya
+                $currentNoStr = substr($lastMhs->nim, strlen($basePrefix), $length);
+                if (is_numeric($currentNoStr)) {
+                    $nextNo = intval($currentNoStr) + 1;
+                }
+            }
+
+            // Format nomor urut dengan leading zero
+            $noStr = str_pad($nextNo, $length, '0', STR_PAD_LEFT);
+            
+            // Gabungkan kembali
+            return str_replace($patternToken, $noStr, $prefix);
+        }
+
+        // Jika format tidak mengandung {NO:x}, kembalikan prefix (manual fallback)
+        return $prefix; 
+    }
 
     // --- IMPORT CSV FEATURE ---
 
@@ -158,13 +242,11 @@ class MahasiswaManager extends Component
 
     public function render()
     {
-        // PERBAIKAN: Menggunakan Eloquent with('person') agar lebih aman daripada Join manual
-        // Pastikan model Dosen punya method `public function person() { return $this->belongsTo(Person::class); }`
         $dosens = Dosen::with('person')
             ->where('is_active', true)
             ->get()
             ->sortBy(fn($d) => $d->person->nama_lengkap ?? '')
-            ->values(); // Reset key untuk array
+            ->values(); 
 
         $prodis = Prodi::all();
         $programKelasList = ProgramKelas::where('is_active', true)->get();
@@ -211,15 +293,21 @@ class MahasiswaManager extends Component
         $this->angkatan_id = $mhs->angkatan_id;
         $this->prodi_id = $mhs->prodi_id;
         $this->program_kelas_id = $mhs->program_kelas_id;
-        $this->dosen_wali_id = $mhs->dosen_wali_id; // Data ini akan mengikat ke select box
+        $this->dosen_wali_id = $mhs->dosen_wali_id; 
         $this->bebas_keuangan = $mhs->data_tambahan['bebas_keuangan'] ?? false;
         $this->editMode = true; $this->showForm = true;
     }
 
     public function save() {
         $rules = [ 'nama_lengkap' => 'required', 'angkatan_id' => 'required|digits:4', 'prodi_id' => 'required', 'program_kelas_id' => 'required' ];
-        if ($this->editMode) { $rules['nim'] = 'required|unique:mahasiswas,nim,' . $this->mhsId; } 
-        else { $rules['nim'] = 'required|unique:mahasiswas,nim'; $rules['password_baru'] = 'required|min:6'; }
+        
+        if ($this->editMode) {
+             $rules['nim'] = ['required', Rule::unique('mahasiswas')->ignore($this->mhsId)];
+        } else {
+             $rules['nim'] = 'required|unique:mahasiswas,nim';
+             $rules['password_baru'] = 'required|min:6'; 
+        }
+        
         $this->validate($rules);
 
         DB::transaction(function () {
@@ -253,7 +341,7 @@ class MahasiswaManager extends Component
             }
         });
 
-        session()->flash('success', 'Data Mahasiswa berhasil disimpan.');
+        session()->flash('success', 'Data Mahasiswa berhasil disimpan. NIM: ' . $this->nim);
         $this->resetForm();
         $this->showForm = false;
     }
@@ -267,6 +355,7 @@ class MahasiswaManager extends Component
     
     public function resetForm() {
         $this->reset(['mhsId', 'nim', 'nama_lengkap', 'email_pribadi', 'nomor_hp', 'password_baru', 'editMode', 'prodi_id', 'program_kelas_id', 'angkatan_id', 'dosen_wali_id', 'bebas_keuangan', 'fileImport']);
+        $this->angkatan_id = date('Y'); // Reset ke tahun ini
     }
     public function batal() { $this->showForm = false; $this->showImportModal = false; $this->resetForm(); }
 }

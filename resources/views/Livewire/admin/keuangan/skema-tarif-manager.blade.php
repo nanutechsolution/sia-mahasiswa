@@ -2,7 +2,6 @@
     {{-- SEO & Header --}}
     <x-slot name="title">Manajemen Skema Tarif</x-slot>
     <x-slot name="header">Konfigurasi Skema Biaya</x-slot>
-
     <div class="space-y-8">
         {{-- Top Toolbar --}}
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">

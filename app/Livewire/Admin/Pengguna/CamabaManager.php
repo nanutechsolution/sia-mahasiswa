@@ -10,6 +10,7 @@ use App\Domains\Keuangan\Models\TagihanMahasiswa;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Carbon\Carbon;
 
 class CamabaManager extends Component
 {
@@ -24,12 +25,15 @@ class CamabaManager extends Component
     public $bebas_keuangan = false;
     public $showForm = false;
 
+    public function updatedSearch() { $this->resetPage(); }
+    public function updatedFilterProdiId() { $this->resetPage(); }
+
     public function render()
     {
         $prodis = Prodi::all();
 
         $camabas = Mahasiswa::with(['prodi', 'programKelas', 'user', 'tagihan', 'person'])
-            // FILTER: HANYA TAMPILKAN CAMABA (NIM SEMENTARA)
+            // Filter: NIM Sementara (Panjang > 15 atau mengandung PMB)
             ->where(function($q) {
                 $q->whereRaw('LENGTH(nim) > 15')
                   ->orWhere('nim', 'like', '%PMB%');
@@ -56,7 +60,7 @@ class CamabaManager extends Component
     {
         $mhs = Mahasiswa::with('person')->find($id);
         $this->camabaId = $id;
-        $this->nama_lengkap = $mhs->nama_lengkap; 
+        $this->nama_lengkap = $mhs->person->nama_lengkap ?? $mhs->nama_lengkap; 
         $this->bebas_keuangan = $mhs->data_tambahan['bebas_keuangan'] ?? false;
         $this->showForm = true;
     }
@@ -80,21 +84,31 @@ class CamabaManager extends Component
     }
 
     /**
-     * Logic Peresmian Mahasiswa: Cek Keuangan atau Dispensasi
+     * Logic Peresmian Mahasiswa: Generate NIM Sesuai Prodi & Increment Sequence
      */
     public function generateNimResmi($id)
     {
         DB::transaction(function () use ($id) {
-            $mhs = Mahasiswa::with(['programKelas', 'tagihan'])->lockForUpdate()->find($id);
+            // Lock row untuk mencegah race condition saat generate nomor urut
+            $mhs = Mahasiswa::with(['programKelas', 'tagihan', 'user'])->lockForUpdate()->find($id);
             $prodi = Prodi::lockForUpdate()->find($mhs->prodi_id);
 
-            // 1. VALIDASI KEUANGAN (SSOT Logic)
+            if (!$prodi) {
+                session()->flash('error', 'Prodi tidak ditemukan.');
+                return;
+            }
+
+            // 1. VALIDASI KEUANGAN
             $isDispensasi = $mhs->data_tambahan['bebas_keuangan'] ?? false;
-            $tagihan = $mhs->tagihan->first();
             
+            // Hitung total bayar
+            $totalTagihan = $mhs->tagihan->sum('total_tagihan');
+            $totalBayar = $mhs->tagihan->sum('total_bayar');
+
             $minPercent = $mhs->programKelas->min_pembayaran_persen ?? 50;
-            $paidPercent = ($tagihan && $tagihan->total_tagihan > 0) 
-                ? round(($tagihan->total_bayar / $tagihan->total_tagihan) * 100) 
+            
+            $paidPercent = ($totalTagihan > 0) 
+                ? round(($totalBayar / $totalTagihan) * 100) 
                 : 0;
 
             if (!$isDispensasi && $paidPercent < $minPercent) {
@@ -102,42 +116,59 @@ class CamabaManager extends Component
                 return;
             }
 
-            // 2. GENERATE NIM BARU
-            $format = $prodi->format_nim ?? '{TAHUN}{KODE}{NO:4}';
+            // 2. GENERATE NIM BARU BERDASARKAN FORMAT PRODI
+            $format = $prodi->format_nim ?? '{THN}{KODE}{NO:4}'; // Default jika null
+            $angkatan = $mhs->angkatan_id; // Contoh: 2024
+            
+            // Increment Sequence Prodi
             $nextSeq = $prodi->last_nim_seq + 1;
 
-            $newNim = str_replace('{TAHUN}', $mhs->angkatan_id, $format);
-            $newNim = str_replace('{THN}', substr($mhs->angkatan_id, 2, 2), $newNim);
-            $newNim = str_replace('{KODE}', $prodi->kode_prodi_dikti ?? '00000', $newNim);
-            $newNim = str_replace('{INTERNAL}', $prodi->kode_prodi_internal, $newNim);
+            // Replace Placeholder
+            $newNim = str_replace('{TAHUN}', $angkatan, $format); // 2024
+            $newNim = str_replace('{THN}', substr($angkatan, 2, 2), $newNim); // 24
+            $newNim = str_replace('{KODE}', $prodi->kode_prodi_dikti ?? '00000', $newNim); // Kode Dikti
+            $newNim = str_replace('{INTERNAL}', $prodi->kode_prodi_internal, $newNim); // Kode Internal (TI/SI)
 
+            // Handle Nomor Urut {NO:x}
             if (preg_match('/\{NO:(\d+)\}/', $newNim, $matches)) {
-                $length = $matches[1];
-                $newNim = str_replace($matches[0], str_pad($nextSeq, $length, '0', STR_PAD_LEFT), $newNim);
+                $length = (int) $matches[1];
+                $noStr = str_pad($nextSeq, $length, '0', STR_PAD_LEFT);
+                $newNim = str_replace($matches[0], $noStr, $newNim);
             } else {
+                // Fallback jika format tidak ada {NO:x}, tempel di belakang
                 $newNim .= str_pad($nextSeq, 4, '0', STR_PAD_LEFT);
             }
 
-            // 3. UPDATE DATA
+            // Cek Unik (Just in Case)
+            if (Mahasiswa::where('nim', $newNim)->exists()) {
+                session()->flash('error', "Gagal: NIM {$newNim} sudah ada. Coba lagi (Sequence akan update).");
+                // Opsional: $prodi->increment('last_nim_seq');
+                return;
+            }
+
+            // 3. UPDATE DATA MAHASISWA
             $oldNim = $mhs->nim; 
+            $dataTambahan = $mhs->data_tambahan ?? [];
+            $dataTambahan['nim_lama'] = $oldNim;
+            $dataTambahan['tgl_resmi_mahasiswa'] = now()->toDateString();
+
             $mhs->update([
                 'nim' => $newNim,
-                'data_tambahan' => array_merge($mhs->data_tambahan ?? [], [
-                    'nim_lama' => $oldNim,
-                    'tgl_resmi_mahasiswa' => now()->toDateString()
-                ])
+                'data_tambahan' => $dataTambahan
             ]);
 
+            // Update Akun Login
             if ($mhs->user) {
                 $mhs->user->update([
                     'username' => $newNim,
-                    'password' => Hash::make($newNim)
+                    'password' => Hash::make($newNim) // Reset password ke NIM baru
                 ]);
             }
 
+            // Update Counter Prodi
             $prodi->update(['last_nim_seq' => $nextSeq]);
             
-            session()->flash('success', "Mahasiswa {$mhs->nama_lengkap} resmi memiliki NIM: {$newNim}");
+            session()->flash('success', "Sukses! Mahasiswa {$mhs->nama_lengkap} resmi aktif dengan NIM: {$newNim}");
         });
     }
 }
