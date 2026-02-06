@@ -108,4 +108,44 @@ class JadwalKuliah extends Model
     {
         return $this->belongsTo(Kurikulum::class, 'kurikulum_id');
     }
+
+
+
+
+
+    /**
+     * Mendapatkan daftar semua sesi pertemuan (Rencana Pertemuan 1-16)
+     * Digunakan untuk halaman detail presensi di sisi Dosen/Admin
+     */
+    public function sesi()
+    {
+        return $this->hasMany(PerkuliahanSesi::class, 'jadwal_kuliah_id')
+            ->orderBy('pertemuan_ke', 'asc');
+    }
+
+    /**
+     * Helper Cerdas: Mendapatkan sesi yang SEDANG DIBUKA saat ini.
+     * Sangat berguna untuk Dashboard Mahasiswa: 
+     * $jadwal->sesiAktif akan null jika kelas tutup, dan berisi objek jika dosen sudah klik "Buka Kelas".
+     */
+    public function sesiAktif()
+    {
+        return $this->hasOne(PerkuliahanSesi::class, 'jadwal_kuliah_id')
+            ->where('status_sesi', 'dibuka')
+            ->latestOfMany();
+    }
+
+    /**
+     * Relasi ke KRS Detail untuk mengambil daftar peserta kelas
+     * Digunakan saat generate lembar absensi kosong untuk Dosen
+     */
+    public function pesertaKelas()
+    {
+        return $this->hasMany(KrsDetail::class, 'jadwal_kuliah_id')
+            ->where('status_ambil', 'B') // Asumsi 'A' = Approved/Ambil
+            ->join('krs', 'krs_detail.krs_id', '=', 'krs.id')
+            ->join('mahasiswas', 'krs.mahasiswa_id', '=', 'mahasiswas.id') // Join ke data MHS untuk sort nama
+            ->orderBy('mahasiswas.nim', 'asc')
+            ->select('krs_detail.*');
+    }
 }

@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Livewire\Mahasiswa;
 
 use Livewire\Component;

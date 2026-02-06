@@ -5,7 +5,6 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Mahasiswa\CetakController;
 use App\Http\Controllers\Admin\AdminCetakController;
 // Livewire Components
-use App\Livewire\Mahasiswa\KrsPage;
 use App\Livewire\Mahasiswa\KhsPage;
 use App\Livewire\Mahasiswa\KeuanganPage;
 use App\Livewire\Mahasiswa\TranskripPage;
@@ -55,9 +54,12 @@ use App\Livewire\Admin\System\RoleManager;
 
 use App\Livewire\Dosen\JadwalMengajar;
 use App\Livewire\Dosen\InputNilai;
+use App\Livewire\Dosen\Perkuliahan\ManagerKelas;
 use App\Livewire\Dosen\PerwalianManager;
 use App\Livewire\Dosen\PerwalianDetail;
 use App\Livewire\Dosen\ProfilePage as DosenProfile;
+use App\Livewire\Mahasiswa\Absensi\ScanHadir;
+use App\Livewire\Mahasiswa\KrsPage;
 use App\Livewire\Mahasiswa\SurveiEdomPage;
 
 // 1. PUBLIC ROUTES
@@ -84,6 +86,9 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/transkrip', TranskripPage::class)->name('mhs.transkrip');
         Route::get('/profile', MhsProfile::class)->name('mhs.profile');
         Route::get('/survei-edom/{krsDetailId}', SurveiEdomPage::class)->name('mhs.survei-edom');
+        // --- ROUTE BARU: SCAN ABSENSI MAHASISWA ---
+        Route::get('/absensi/scan', ScanHadir::class)->name('mhs.absensi.scan');
+
 
 
         // Cetak PDF
@@ -98,6 +103,7 @@ Route::middleware(['auth'])->group(function () {
     Route::middleware(['role:dosen'])->prefix('dosen')->group(function () {
         Route::get('/jadwal', JadwalMengajar::class)->name('dosen.jadwal');
         Route::get('/input-nilai/{jadwalId}', InputNilai::class)->name('dosen.nilai');
+        Route::get('/manager-kelas', ManagerKelas::class)->name('dosen.manager-kelas');
         Route::get('/perwalian', PerwalianManager::class)->name('dosen.perwalian');
         Route::get('/perwalian/{krsId}', PerwalianDetail::class)->name('dosen.perwalian.detail');
         Route::get('/profile', DosenProfile::class)->name('dosen.profile');
@@ -143,6 +149,8 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/akademik/ekuivalensi-mata-kuliah', EkuivalensiManager::class)
                 ->name('admin.akademik.ekuivalensi-mk');
             Route::get('/perbaikan-nilai', PerbaikanNilaiManager::class)->name('admin.perbaikan-nilai');
+            // absen
+
         });
 
         // 2. GRUP KEUANGAN (Permission: akses_modul_keuangan)
