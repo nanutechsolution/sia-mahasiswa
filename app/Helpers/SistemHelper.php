@@ -3,6 +3,7 @@
 namespace App\Helpers;
 
 use App\Domains\Core\Models\TahunAkademik;
+use App\Domains\Keuangan\Models\DetailTarif;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
@@ -43,6 +44,29 @@ class SistemHelper
         if (!$ta->buka_krs) return false; // langsung tutup
 
         return $now->between($ta->tgl_mulai_krs, $ta->tgl_selesai_krs);
+    }
+
+
+    public static function semesterMahasiswa($mahasiswa): int
+    {
+        // validasi mahasiswa
+        if (!$mahasiswa || !$mahasiswa->angkatan_id) {
+            return 1;
+        }
+
+        $ta = self::getTahunAktif();
+        if (!$ta || !$ta->kode_tahun) {
+            return 1;
+        }
+
+        // Ambil tahun awal: 2026/2027 → 2026
+        $tahunAktif = (int) substr($ta->kode_tahun, 0, 4);
+        $tahunMasuk = (int) $mahasiswa->angkatan_id;
+
+        // Semester pendek TIDAK menaikkan semester
+        $semesterTA = $ta->semester == 3 ? 2 : $ta->semester;
+
+        return max(1, (($tahunAktif - $tahunMasuk) * 2) + $semesterTA);
     }
 
 

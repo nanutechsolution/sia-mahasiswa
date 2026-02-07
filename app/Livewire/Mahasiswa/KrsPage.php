@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Livewire\Mahasiswa;
 
 use Livewire\Component;
@@ -62,7 +63,7 @@ class KrsPage extends Component
             ->firstOrFail();
     }
 
-  private function cekValidasiAwal()
+    private function cekValidasiAwal()
     {
         // A. CEK MASA KRS
         if (!SistemHelper::isMasaKrsOpen()) {
@@ -94,7 +95,7 @@ class KrsPage extends Component
             }
 
             $minPercentage = $this->mahasiswa->programKelas->min_pembayaran_persen ?? 50;
-            $paidPercentage = ($tagihan->total_tagihan > 0) 
+            $paidPercentage = ($tagihan->total_tagihan > 0)
                 ? round(($tagihan->total_bayar / $tagihan->total_tagihan) * 100) : 100;
 
             if ($paidPercentage < $minPercentage) {
@@ -208,11 +209,12 @@ class KrsPage extends Component
 
     public function hitungSemesterBerjalan()
     {
-        $ta = DB::table('ref_tahun_akademik')->find($this->tahunAkademikId);
-        $tahunTa = (int) substr($ta->kode_tahun, 0, 4);
-        $smtTipe = (int) substr($ta->kode_tahun, 4, 1);
-        $angkatan = (int) preg_replace('/[^0-9]/', '', $this->mahasiswa->angkatan_id);
-        $this->semesterBerjalan = max(1, (($tahunTa - $angkatan) * 2) + ($smtTipe >= 2 ? 2 : 1));
+        $this->semesterBerjalan = SistemHelper::semesterMahasiswa($this->mahasiswa);
+        // $ta = DB::table('ref_tahun_akademik')->find($this->tahunAkademikId);
+        // $tahunTa = (int) substr($ta->kode_tahun, 0, 4);
+        // $smtTipe = (int) substr($ta->kode_tahun, 4, 1);
+        // $angkatan = (int) preg_replace('/[^0-9]/', '', $this->mahasiswa->angkatan_id);
+        // $this->semesterBerjalan = max(1, (($tahunTa - $angkatan) * 2) + ($smtTipe >= 2 ? 2 : 1));
     }
 
     public function ajukanKrs()
@@ -254,6 +256,8 @@ class KrsPage extends Component
 
     public function render()
     {
+        $this->semesterBerjalan = SistemHelper::semesterMahasiswa($this->mahasiswa);
+
         $krsDiambil = KrsDetail::with(['jadwalKuliah.mataKuliah', 'jadwalKuliah.dosen.person'])
             ->where('krs_id', $this->krsId)->get();
 
@@ -268,31 +272,48 @@ class KrsPage extends Component
                 ->where('is_active', true)
                 ->value('id');
 
+            $ta = SistemHelper::getTahunAktif();
+            $semesterAktif = $ta->semester; // 1 = ganjil, 2 = genap
+
             // 1. AMBIL JADWAL REGULER
-            // [FIX] Tambahkan use ($takenMkIds) agar variabel bisa diakses dalam closure
+            // Tambahkan use ($takenMkIds) agar variabel bisa diakses dalam closure
             $jadwalReguler = JadwalKuliah::with(['mataKuliah', 'dosen.person'])
                 ->where('tahun_akademik_id', $this->tahunAkademikId)
-                ->whereHas('mataKuliah', function ($q) use ($activeKurikulumId) {
+                // ->whereHas('mataKuliah', function ($q) use ($activeKurikulumId) {
+                // ->whereHas('mataKuliah', function ($q) use ($activeKurikulumId, $semesterAktif) {
+                //     $q->where('prodi_id', $this->mahasiswa->prodi_id)
+                //         ->where('activity_type', KrsDetail::TYPE_REGULAR)
+                //         // 🔥 FILTER GANJIL / GENAP 
+                //         ->whereRaw('MOD(semester_paket, 2) = ?', [$semesterAktif % 2])
+                //         ->where(function ($sq) use ($activeKurikulumId) {
+                //             $sq->whereIn('id', function ($sub) use ($activeKurikulumId) {
+                //                 $sub->select('mata_kuliah_id')
+                //                     ->from('kurikulum_mata_kuliah')
+                //                     ->where('kurikulum_id', $activeKurikulumId);
+                //             })
+                //                 ->orWhereIn('id', function ($sub) use ($activeKurikulumId) {
+                //                     $sub->select('mk_tujuan_id')
+                //                         ->from('akademik_ekuivalensi')
+                //                         ->where('is_active', true)
+                //                         ->whereIn('mk_asal_id', function ($origin) use ($activeKurikulumId) {
+                //                             $origin->select('mata_kuliah_id')
+                //                                 ->from('kurikulum_mata_kuliah')
+                //                                 ->where('kurikulum_id', $activeKurikulumId);
+                //                         });
+                //                 });
+                //         });
+                // })
+                ->whereHas('mataKuliah', function ($q) use ($activeKurikulumId, $semesterAktif) {
                     $q->where('prodi_id', $this->mahasiswa->prodi_id)
                         ->where('activity_type', KrsDetail::TYPE_REGULAR)
-                        ->where(function ($sq) use ($activeKurikulumId) {
-                            $sq->whereIn('id', function ($sub) use ($activeKurikulumId) {
-                                $sub->select('mata_kuliah_id')
-                                    ->from('kurikulum_mata_kuliah')
-                                    ->where('kurikulum_id', $activeKurikulumId);
-                            })
-                                ->orWhereIn('id', function ($sub) use ($activeKurikulumId) {
-                                    $sub->select('mk_tujuan_id')
-                                        ->from('akademik_ekuivalensi')
-                                        ->where('is_active', true)
-                                        ->whereIn('mk_asal_id', function ($origin) use ($activeKurikulumId) {
-                                            $origin->select('mata_kuliah_id')
-                                                ->from('kurikulum_mata_kuliah')
-                                                ->where('kurikulum_id', $activeKurikulumId);
-                                        });
-                                });
+                        ->whereIn('id', function ($sub) use ($activeKurikulumId, $semesterAktif) {
+                            $sub->select('mata_kuliah_id')
+                                ->from('kurikulum_mata_kuliah')
+                                ->where('kurikulum_id', $activeKurikulumId)
+                                ->whereRaw('MOD(semester_paket, 2) = ?', [$semesterAktif % 2]);
                         });
                 })
+
                 ->whereNotIn('mata_kuliah_id', $takenMkIds)
                 ->orderBy('hari')->orderBy('jam_mulai')
                 ->get();

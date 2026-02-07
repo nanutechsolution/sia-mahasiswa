@@ -48,4 +48,13 @@ class DetailTarif extends Model
             'komponen_biaya_id'
         );
     }
+
+
+    public function scopeUntukSemester($query, int $semester)
+    {
+        return $query->where(function ($q) use ($semester) {
+            $q->whereNull('berlaku_semester')
+                ->orWhere('berlaku_semester', $semester);
+        });
+    }
 }
