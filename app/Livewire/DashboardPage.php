@@ -36,8 +36,37 @@ class DashboardPage extends Component
 
         $this->role = $this->user->role;
         $this->taAktif = SistemHelper::getTahunAktif();
-        
+
         $this->setGreeting();
+        $this->stats = [
+            'academic' => [
+                'ipk' => 0.00,
+                'ips_lalu' => 0.00,
+                'sks_total' => 0,
+            ],
+            'finance' => [
+                'total_bill' => 0,
+                'total_paid' => 0,
+                'debt' => 0,
+                'deposit' => 0,
+                'status_smt' => 'N/A',
+            ],
+            'edom_pending' => 0,
+            'teaching' => [
+                'total_kelas' => 0,
+                'total_mhs_ajar' => 0,
+            ],
+            'mentorship' => [
+                'total_anak_wali' => 0,
+                'krs_pending' => 0,
+            ],
+            'system' => [
+                'mhs_aktif' => 0,
+                'pembayaran_pending' => 0,
+                'krs_diajukan' => 0,
+                'nilai_unpublished' => 0,
+            ],
+        ];
         $this->loadDataByRole();
     }
 
@@ -63,7 +92,7 @@ class DashboardPage extends Component
             // Akademik Stats
             $riwayat = RiwayatStatusMahasiswa::where('mahasiswa_id', $mhs->id)
                 ->orderBy('id', 'desc')->first();
-            
+
             $this->stats['academic'] = [
                 'ipk' => $riwayat->ipk ?? 0.00,
                 'ips_lalu' => $riwayat->ips ?? 0.00,
@@ -74,7 +103,7 @@ class DashboardPage extends Component
             $allTagihans = TagihanMahasiswa::where('mahasiswa_id', $mhs->id)->get();
             $totalBill = $allTagihans->sum('total_tagihan');
             $totalPaid = $allTagihans->sum('total_bayar');
-            
+
             $this->stats['finance'] = [
                 'total_bill' => $totalBill,
                 'total_paid' => $totalPaid,
@@ -84,9 +113,9 @@ class DashboardPage extends Component
             ];
 
             // Gatekeepers (EDOM & Validasi)
-            $this->stats['edom_pending'] = KrsDetail::whereHas('krs', function($q) use ($mhs, $taId) {
-                    $q->where('mahasiswa_id', $mhs->id)->where('tahun_akademik_id', $taId);
-                })
+            $this->stats['edom_pending'] = KrsDetail::whereHas('krs', function ($q) use ($mhs, $taId) {
+                $q->where('mahasiswa_id', $mhs->id)->where('tahun_akademik_id', $taId);
+            })
                 ->where('is_published', true)
                 ->where('is_edom_filled', false)
                 ->count();

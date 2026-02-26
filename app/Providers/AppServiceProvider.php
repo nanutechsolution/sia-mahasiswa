@@ -5,7 +5,7 @@ namespace App\Providers;
 use App\Domains\Core\Models\TahunAkademik;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
-
+use Illuminate\Support\Facades\Schema;
 class AppServiceProvider extends ServiceProvider
 {
     /**
@@ -21,9 +21,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        $taAktif = TahunAkademik::where('is_active', true)->first();
+        $taAktif = null;
 
-        // Bagikan variabel $globalTa ke semua view
+        if (Schema::hasTable('ref_tahun_akademik')) {
+            $taAktif = TahunAkademik::where('is_active', true)->first();
+        }
+
         View::share('globalTa', $taAktif);
     }
 }
