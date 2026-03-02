@@ -85,9 +85,9 @@ class MasterMatakuliahK3Seeder extends Seeder
 
         foreach ($courses as $course) {
             // Tentukan apakah masuk sks_praktek atau tatap muka
-            $isPraktek = str_contains(strtolower($course['nama']), 'praktek') || 
-                         str_contains(strtolower($course['nama']), 'magang') ||
-                         str_contains(strtolower($course['nama']), 'pkl');
+            $isPraktek = str_contains(strtolower($course['nama']), 'praktek') ||
+                str_contains(strtolower($course['nama']), 'magang') ||
+                str_contains(strtolower($course['nama']), 'pkl');
 
             DB::table('master_mata_kuliahs')->updateOrInsert(
                 [

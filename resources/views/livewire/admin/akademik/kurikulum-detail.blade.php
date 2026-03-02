@@ -1,13 +1,34 @@
 <div class="space-y-6">
     <!-- Header Back -->
-    <div class="flex items-center justify-between">
-        <button wire:click="backToList" class="flex items-center text-sm font-bold text-slate-500 hover:text-[#002855] transition-colors">
-            <svg class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z" clip-rule="evenodd" /></svg>
-            Kembali ke Daftar
-        </button>
-        <div class="text-right">
-            <h2 class="text-xl font-black text-[#002855] uppercase tracking-tight">{{ $selectedKurikulum->nama_kurikulum }}</h2>
-            <p class="text-sm font-medium text-slate-500">{{ $selectedKurikulum->prodi->nama_prodi }}</p>
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div class="flex items-center gap-4">
+            <button wire:click="backToList" class="p-2 bg-white border border-slate-200 rounded-xl text-slate-500 hover:text-[#002855] hover:border-[#002855] transition-all shadow-sm">
+                <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z" clip-rule="evenodd" />
+                </svg>
+            </button>
+            <div>
+                <h2 class="text-xl font-black text-[#002855] uppercase tracking-tight leading-none">{{ $selectedKurikulum->nama_kurikulum }}</h2>
+                <p class="text-sm font-medium text-slate-500 mt-1">{{ $selectedKurikulum->prodi->nama_prodi }}</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <button wire:click="exportPdf" wire:loading.attr="disabled" class="inline-flex items-center px-5 py-2.5 bg-rose-600 text-white rounded-xl font-bold text-sm hover:bg-rose-700 transition-all shadow-lg shadow-rose-200">
+                <span wire:loading.remove wire:target="exportPdf" class="flex items-center">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                    </svg>
+                    Export PDF
+                </span>
+                <span wire:loading wire:target="exportPdf" class="flex items-center">
+                    <svg class="animate-spin h-4 w-4 mr-2 text-white" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Processing...
+                </span>
+            </button>
         </div>
     </div>
 
@@ -15,11 +36,15 @@
     <div class="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden animate-in zoom-in-95 duration-200">
         <div class="px-8 py-5 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
             <h3 class="text-sm font-bold text-[#002855] uppercase tracking-wider flex items-center gap-2">
-                <svg class="w-5 h-5 text-[#fcc000]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <svg class="w-5 h-5 text-[#fcc000]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
                 Tambah Mata Kuliah ke Struktur
             </h3>
         </div>
-        
+
+
+
         <div class="p-8 space-y-8">
             <div class="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
                 <!-- Baris 1: MK, Semester, Sifat -->
@@ -28,17 +53,17 @@
                     <select wire:model.live="mk_id_to_add" class="block w-full rounded-xl border-slate-200 bg-slate-50 text-slate-900 py-2.5 px-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[#fcc000] focus:border-transparent transition-all">
                         <option value="">-- Pilih MK dari Master --</option>
                         @foreach($availableMks as $mk)
-                            <option value="{{ $mk->id }}">{{ $mk->kode_mk }} - {{ $mk->nama_mk }}</option>
+                        <option value="{{ $mk->id }}">{{ $mk->kode_mk }} - {{ $mk->nama_mk }}</option>
                         @endforeach
                     </select>
                     @error('mk_id_to_add') <span class="text-rose-500 text-xs font-bold mt-1 block">{{ $message }}</span> @enderror
                 </div>
-                
+
                 <div class="md:col-span-2">
                     <label class="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2">Semester *</label>
                     <input type="number" wire:model.live="semester_paket_to_add" min="1" max="8" class="block w-full rounded-xl border-slate-200 bg-slate-50 text-slate-900 py-2.5 px-4 text-sm font-bold text-center focus:outline-none focus:ring-2 focus:ring-[#fcc000] focus:border-transparent transition-all">
                 </div>
-                
+
                 <div class="md:col-span-2">
                     <label class="block text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2">Sifat *</label>
                     <select wire:model="sifat_mk_to_add" class="block w-full rounded-xl border-slate-200 bg-slate-50 text-slate-900 py-2.5 px-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[#fcc000] focus:border-transparent transition-all">
@@ -83,7 +108,7 @@
                             <select wire:model="prasyarat_mk_id" class="block w-full rounded-xl border-slate-200 bg-slate-50 text-slate-900 py-2.5 px-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[#fcc000] focus:border-transparent transition-all">
                                 <option value="">-- Tanpa Syarat --</option>
                                 @foreach($prerequisiteOptions as $pre)
-                                    <option value="{{ $pre->id }}">{{ $pre->nama_mk }} (Smt {{ $pre->pivot->semester_paket }})</option>
+                                <option value="{{ $pre->id }}">{{ $pre->nama_mk }} (Smt {{ $pre->pivot->semester_paket }})</option>
                                 @endforeach
                             </select>
                         </div>
@@ -91,16 +116,18 @@
                             <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nilai Min.</label>
                             <select wire:model="min_nilai_prasyarat_to_add" class="block w-full rounded-xl border-slate-200 bg-slate-50 text-slate-900 py-2.5 px-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[#fcc000] focus:border-transparent transition-all text-center">
                                 @foreach($availableGrades as $grade)
-                                    <option value="{{ $grade->huruf }}">{{ $grade->huruf }}</option>
+                                <option value="{{ $grade->huruf }}">{{ $grade->huruf }}</option>
                                 @endforeach
                             </select>
                         </div>
                     </div>
                     <p class="text-[10px] text-slate-400 italic">*Hanya MK semester sebelumnya (1 - {{ max(1, (int)$semester_paket_to_add - 1) }})</p>
-                    
+
                     <div class="mt-auto pt-2 text-right">
                         <button wire:click="addMk" class="inline-flex items-center justify-center px-6 py-3 bg-[#002855] text-white rounded-xl font-bold text-sm shadow-lg shadow-indigo-900/20 hover:bg-[#001a38] hover:scale-105 transition-all w-full md:w-auto">
-                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                            </svg>
                             Simpan MK ke Struktur
                         </button>
                     </div>
@@ -128,10 +155,10 @@
                     @foreach($selectedKurikulum->mataKuliahs as $mk)
                     <tr class="hover:bg-slate-50/80 transition-colors group">
                         <td class="px-6 py-4 whitespace-nowrap align-top">
-                             <div class="font-black text-xl text-[#002855]">{{ $mk->pivot->semester_paket }}</div>
+                            <div class="font-black text-xl text-[#002855]">{{ $mk->pivot->semester_paket }}</div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap align-top">
-                             <div class="font-mono text-xs font-bold text-[#002855] bg-indigo-50 px-2 py-0.5 rounded w-fit">{{ $mk->kode_mk }}</div>
+                            <div class="font-mono text-xs font-bold text-[#002855] bg-indigo-50 px-2 py-0.5 rounded w-fit">{{ $mk->kode_mk }}</div>
                         </td>
                         <td class="px-6 py-4 align-top">
                             <div class="text-sm font-bold text-slate-800">{{ $mk->nama_mk }}</div>
@@ -149,24 +176,28 @@
                         </td>
                         <td class="px-6 py-4 text-xs align-top">
                             @if($mk->pivot->prasyarat_mk_id)
-                                @php
-                                    $prasyarat = $selectedKurikulum->mataKuliahs->firstWhere('id', $mk->pivot->prasyarat_mk_id);
-                                @endphp
-                                @if($prasyarat)
-                                    <span class="inline-flex items-center px-2 py-1 rounded-lg bg-rose-50 text-rose-700 border border-rose-100 font-bold gap-1">
-                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-                                        {{ $prasyarat->kode_mk }} (Min: {{ $mk->pivot->min_nilai_prasyarat }})
-                                    </span>
-                                @else
-                                    <span class="text-xs text-slate-400 italic">ID: {{ $mk->pivot->prasyarat_mk_id }} (?)</span>
-                                @endif
+                            @php
+                            $prasyarat = $selectedKurikulum->mataKuliahs->firstWhere('id', $mk->pivot->prasyarat_mk_id);
+                            @endphp
+                            @if($prasyarat)
+                            <span class="inline-flex items-center px-2 py-1 rounded-lg bg-rose-50 text-rose-700 border border-rose-100 font-bold gap-1">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                </svg>
+                                {{ $prasyarat->kode_mk }} (Min: {{ $mk->pivot->min_nilai_prasyarat }})
+                            </span>
                             @else
-                                <span class="text-slate-300">-</span>
+                            <span class="text-xs text-slate-400 italic">ID: {{ $mk->pivot->prasyarat_mk_id }} (?)</span>
+                            @endif
+                            @else
+                            <span class="text-slate-300">-</span>
                             @endif
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-right align-top">
                             <button wire:click="removeMk({{ $mk->id }})" wire:confirm="Hapus MK ini dari kurikulum?" class="p-2 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors group-hover:opacity-100 opacity-60" title="Hapus">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
                             </button>
                         </td>
                     </tr>

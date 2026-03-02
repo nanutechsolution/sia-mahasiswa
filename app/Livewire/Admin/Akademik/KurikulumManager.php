@@ -8,6 +8,7 @@ use App\Domains\Akademik\Models\Kurikulum;
 use App\Domains\Akademik\Models\MataKuliah;
 use App\Domains\Akademik\Models\SkalaNilai;
 use App\Domains\Core\Models\Prodi;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\DB;
 
 class KurikulumManager extends Component
@@ -15,9 +16,9 @@ class KurikulumManager extends Component
     use WithPagination;
 
     public $viewMode = 'list';
-    
+
     // Header State
-    public $kurId; // [FIX] Tambahkan properti ini untuk mode Edit
+    public $kurId;
     public $prodi_id;
     public $nama_kurikulum;
     public $tahun_mulai;
@@ -65,7 +66,6 @@ class KurikulumManager extends Component
         return view('livewire.admin.akademik.kurikulum-manager', ['kurikulums' => $kurikulums, 'prodis' => $prodis]);
     }
 
-    // --- [FIX] METHOD YANG HILANG ---
 
     public function saveHeader()
     {
@@ -99,18 +99,17 @@ class KurikulumManager extends Component
     public function toggleActive($id)
     {
         $kur = Kurikulum::find($id);
-        if($kur) {
+        if ($kur) {
             $kur->update(['is_active' => !$kur->is_active]);
             session()->flash('success', 'Status aktif kurikulum diubah.');
         }
     }
-    
+
     public function resetHeaderForm()
     {
         $this->reset(['kurId', 'prodi_id', 'nama_kurikulum', 'tahun_mulai', 'id_semester_mulai', 'jumlah_sks_lulus', 'is_active']);
     }
 
-    // --- DETAIL LOGIC ---
 
     public function updatedMkIdToAdd($value)
     {
@@ -128,7 +127,7 @@ class KurikulumManager extends Component
     {
         $this->selectedKurikulum = Kurikulum::with('mataKuliahs.prodi')->find($id);
         $this->recalculateSksHeader();
-        
+
         $defaultMin = SkalaNilai::where('is_lulus', true)->orderBy('bobot_indeks', 'asc')->first();
         $this->min_nilai_prasyarat_to_add = $defaultMin->huruf ?? 'D';
         $this->viewMode = 'detail';
@@ -143,7 +142,7 @@ class KurikulumManager extends Component
         ]);
 
         $mk = MataKuliah::find($this->mk_id_to_add);
-        
+
         $this->selectedKurikulum->mataKuliahs()->attach($mk->id, [
             'semester_paket' => $this->semester_paket_to_add,
             'sks_tatap_muka' => $this->sks_tatap_muka_to_add ?: $mk->sks_tatap_muka,
@@ -170,15 +169,58 @@ class KurikulumManager extends Component
 
     private function recalculateSksHeader()
     {
-        if(!$this->selectedKurikulum) return;
+        if (!$this->selectedKurikulum) return;
         $this->selectedKurikulum->load('mataKuliahs');
-        $wajib = 0; $pilihan = 0;
-        foreach($this->selectedKurikulum->mataKuliahs as $mk) {
+        $wajib = 0;
+        $pilihan = 0;
+        foreach ($this->selectedKurikulum->mataKuliahs as $mk) {
             $sks = $mk->pivot->sks_tatap_muka + $mk->pivot->sks_praktek + $mk->pivot->sks_lapangan;
-            if ($mk->pivot->sifat_mk == 'W') $wajib += $sks; else $pilihan += $sks;
+            if ($mk->pivot->sifat_mk == 'W') $wajib += $sks;
+            else $pilihan += $sks;
         }
         $this->selectedKurikulum->update(['jumlah_sks_wajib' => $wajib, 'jumlah_sks_pilihan' => $pilihan]);
     }
 
-    public function backToList() { $this->viewMode = 'list'; }
+    public function backToList()
+    {
+        $this->viewMode = 'list';
+    }
+
+
+
+    // Tambahkan method ini di dalam class KurikulumManager
+    public function exportPdf()
+    {
+        if (!$this->selectedKurikulum) return;
+
+        // Load data mata kuliah dikelompokkan berdasarkan semester
+        $kurikulum = Kurikulum::with(['prodi.fakultas', 'mataKuliahs' => function ($query) {
+            $query->orderBy('pivot_semester_paket', 'asc')->orderBy('nama_mk', 'asc');
+        }])->find($this->selectedKurikulum->id);
+
+        // Ambil Logo dan Konversi ke Base64
+        $imagePath = public_path('logo.png'); // Sesuaikan nama file logo Anda
+        $imageData = '';
+        if (file_exists($imagePath)) {
+            $type = pathinfo($imagePath, PATHINFO_EXTENSION);
+            $data = file_get_contents($imagePath);
+            $imageData = 'data:image/' . $type . ';base64,' . base64_encode($data);
+        }
+        $data = [
+            'kurikulum' => $kurikulum,
+            'mataKuliahGrouped' => $kurikulum->mataKuliahs->groupBy('pivot.semester_paket'),
+            'date' => now()->translatedFormat('d F Y'),
+            'logoBase64' => $imageData,
+        ];
+        $pdf = Pdf::loadView('pdf.kurikulum-struktur', $data)
+            ->setPaper('a4', 'portrait')
+            ->setOption([
+                'isPhpEnabled' => true, 
+                'isRemoteEnabled' => true
+            ]);
+
+        return response()->streamDownload(function () use ($pdf) {
+            echo $pdf->stream();
+        }, 'Kurikulum_' . str_replace(' ', '_', $kurikulum->nama_kurikulum) . '.pdf');
+    }
 }
