@@ -1,9 +1,10 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\AuthController;
 use App\Http\Controllers\Mahasiswa\CetakController;
 use App\Http\Controllers\Admin\AdminCetakController;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\SsoController;
 // Livewire Components
 use App\Livewire\Mahasiswa\KhsPage;
 use App\Livewire\Mahasiswa\KeuanganPage;
@@ -75,7 +76,7 @@ Route::middleware(['auth'])->group(function () {
 
     // Dashboard Umum (Bisa diakses semua yg login)
     Route::get('/dashboard', \App\Livewire\DashboardPage::class)->name('dashboard');
-
+    Route::get('/sso/siaset/survei/{surveyId}', [SsoController::class, 'goToSiAset'])->name('sso.siaset.survei');
     // ====================================================
     // AREA MAHASISWA (Role: Mahasiswa)
     // ====================================================

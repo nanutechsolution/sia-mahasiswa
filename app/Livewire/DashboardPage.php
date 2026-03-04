@@ -14,6 +14,8 @@ use App\Domains\Keuangan\Models\PembayaranMahasiswa;
 use App\Domains\Keuangan\Models\KeuanganSaldo;
 use App\Helpers\SistemHelper;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 
 class DashboardPage extends Component
 {
@@ -26,7 +28,7 @@ class DashboardPage extends Component
     public $stats = [];
     public $notifications = [];
     public $scheduleToday = [];
-
+    public $activeSurveys = [];
     public function mount()
     {
         $this->user = Auth::user();
@@ -68,7 +70,53 @@ class DashboardPage extends Component
             ],
         ];
         $this->loadDataByRole();
+        $this->loadActiveSurvey();
     }
+    private function loadActiveSurvey()
+    {
+        // 1. Ambil NIM/NIDN user yang sedang login di SIAKAD
+        $identifier = $this->user->username;
+
+        // 2. Simpan di Cache selama 1 Jam, TETAPI kunci cache-nya harus UNIK per user.
+        // Jika tidak unik, kalau si Budi sudah ngisi, surveinya malah ikut hilang di dashboard si Andi.
+        $cacheKey = 'siaset_active_surveys_' . $identifier;
+
+        $this->activeSurveys = Cache::remember($cacheKey, 3600, function () use ($identifier) {
+            try {
+                $siAsetUrl = env('SIASET_URL', 'http://127.0.0.1:8000'); 
+                
+                // 3. Kirim NIM/NIDN ke SI ASET melalui parameter (menjadi ?identifier=12345)
+                $response = Http::timeout(3)->get("{$siAsetUrl}/api/surveys/active", [
+                    'identifier' => $identifier
+                ]);
+                
+                if ($response->successful()) {
+                    return $response->json('data') ?? [];
+                }
+
+                return [];
+            } catch (\Exception $e) {
+                return [];
+            }
+        });
+
+        // --- TAMBAHAN: Alert Notifikasi Pengguna ---
+        // Jika ada minimal 1 survei yang harus diisi, beri tahu user secara langsung
+        if (count($this->activeSurveys) > 0) {
+            $pesanSurvei = 'Halo! Ada ' . count($this->activeSurveys) . ' survei fasilitas kampus yang menunggu partisipasi Anda hari ini.';
+            
+            // 1. Simpan ke array notifikasi internal SIAKAD
+            $this->notifications[] = [
+                'type' => 'info',
+                'title' => 'Survei Menunggu',
+                'message' => $pesanSurvei
+            ];
+
+            // 2. Trigger Pop-up Alert (Bisa ditangkap SweetAlert / Toastr di blade)
+            $this->dispatch('notify', type: 'info', message: $pesanSurvei);
+        }
+    }
+
 
     private function setGreeting()
     {

@@ -67,7 +67,55 @@
             @endif
         </div>
         @endif
+       @if(count($activeSurveys) > 0)
+        <div class="lg:col-span-12 animate-in slide-in-from-bottom-4 fade-in duration-700 delay-150 mb-6">
+            
+            <!-- Header Section Survei -->
+            <div class="flex items-center justify-between mb-4 px-1">
+                <div class="flex items-center gap-2">
+                    <span class="relative flex h-2 w-2">
+                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                    <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Survei & Evaluasi Kampus</h3>
+                </div>
+                <span class="px-2 py-0.5 rounded-lg text-[9px] font-black bg-indigo-50 text-indigo-600 border border-indigo-100 uppercase">{{ count($activeSurveys) }} Aktif</span>
+            </div>
+            
+            <!-- Horizontal Scroll Container -->
+            <div class="flex gap-4 overflow-x-auto pb-4 custom-scrollbar snap-x snap-mandatory">
+                
+                @foreach($activeSurveys as $survey)
+                <a href="{{ route('sso.siaset.survei', $survey['id']) }}" target="_blank" class="relative flex flex-col justify-between p-5 bg-white rounded-[1.5rem] shadow-sm hover:shadow-md border border-slate-200 hover:border-[#002855] group transition-all overflow-hidden min-w-[280px] sm:min-w-[320px] max-w-[350px] snap-start shrink-0">
+                    
+                    <!-- Garis Aksen Emas di Kiri -->
+                    <div class="absolute left-0 top-0 bottom-0 w-1.5 bg-[#fcc000]"></div>
 
+                    <div class="flex items-start gap-4 w-full pl-2 mb-4">
+                        <div class="w-10 h-10 bg-slate-50 text-slate-500 rounded-xl flex items-center justify-center text-lg shadow-inner group-hover:bg-[#002855] group-hover:text-[#fcc000] group-hover:scale-110 transition-all shrink-0">
+                            📋
+                        </div>
+                        <div class="flex-1">
+                            <h4 class="text-xs font-black text-[#002855] uppercase tracking-wide leading-tight line-clamp-1 mb-1" title="{{ $survey['title'] }}">{{ $survey['title'] }}</h4>
+                            <p class="text-[10px] font-medium text-slate-500 line-clamp-2 leading-relaxed">{{ $survey['description'] ?? 'Berikan evaluasi Anda terkait fasilitas kampus ini.' }}</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Tombol Kompak -->
+                    <div class="w-full pt-3 border-t border-slate-50 flex items-center justify-end pl-2">
+                        <span class="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-indigo-50 text-indigo-700 text-[9px] font-black uppercase tracking-widest rounded-xl group-hover:bg-[#fcc000] group-hover:text-[#002855] transition-colors">
+                            Mulai Isi
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                            </svg>
+                        </span>
+                    </div>
+                </a>
+                @endforeach
+                
+            </div>
+        </div>
+        @endif
         {{-- Academic Stats Card --}}
         <div class="lg:col-span-4 space-y-6">
             <div class="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-200 flex flex-col justify-between h-full">
@@ -260,6 +308,34 @@
         <p class="text-[9px] font-black uppercase tracking-[0.4em] text-[#002855]">UNMARIS Digital Portal &bull; v4.2</p>
     </div>
 
+    @if(count($notifications) > 0)
+    <div x-data="{ show: true }" 
+         x-show="show" 
+         x-transition:enter="transition ease-out duration-500"
+         x-transition:enter-start="opacity-0 translate-y-10"
+         x-transition:enter-end="opacity-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-300"
+         x-transition:leave-start="opacity-100 translate-y-0"
+         x-transition:leave-end="opacity-0 translate-y-10"
+         class="fixed bottom-6 right-6 z-50 flex flex-col gap-3">
+         
+        @foreach($notifications as $notif)
+            <div class="bg-[#002855] text-white px-5 sm:px-6 py-4 rounded-2xl shadow-2xl flex items-start sm:items-center gap-4 border border-[#fcc000]/30 w-[90vw] sm:w-auto max-w-sm">
+                <div class="w-10 h-10 bg-[#fcc000] text-[#002855] rounded-xl flex items-center justify-center text-lg shadow-inner shrink-0 mt-1 sm:mt-0">
+                    🔔
+                </div>
+                <div class="flex-1">
+                    <h4 class="text-[11px] font-black text-[#fcc000] uppercase tracking-wider leading-tight">{{ $notif['title'] }}</h4>
+                    <p class="text-[10px] text-indigo-100 mt-1 leading-relaxed">{{ $notif['message'] }}</p>
+                </div>
+                <button @click="show = false" class="text-indigo-300 hover:text-white transition-colors p-1 shrink-0">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+        @endforeach
+    </div>
+    @endif
+
     <style>
         .custom-scrollbar::-webkit-scrollbar {
             width: 4px;
@@ -278,4 +354,16 @@
             background: rgba(0, 40, 85, 0.1);
         }
     </style>
+
+    <script>
+    window.addEventListener('notify', event => {
+        // Asumsi Anda menggunakan SweetAlert2
+        Swal.fire({
+            icon: event.detail.type,
+            title: 'Pemberitahuan',
+            text: event.detail.message,
+            confirmButtonColor: '#002855'
+        });
+    });
+</script>
 </div>
