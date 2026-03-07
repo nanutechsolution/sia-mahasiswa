@@ -12,10 +12,10 @@ Route::middleware('pmb.auth')->group(function () {
 
 
 // Endpoint Publik
-Route::post('/login', [AuthController::class, 'login']);
+Route::post('/v1/login', [AuthController::class, 'login']);
 
 // Endpoint Terproteksi Token (Wajib kirim Bearer Token)
 Route::middleware('auth:sanctum')->group(function () {
-    Route::get('/user/me', [AuthController::class, 'me']);
-    Route::post('/logout', [AuthController::class, 'logout']);
+    Route::get('/v1/user/me', [AuthController::class, 'me']);
+    Route::post('/v1/user/logout', [AuthController::class, 'logout']);
 });
