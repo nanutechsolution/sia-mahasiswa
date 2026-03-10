@@ -18,6 +18,9 @@ class KhsPage extends Component
     public $details = [];
     public $tahunAkademikId;
     public $kaProdi;
+    
+    // Properti baru untuk Dropdown Semester
+    public $listSemester = [];
 
     // State EDOM Gatekeeper
     public $isEdomComplete = false;
@@ -25,48 +28,80 @@ class KhsPage extends Component
 
     public function mount()
     {
+        $user = Auth::user();
+
+        if (!$user->person_id) {
+            abort(403, 'Akun Anda belum terhubung dengan Data Personil (SSOT).');
+        }
+
+        // 1. Load Mahasiswa (Cukup sekali di mount)
+        $this->mahasiswa = Mahasiswa::with(['prodi.fakultas', 'programKelas', 'person'])
+            ->where('person_id', $user->person_id)
+            ->firstOrFail();
+
+        // 2. Ambil Riwayat Semester Mahasiswa
+        // Hanya ambil tahun akademik di mana mahasiswa ini sudah memiliki KRS
+        $this->listSemester = Krs::join('ref_tahun_akademik as ta', 'krs.tahun_akademik_id', '=', 'ta.id')
+            ->where('krs.mahasiswa_id', $this->mahasiswa->id)
+            ->select('ta.id', 'ta.kode_tahun', 'ta.nama_tahun')
+            ->orderBy('ta.kode_tahun', 'desc')
+            ->get();
+
         $this->tahunAkademikId = SistemHelper::idTahunAktif();
+
+        // Jika mahasiswa belum punya KRS di tahun aktif, otomatis set ke KRS semester terakhirnya
+        if ($this->listSemester->isNotEmpty() && !$this->listSemester->contains('id', $this->tahunAkademikId)) {
+            $this->tahunAkademikId = $this->listSemester->first()->id;
+        }
+
+        $this->loadData();
+    }
+
+    // Listener Livewire saat Dropdown Semester diubah
+    public function updatedTahunAkademikId()
+    {
         $this->loadData();
     }
 
     public function loadData()
     {
-        $user = Auth::user();
-        
-        if (!$user->person_id) {
-            abort(403, 'Akun Anda belum terhubung dengan Data Personil (SSOT).');
-        }
-
-        // Load Mahasiswa
-        $this->mahasiswa = Mahasiswa::with(['prodi.fakultas', 'programKelas', 'person'])
-            ->where('person_id', $user->person_id)
-            ->firstOrFail();
+        // Reset state sebelumnya
+        $this->krs = null;
+        $this->details = [];
+        $this->unfilledCourses = [];
+        $this->riwayat = null;
+        $this->isEdomComplete = false;
 
         if (!$this->tahunAkademikId) return;
 
-        // 1. Ambil KRS Semester Aktif
+        // 1. Ambil KRS Semester yang Dipilih
         $this->krs = Krs::with(['tahunAkademik'])
             ->where('mahasiswa_id', $this->mahasiswa->id)
-            ->where('tahun_akademik_id', $this->tahunAkademikId) 
+            ->where('tahun_akademik_id', $this->tahunAkademikId)
             ->first();
 
         if ($this->krs) {
             // 2. Ambil Seluruh Mata Kuliah yang Diambil (Gunakan Query Builder agar Fresh/No Cache)
             $allDetails = DB::table('krs_detail as kd')
-                ->join('jadwal_kuliah as jk', 'kd.jadwal_kuliah_id', '=', 'jk.id')
-                ->join('master_mata_kuliahs as mk', 'jk.mata_kuliah_id', '=', 'mk.id')
+                ->leftJoin('jadwal_kuliah as jk', 'kd.jadwal_kuliah_id', '=', 'jk.id')
+                ->leftJoin('master_mata_kuliahs as mk', 'jk.mata_kuliah_id', '=', 'mk.id')
                 ->where('kd.krs_id', $this->krs->id)
-                ->select('kd.*', 'mk.nama_mk', 'mk.kode_mk', 'mk.sks_default')
+                ->select(
+                    'kd.*',
+                    DB::raw('COALESCE(mk.nama_mk, kd.nama_mk_snapshot) as nama_mk'),
+                    DB::raw('COALESCE(mk.kode_mk, kd.kode_mk_snapshot) as kode_mk'),
+                    DB::raw('COALESCE(mk.sks_default, kd.sks_snapshot) as sks_default')
+                )
                 ->get();
-
+            
             // 3. Filter MK yang belum diisi EDOM
             $this->unfilledCourses = $allDetails->where('is_edom_filled', false);
-            
+
             // 4. Logika Penentuan Tampilan
-            // Mahasiswa WAJIB mengisi EDOM untuk SELURUH mata kuliah yang diambil
-            if ($this->unfilledCourses->isEmpty()) {
+            // Mengaktifkan kembali Gatekeeper EDOM: Wajib isi semua EDOM untuk lihat KHS
+            if (count($this->unfilledCourses) === 0) {
                 $this->isEdomComplete = true;
-                // Hanya tampilkan nilai yang sudah dipublikasikan oleh dosen
+                // Hanya tampilkan nilai yang sudah dipublikasikan oleh dosen / admin import
                 $this->details = $allDetails->where('is_published', true);
             } else {
                 $this->isEdomComplete = false;
@@ -92,11 +127,11 @@ class KhsPage extends Component
             ->where('j.kode_jabatan', $kodeJabatan)
             ->where('pj.prodi_id', $prodiId)
             ->where('pj.tanggal_mulai', '<=', $today)
-            ->where(function($q) use ($today) {
+            ->where(function ($q) use ($today) {
                 $q->whereNull('pj.tanggal_selesai')->orWhere('pj.tanggal_selesai', '>=', $today);
             })
             ->select('p.nama_lengkap', 'p.nik', 'p.id')->first();
-        
+
         if (!$person) return null;
 
         // Ambil Gelar (Format Lengkap)

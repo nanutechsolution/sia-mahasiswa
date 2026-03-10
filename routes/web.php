@@ -26,6 +26,7 @@ use App\Livewire\Admin\Akademik\MutasiMhsManager;
 use App\Livewire\Admin\Akademik\PlotingPaManager;
 use App\Livewire\Admin\Akademik\CetakAbsensiManager;
 use App\Livewire\Admin\Akademik\EkuivalensiManager;
+use App\Livewire\Admin\Akademik\ImportNilaiManager;
 use App\Livewire\Admin\Akademik\PerbaikanNilaiManager;
 use App\Livewire\Admin\Akademik\SkalaNilaiManager;
 
@@ -152,6 +153,7 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/mahasiswa', MahasiswaManager::class)->name('admin.mahasiswa');
             Route::get('/camaba', CamabaManager::class)->name('admin.camaba');
             Route::get('/dosen', DosenManager::class)->name('admin.dosen');
+            Route::get('/import-nilai-historis', ImportNilaiManager::class)->name('admin.akademik.import-nilai');
             // SDM & Pejabat
             Route::get('/hr-manager', HRModuleManager::class)->name('admin.hr.manager');
             Route::get('/akademik/ekuivalensi-mata-kuliah', EkuivalensiManager::class)

@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 class TranskripPage extends Component
 {
     public $mahasiswa;
-    
+
     // Statistik Akademik
     public $totalSks = 0;
     public $totalMutu = 0;
@@ -21,12 +21,11 @@ class TranskripPage extends Component
     {
         $user = Auth::user();
 
-        // [SSOT FIX] Validasi koneksi User ke Person
+        // Validasi koneksi User ke Person
         if (!$user->person_id) {
             abort(403, 'Akun Anda belum terhubung dengan Data Personil (SSOT). Silakan hubungi Admin.');
         }
 
-        // [SSOT FIX] Ambil Mahasiswa berdasarkan person_id
         $this->mahasiswa = Mahasiswa::with(['prodi.fakultas', 'programKelas', 'person'])
             ->where('person_id', $user->person_id)
             ->firstOrFail();
@@ -34,29 +33,35 @@ class TranskripPage extends Component
 
     public function render()
     {
-        // Ambil riwayat belajar kumulatif (Semua semester yang sudah dipublish)
         $riwayatBelajar = KrsDetail::join('krs', 'krs_detail.krs_id', '=', 'krs.id')
             ->join('ref_tahun_akademik', 'krs.tahun_akademik_id', '=', 'ref_tahun_akademik.id')
-            ->join('jadwal_kuliah', 'krs_detail.jadwal_kuliah_id', '=', 'jadwal_kuliah.id')
-            ->join('master_mata_kuliahs', 'jadwal_kuliah.mata_kuliah_id', '=', 'master_mata_kuliahs.id')
+
+            // LEFT JOIN supaya data lama tetap muncul
+            ->leftJoin('jadwal_kuliah', 'krs_detail.jadwal_kuliah_id', '=', 'jadwal_kuliah.id')
+            ->leftJoin('master_mata_kuliahs', 'jadwal_kuliah.mata_kuliah_id', '=', 'master_mata_kuliahs.id')
+
             ->where('krs.mahasiswa_id', $this->mahasiswa->id)
             ->where('krs_detail.is_published', true)
+
             ->select(
                 'krs_detail.*',
                 'ref_tahun_akademik.nama_tahun as nama_semester',
                 'ref_tahun_akademik.kode_tahun',
-                'master_mata_kuliahs.kode_mk',
-                'master_mata_kuliahs.nama_mk',
-                'master_mata_kuliahs.sks_default'
+
+                // Gunakan master jika ada, kalau tidak pakai snapshot
+                DB::raw('COALESCE(master_mata_kuliahs.kode_mk, krs_detail.kode_mk_snapshot) as kode_mk'),
+                DB::raw('COALESCE(master_mata_kuliahs.nama_mk, krs_detail.nama_mk_snapshot) as nama_mk'),
+                DB::raw('COALESCE(master_mata_kuliahs.sks_default, krs_detail.sks_snapshot) as sks_default')
             )
-            ->orderBy('ref_tahun_akademik.kode_tahun', 'asc') // Urutkan semester
-            ->orderBy('master_mata_kuliahs.kode_mk', 'asc')
+
+            ->orderBy('ref_tahun_akademik.kode_tahun', 'asc')
+            ->orderBy('kode_mk', 'asc')
             ->get();
 
-        // Hitung Statistik IPK
+        // Reset statistik
         $this->totalSks = 0;
         $this->totalMutu = 0;
-        
+
         foreach ($riwayatBelajar as $mk) {
             $this->totalSks += $mk->sks_default;
             $this->totalMutu += ($mk->sks_default * $mk->nilai_indeks);
@@ -66,7 +71,7 @@ class TranskripPage extends Component
             $this->ipk = $this->totalMutu / $this->totalSks;
         }
 
-        // Grouping data per Semester untuk Tampilan
+        // Group per semester
         $transkripGrouped = $riwayatBelajar->groupBy('nama_semester');
 
         return view('livewire.mahasiswa.transkrip-page', [

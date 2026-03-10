@@ -43,14 +43,19 @@ class PerbaikanNilaiManager extends Component
         $riwayatNilai = [];
         if ($this->selectedMhsId) {
             $riwayatNilai = KrsDetail::join('krs', 'krs_detail.krs_id', '=', 'krs.id')
-                ->join('jadwal_kuliah', 'krs_detail.jadwal_kuliah_id', '=', 'jadwal_kuliah.id')
-                ->join('master_mata_kuliahs', 'jadwal_kuliah.mata_kuliah_id', '=', 'master_mata_kuliahs.id')
+                ->leftJoin('jadwal_kuliah', 'krs_detail.jadwal_kuliah_id', '=', 'jadwal_kuliah.id')
+                ->leftJoin('master_mata_kuliahs', 'jadwal_kuliah.mata_kuliah_id', '=', 'master_mata_kuliahs.id')
                 ->where('krs.mahasiswa_id', $this->selectedMhsId)
-                ->where('krs_detail.is_published', true) // Hanya yang sudah publish yang butuh modul perbaikan ini
-                ->select('krs_detail.*', 'master_mata_kuliahs.nama_mk', 'master_mata_kuliahs.kode_mk')
+                ->where('krs_detail.is_published', true)
+                ->select(
+                    'krs_detail.*',
+                    DB::raw('COALESCE(master_mata_kuliahs.nama_mk, krs_detail.nama_mk_snapshot) as nama_mk'),
+                    DB::raw('COALESCE(master_mata_kuliahs.kode_mk, krs_detail.kode_mk_snapshot) as kode_mk')
+                )
                 ->orderBy('krs.tahun_akademik_id', 'desc')
                 ->get();
         }
+
 
         return view('livewire.admin.akademik.perbaikan-nilai-manager', [
             'mahasiswas' => $mahasiswas,
@@ -89,7 +94,7 @@ class PerbaikanNilaiManager extends Component
             $skala = SkalaNilai::where('nilai_min', '<=', $this->nilai_baru_angka)
                 ->where('nilai_max', '>=', $this->nilai_baru_angka)
                 ->first();
-            
+
             $newHuruf = $skala ? $skala->huruf : 'E';
             $newIndeks = $skala ? $skala->bobot_indeks : 0.00;
 

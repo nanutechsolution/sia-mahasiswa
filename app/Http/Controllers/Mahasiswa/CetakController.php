@@ -66,7 +66,6 @@ class CetakController extends Controller
     {
         $user = Auth::user();
 
-        // [FIX SSOT] Cari Mahasiswa via person_id dari User
         $mahasiswa = Mahasiswa::with(['prodi.fakultas', 'programKelas', 'dosenWali.person', 'person'])
             ->where('person_id', $user->person_id)
             ->firstOrFail();
@@ -133,32 +132,46 @@ class CetakController extends Controller
     {
         $user = Auth::user();
 
-        // [FIX SSOT]
         $mahasiswa = Mahasiswa::with(['prodi.fakultas', 'programKelas', 'person'])
             ->where('person_id', $user->person_id)
             ->firstOrFail();
 
         $transkrip = DB::table('krs_detail as kd')
             ->join('krs', 'kd.krs_id', '=', 'krs.id')
-            ->join('jadwal_kuliah as jk', 'kd.jadwal_kuliah_id', '=', 'jk.id')
-            ->join('master_mata_kuliahs as mk', 'jk.mata_kuliah_id', '=', 'mk.id')
+            ->leftJoin('jadwal_kuliah as jk', 'kd.jadwal_kuliah_id', '=', 'jk.id')
+            ->leftJoin('master_mata_kuliahs as mk', 'jk.mata_kuliah_id', '=', 'mk.id')
+
             ->where('krs.mahasiswa_id', $mahasiswa->id)
             ->where('kd.is_published', true)
-            ->select('mk.kode_mk', 'mk.nama_mk', 'mk.sks_default', 'kd.nilai_huruf', 'kd.nilai_indeks')
-            ->orderBy('mk.kode_mk', 'asc')
+
+            ->select(
+                DB::raw('COALESCE(mk.kode_mk, kd.kode_mk_snapshot) as kode_mk'),
+                DB::raw('COALESCE(mk.nama_mk, kd.nama_mk_snapshot) as nama_mk'),
+                DB::raw('COALESCE(mk.sks_default, kd.sks_snapshot) as sks_default'),
+                'kd.nilai_huruf',
+                'kd.nilai_indeks'
+            )
+
+            ->orderBy('kode_mk', 'asc')
             ->get();
 
         $totalSks = $transkrip->sum('sks_default');
-        $totalMutu = $transkrip->sum(fn($mk) => $mk->sks_default * $mk->nilai_indeks);
+
+        $totalMutu = $transkrip->sum(function ($mk) {
+            return $mk->sks_default * $mk->nilai_indeks;
+        });
+
         $ipk = $totalSks > 0 ? ($totalMutu / $totalSks) : 0;
 
         return Pdf::loadView('pdf.cetak-transkrip', [
             'mahasiswa' => $mahasiswa,
             'transkrip' => $transkrip,
             'totalSks' => $totalSks,
-            'ipk' => $ipk,
+            'ipk' => round($ipk, 2),
             'kaProdi' => $this->getPejabat('KAPRODI', $mahasiswa->prodi_id)
-        ])->setPaper('a4', 'portrait')->stream('Transkrip-' . $mahasiswa->nim . '.pdf');
+        ])
+            ->setPaper('a4', 'portrait')
+            ->stream('Transkrip-' . $mahasiswa->nim . '.pdf');
     }
 
 
