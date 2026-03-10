@@ -440,8 +440,16 @@
                             <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{{ Auth::user()->role }}</div>
                         </div>
                         <div class="relative group">
-                            <div class="h-10 w-10 rounded-full bg-unmaris-gold text-unmaris-blue flex items-center justify-center text-sm font-black shadow-md ring-2 ring-white cursor-pointer hover:ring-unmaris-blue transition-all">
+                            <div class="h-10 w-10 rounded-full bg-unmaris-gold text-unmaris-blue flex items-center justify-center text-sm font-black shadow-md ring-2 ring-white cursor-pointer hover:ring-unmaris-blue transition-all overflow-hidden">
+                                @if (Auth::user()->person && Auth::user()->person->photo_path)
+                                {{-- Jika ada foto, tampilkan gambarnya --}}
+                                <img src="{{ Storage::url(Auth::user()->person->photo_path) }}"
+                                    alt="Profil"
+                                    class="h-full w-full object-cover">
+                                @else
+                                {{-- Jika tidak ada, tampilkan inisial nama --}}
                                 {{ substr(Auth::user()->name ?? 'G', 0, 1) }}
+                                @endif
                             </div>
                             <span class="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-emerald-500 border-2 border-white"></span>
                             <div class="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl py-2 invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-all z-50 border border-slate-100">
