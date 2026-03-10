@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\RefRuang;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -31,8 +32,7 @@ class DatabaseSeeder extends Seeder
             MasterMatakuliahArsSeeder::class,
             MasterMatakuliahBisnisDigitalSeeder::class,
             KomponenNilaiSeeder::class,
-            // KurikulumAutoSeeder::class,
-            // KurikulumMappingSeeder::class,
+            RefRuangSeeder::class,
             RealDosenSeeder::class,
             RealMahasiswaSeeder::class,
         ]);
