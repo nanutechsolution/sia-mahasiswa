@@ -92,20 +92,37 @@ class ProfilePage extends Component
     }
 
     // Hook untuk simpan foto otomatis saat di-upload
-    public function updatedPhotoProfil()
-    {
-        $this->validate(['photo_profil' => 'image|max:1024']);
-        
+   // ... di dalam ProfilePage.php
+
+public function updatedPhotoProfil()
+{
+    // 1. Validasi segera
+    $this->validate([
+        'photo_profil' => 'image|max:1024', // max 1MB
+    ]);
+
+    try {
+        // 2. Simpan file ke disk public
         $path = $this->photo_profil->store('photos', 'public');
-        
-        // Hapus foto lama jika ada
+
+        // 3. Hapus foto lama jika ada di database & storage
         if ($this->person->photo_path) {
             Storage::disk('public')->delete($this->person->photo_path);
         }
 
-        $this->person->update(['photo_path' => $path]);
+        // 4. Update path di database
+        $this->person->update([
+            'photo_path' => $path
+        ]);
+
+        // 5. Reset property agar tidak menahan object file lama
+        $this->reset('photo_profil');
+
         session()->flash('success', 'Foto profil berhasil diperbarui.');
+    } catch (\Exception $e) {
+        session()->flash('error', 'Gagal mengunggah foto: ' . $e->getMessage());
     }
+}
 
     public function uploadBerkas()
     {
