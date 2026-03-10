@@ -23,6 +23,7 @@ class Person extends Model
         'tanggal_lahir',
         'jenis_kelamin',
         'tempat_lahir',
+        'photo_path'
     ];
 
     /**
