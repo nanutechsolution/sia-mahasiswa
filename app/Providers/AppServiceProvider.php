@@ -2,10 +2,13 @@
 
 namespace App\Providers;
 
+use App\Domains\Akademik\Models\KrsDetail;
 use App\Domains\Core\Models\TahunAkademik;
+use App\Observers\KrsDetailObserver;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Schema;
+
 class AppServiceProvider extends ServiceProvider
 {
     /**
@@ -21,6 +24,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+
+
         $taAktif = null;
 
         if (Schema::hasTable('ref_tahun_akademik')) {
@@ -28,5 +33,6 @@ class AppServiceProvider extends ServiceProvider
         }
 
         View::share('globalTa', $taAktif);
+        KrsDetail::observe(KrsDetailObserver::class);
     }
 }

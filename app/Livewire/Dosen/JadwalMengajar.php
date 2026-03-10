@@ -16,11 +16,10 @@ class JadwalMengajar extends Component
     public function mount()
     {
         $user = Auth::user();
-        
-        // [SSOT FIX] Ambil Profil Dosen via Person
-        // User -> belongsTo Person -> hasOne Dosen
+         
+        // Validasi Relasi SSOT (User -> Person -> Dosen)
         if (!$user->person || !$user->person->dosen) {
-            abort(403, 'Akun Anda belum terhubung dengan Data Dosen (SSOT). Silakan hubungi Admin BAAK untuk perbaikan data.');
+            abort(403, 'Akun Anda belum terhubung dengan Data Dosen. Silakan hubungi Admin BAAK.');
         }
 
         $this->dosen = $user->person->dosen;
@@ -29,10 +28,14 @@ class JadwalMengajar extends Component
         $this->taAktif = SistemHelper::getTahunAktif();
 
         if ($taId) {
-            $this->jadwals = JadwalKuliah::with(['mataKuliah', 'programKelasAllow'])
-                ->where('dosen_id', $this->dosen->id)
+            // PERBAIKAN: Menggunakan whereHas untuk mendukung Team Teaching (Many-to-Many)
+            // Serta memuat relasi 'ruang' (RefRuang) dan 'dosens' (Team)
+            $this->jadwals = JadwalKuliah::with(['mataKuliah', 'programKelasAllow', 'ruang', 'dosens.person'])
+                ->whereHas('dosens', function ($q) {
+                    $q->where('dosen_id', $this->dosen->id);
+                })
                 ->where('tahun_akademik_id', $taId)
-                ->orderBy('hari', 'desc')
+                ->orderByRaw("FIELD(hari, 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu')")
                 ->orderBy('jam_mulai', 'asc')
                 ->get();
         }

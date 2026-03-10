@@ -8,6 +8,7 @@ use App\Domains\Akademik\Models\Kurikulum;
 use App\Domains\Akademik\Models\MataKuliah;
 use App\Domains\Akademik\Models\SkalaNilai;
 use App\Domains\Core\Models\Prodi;
+use App\Models\KurikulumMataKuliah; // <-- Tambahkan model pivot baru
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\DB;
 
@@ -33,7 +34,7 @@ class KurikulumManager extends Component
     public $mk_id_to_add;
     public $semester_paket_to_add = 1;
     public $sifat_mk_to_add = 'W';
-    public $prasyarat_mk_id;
+    public $prasyarat_mk_ids = [];
     public $min_nilai_prasyarat_to_add = 'D';
 
     // Bobot SKS Fallback State
@@ -84,7 +85,6 @@ class KurikulumManager extends Component
             'is_active' => $this->is_active,
         ];
 
-        // Create or Update
         if ($this->kurId) {
             Kurikulum::find($this->kurId)->update($data);
             session()->flash('success', 'Kurikulum berhasil diperbarui.');
@@ -143,25 +143,39 @@ class KurikulumManager extends Component
 
         $mk = MataKuliah::find($this->mk_id_to_add);
 
-        $this->selectedKurikulum->mataKuliahs()->attach($mk->id, [
+        // <-- PERUBAHAN UTAMA: Gunakan Model Pivot untuk Insert -->
+        $kurikulumMk = KurikulumMataKuliah::create([
+            'kurikulum_id'   => $this->selectedKurikulum->id,
+            'mata_kuliah_id' => $mk->id,
             'semester_paket' => $this->semester_paket_to_add,
             'sks_tatap_muka' => $this->sks_tatap_muka_to_add ?: $mk->sks_tatap_muka,
-            'sks_praktek' => $this->sks_praktek_to_add ?: $mk->sks_praktek,
-            'sks_lapangan' => $this->sks_lapangan_to_add ?: $mk->sks_lapangan,
-            'sifat_mk' => $this->sifat_mk_to_add,
-            'prasyarat_mk_id' => $this->prasyarat_mk_id ?: null,
-            'min_nilai_prasyarat' => $this->min_nilai_prasyarat_to_add
+            'sks_praktek'    => $this->sks_praktek_to_add ?: $mk->sks_praktek,
+            'sks_lapangan'   => $this->sks_lapangan_to_add ?: $mk->sks_lapangan,
+            'sifat_mk'       => $this->sifat_mk_to_add,
         ]);
 
+        // <-- PERUBAHAN UTAMA: Sync Prasyarat Many-to-Many -->
+        if (!empty($this->prasyarat_mk_ids)) {
+            $syncData = [];
+            foreach ($this->prasyarat_mk_ids as $prasyarat_id) {
+                $syncData[$prasyarat_id] = ['min_nilai_huruf' => $this->min_nilai_prasyarat_to_add];
+            }
+            $kurikulumMk->prasyarats()->sync($syncData);
+        }
+
         $this->recalculateSksHeader();
-        $this->reset(['mk_id_to_add', 'prasyarat_mk_id', 'sks_tatap_muka_to_add', 'sks_praktek_to_add', 'sks_lapangan_to_add']);
+        $this->reset(['mk_id_to_add', 'prasyarat_mk_ids', 'sks_tatap_muka_to_add', 'sks_praktek_to_add', 'sks_lapangan_to_add']);
         $this->selectedKurikulum->refresh();
         session()->flash('success', 'Mata kuliah berhasil ditambahkan ke struktur.');
     }
 
     public function removeMk($mkId)
     {
-        $this->selectedKurikulum->mataKuliahs()->detach($mkId);
+        // <-- PERUBAHAN UTAMA: Hapus menggunakan model pivot -->
+        KurikulumMataKuliah::where('kurikulum_id', $this->selectedKurikulum->id)
+            ->where('mata_kuliah_id', $mkId)
+            ->delete();
+
         $this->recalculateSksHeader();
         $this->selectedKurikulum->refresh();
         session()->flash('success', 'Mata kuliah dihapus dari struktur.');
@@ -186,20 +200,15 @@ class KurikulumManager extends Component
         $this->viewMode = 'list';
     }
 
-
-
-    // Tambahkan method ini di dalam class KurikulumManager
     public function exportPdf()
     {
         if (!$this->selectedKurikulum) return;
 
-        // Load data mata kuliah dikelompokkan berdasarkan semester
         $kurikulum = Kurikulum::with(['prodi.fakultas', 'mataKuliahs' => function ($query) {
             $query->orderBy('pivot_semester_paket', 'asc')->orderBy('nama_mk', 'asc');
         }])->find($this->selectedKurikulum->id);
 
-        // Ambil Logo dan Konversi ke Base64
-        $imagePath = public_path('logo.png'); // Sesuaikan nama file logo Anda
+        $imagePath = public_path('logo.png'); 
         $imageData = '';
         if (file_exists($imagePath)) {
             $type = pathinfo($imagePath, PATHINFO_EXTENSION);

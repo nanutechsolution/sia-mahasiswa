@@ -14,6 +14,7 @@ class KrsDetail extends Model
     protected $fillable = [
         'krs_id',
         'jadwal_kuliah_id',
+        'mata_kuliah_id',
         'kode_mk_snapshot', // Snapshot Kode
         'nama_mk_snapshot', // Snapshot Nama
         'sks_snapshot',      // Snapshot SKS
@@ -74,8 +75,6 @@ class KrsDetail extends Model
     {
         return $query->where('activity_type_snapshot', 'CONTINUATION');
     }
-
-
     /**
      * Helper: Cek apakah baris ini merupakan skripsi
      */
@@ -103,5 +102,10 @@ class KrsDetail extends Model
             self::TYPE_CONTINUATION => 'Registrasi Lanjutan',
             default => 'Perkuliahan Reguler',
         };
+    }
+
+    public function absensi()
+    {
+        return $this->hasMany(\App\Domains\Akademik\Models\PerkuliahanAbsensi::class, 'krs_detail_id');
     }
 }

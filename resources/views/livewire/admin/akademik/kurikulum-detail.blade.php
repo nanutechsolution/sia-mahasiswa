@@ -101,16 +101,16 @@
                 </div>
 
                 <!-- Baris 2: Prasyarat & Tombol -->
-                <div class="md:col-span-6 flex flex-col gap-4">
+                 <div class="md:col-span-6 flex flex-col gap-4">
                     <div class="flex gap-4">
                         <div class="flex-1">
                             <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Mata Kuliah Syarat (Lulus)</label>
-                            <select wire:model="prasyarat_mk_id" class="block w-full rounded-xl border-slate-200 bg-slate-50 text-slate-900 py-2.5 px-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[#fcc000] focus:border-transparent transition-all">
-                                <option value="">-- Tanpa Syarat --</option>
+                            <select wire:model="prasyarat_mk_ids" multiple class="block w-full rounded-xl border-slate-200 bg-slate-50 text-slate-900 py-2.5 px-4 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-[#fcc000] focus:border-transparent transition-all h-24">
                                 @foreach($prerequisiteOptions as $pre)
                                 <option value="{{ $pre->id }}">{{ $pre->nama_mk }} (Smt {{ $pre->pivot->semester_paket }})</option>
                                 @endforeach
                             </select>
+                            <p class="text-[10px] text-slate-400 mt-1 italic">*Tahan Ctrl/Cmd untuk memilih lebih dari 1 MK</p>
                         </div>
                         <div class="w-32">
                             <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nilai Min.</label>
@@ -175,22 +175,27 @@
                             </span>
                         </td>
                         <td class="px-6 py-4 text-xs align-top">
-                            @if($mk->pivot->prasyarat_mk_id)
+                            <!-- PERUBAHAN: Panggil dari relasi Many-to-Many KurikulumMataKuliah -->
                             @php
-                            $prasyarat = $selectedKurikulum->mataKuliahs->firstWhere('id', $mk->pivot->prasyarat_mk_id);
+                                $kurikulumMk = \App\Models\KurikulumMataKuliah::with('prasyarats')
+                                    ->where('kurikulum_id', $selectedKurikulum->id)
+                                    ->where('mata_kuliah_id', $mk->id)
+                                    ->first();
                             @endphp
-                            @if($prasyarat)
-                            <span class="inline-flex items-center px-2 py-1 rounded-lg bg-rose-50 text-rose-700 border border-rose-100 font-bold gap-1">
-                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                                </svg>
-                                {{ $prasyarat->kode_mk }} (Min: {{ $mk->pivot->min_nilai_prasyarat }})
-                            </span>
+
+                            @if($kurikulumMk && $kurikulumMk->prasyarats->isNotEmpty())
+                                <div class="flex flex-wrap gap-1">
+                                    @foreach($kurikulumMk->prasyarats as $prasyarat)
+                                    <span class="inline-flex items-center px-2 py-1 rounded-lg bg-rose-50 text-rose-700 border border-rose-100 font-bold gap-1">
+                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                        </svg>
+                                        {{ $prasyarat->kode_mk }} (Min: {{ $prasyarat->pivot->min_nilai_huruf }})
+                                    </span>
+                                    @endforeach
+                                </div>
                             @else
-                            <span class="text-xs text-slate-400 italic">ID: {{ $mk->pivot->prasyarat_mk_id }} (?)</span>
-                            @endif
-                            @else
-                            <span class="text-slate-300">-</span>
+                                <span class="text-slate-300">-</span>
                             @endif
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-right align-top">

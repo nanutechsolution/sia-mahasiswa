@@ -2,6 +2,7 @@
 
 namespace App\Domains\Mahasiswa\Models;
 
+use App\Domains\Akademik\Models\Kurikulum;
 use App\Domains\Core\Models\Person;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -10,6 +11,7 @@ use App\Models\User; // Sesuaikan jika User ada di App\Models\User
 use App\Domains\Core\Models\ProgramKelas;
 use App\Domains\Core\Models\Prodi;
 use App\Domains\Core\Models\TahunAkademik; // Jika perlu relasi ke angkatan
+use App\Models\AkademikTranskrip;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
@@ -69,10 +71,6 @@ class Mahasiswa extends Model
     {
         return $this->person ? $this->person->user : null;
     }
-    // ==========================================
-    // RELASI UTAMA (YANG MENYEBABKAN ERROR)
-    // ==========================================
-
     /**
      * Relasi ke Program Kelas (Reguler/Ekstensi)
      * Kunci segregasi jadwal & biaya.
@@ -142,5 +140,16 @@ class Mahasiswa extends Model
     public function riwayatStatus()
     {
         return $this->hasMany(\App\Domains\Mahasiswa\Models\RiwayatStatusMahasiswa::class, 'mahasiswa_id', 'id');
+    }
+
+
+    public function kurikulum()
+    {
+        return $this->belongsTo(Kurikulum::class, 'kurikulum_id');
+    }
+
+    public function transkrip()
+    {
+        return $this->hasMany(AkademikTranskrip::class, 'mahasiswa_id');
     }
 }

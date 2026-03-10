@@ -2,14 +2,15 @@
 
 namespace App\Http\Controllers\Mahasiswa;
 
-use App\Domains\Akademik\Models\JadwalKuliah;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
 use App\Domains\Mahasiswa\Models\Mahasiswa;
+use App\Domains\Akademik\Models\JadwalKuliah;
 use App\Domains\Akademik\Models\Krs;
 use App\Domains\Akademik\Models\KrsDetail;
 use App\Domains\Akademik\Models\PerkuliahanAbsensi;
 use App\Domains\Akademik\Models\PerkuliahanSesi;
+use App\Models\AkademikTranskrip;
 use App\Helpers\SistemHelper;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Carbon;
@@ -27,7 +28,7 @@ class CetakController extends Controller
         $query = DB::table('ref_person as p')
             ->join('trx_person_jabatan as pj', 'p.id', '=', 'pj.person_id')
             ->join('ref_jabatan as j', 'pj.jabatan_id', '=', 'j.id')
-            ->join('trx_dosen as d', 'd.person_id', '=', 'p.id')
+            ->leftJoin('trx_dosen as d', 'd.person_id', '=', 'p.id')
             ->where('j.kode_jabatan', $kodeJabatan)
             ->where('pj.tanggal_mulai', '<=', $today)
             ->where(function ($q) use ($today) {
@@ -39,11 +40,10 @@ class CetakController extends Controller
             $query->where('pj.prodi_id', $prodiId);
         }
 
-        $person = $query->select('p.nama_lengkap', 'p.nik', 'p.id', 'd.nidn')->first();
+        $person = $query->select('p.nama_lengkap', 'p.id', 'd.nidn', 'p.nik')->first();
 
         if (!$person) return null;
 
-        // Ambil gelar personil tersebut
         $gelars = DB::table('trx_person_gelar as tpg')
             ->join('ref_gelar as rg', 'tpg.gelar_id', '=', 'rg.id')
             ->where('tpg.person_id', $person->id)
@@ -53,9 +53,10 @@ class CetakController extends Controller
 
         $gelarDepan = $gelars->where('posisi', 'DEPAN')->pluck('kode')->implode(' ');
         $gelarBelakang = $gelars->where('posisi', 'BELAKANG')->pluck('kode')->implode(', ');
+        
         return (object)[
             'nama' => trim(($gelarDepan ? $gelarDepan . ' ' : '') . $person->nama_lengkap . ($gelarBelakang ? ', ' . $gelarBelakang : '')),
-            'identitas' => $person->nidn
+            'identitas' => $person->nidn ? "NIDN. " . $person->nidn : "NIK. " . $person->nik
         ];
     }
 
@@ -65,17 +66,20 @@ class CetakController extends Controller
     public function cetakKrs()
     {
         $user = Auth::user();
-
         $mahasiswa = Mahasiswa::with(['prodi.fakultas', 'programKelas', 'dosenWali.person', 'person'])
             ->where('person_id', $user->person_id)
             ->firstOrFail();
 
         $ta = SistemHelper::getTahunAktif();
 
-        $krs = Krs::with(['details.jadwalKuliah.mataKuliah', 'details.jadwalKuliah.dosen.person'])
-            ->where('mahasiswa_id', $mahasiswa->id)
-            ->where('tahun_akademik_id', $ta->id)
-            ->firstOrFail();
+        $krs = Krs::with([
+            'details.jadwalKuliah.mataKuliah', 
+            'details.jadwalKuliah.dosens.person',
+            'details.jadwalKuliah.ruang'
+        ])
+        ->where('mahasiswa_id', $mahasiswa->id)
+        ->where('tahun_akademik_id', $ta->id)
+        ->firstOrFail();
 
         return Pdf::loadView('pdf.cetak-krs', [
             'mahasiswa' => $mahasiswa,
@@ -92,26 +96,21 @@ class CetakController extends Controller
     public function cetakKhs()
     {
         $user = Auth::user();
-
-        // [FIX SSOT]
         $mahasiswa = Mahasiswa::with(['prodi.fakultas', 'programKelas', 'person'])
             ->where('person_id', $user->person_id)
             ->firstOrFail();
 
         $ta = SistemHelper::getTahunAktif();
 
-        $details = DB::table('krs_detail as kd')
-            ->join('krs', 'kd.krs_id', '=', 'krs.id')
-            ->join('jadwal_kuliah as jk', 'kd.jadwal_kuliah_id', '=', 'jk.id')
-            ->join('master_mata_kuliahs as mk', 'jk.mata_kuliah_id', '=', 'mk.id')
-            ->where('krs.mahasiswa_id', $mahasiswa->id)
-            ->where('krs.tahun_akademik_id', $ta->id)
-            ->where('kd.is_published', true)
-            ->select('kd.*', 'mk.kode_mk', 'mk.nama_mk', 'mk.sks_default')
+        $details = KrsDetail::with(['jadwalKuliah.mataKuliah', 'jadwalKuliah.ruang'])
+            ->whereHas('krs', function($q) use ($mahasiswa, $ta) {
+                $q->where('mahasiswa_id', $mahasiswa->id)->where('tahun_akademik_id', $ta->id);
+            })
+            ->where('is_published', true)
             ->get();
 
-        $totalSks = $details->sum('sks_default');
-        $totalMutu = $details->sum(fn($d) => $d->sks_default * $d->nilai_indeks);
+        $totalSks = $details->sum('sks_snapshot');
+        $totalMutu = $details->sum(fn($d) => $d->sks_snapshot * $d->nilai_indeks);
         $ips = $totalSks > 0 ? ($totalMutu / $totalSks) : 0;
 
         return Pdf::loadView('pdf.cetak-khs', [
@@ -126,41 +125,22 @@ class CetakController extends Controller
     }
 
     /**
-     * Cetak Transkrip Nilai Sementara
+     * Cetak Transkrip Nilai
      */
     public function cetakTranskrip()
     {
         $user = Auth::user();
-
-        $mahasiswa = Mahasiswa::with(['prodi.fakultas', 'programKelas', 'person'])
+        $mahasiswa = Mahasiswa::with(['prodi.fakultas', 'person'])
             ->where('person_id', $user->person_id)
             ->firstOrFail();
 
-        $transkrip = DB::table('krs_detail as kd')
-            ->join('krs', 'kd.krs_id', '=', 'krs.id')
-            ->leftJoin('jadwal_kuliah as jk', 'kd.jadwal_kuliah_id', '=', 'jk.id')
-            ->leftJoin('master_mata_kuliahs as mk', 'jk.mata_kuliah_id', '=', 'mk.id')
+        $transkrip = AkademikTranskrip::with('mataKuliah')
+            ->where('mahasiswa_id', $mahasiswa->id)
+            ->get()
+            ->sortBy('mataKuliah.kode_mk');
 
-            ->where('krs.mahasiswa_id', $mahasiswa->id)
-            ->where('kd.is_published', true)
-
-            ->select(
-                DB::raw('COALESCE(mk.kode_mk, kd.kode_mk_snapshot) as kode_mk'),
-                DB::raw('COALESCE(mk.nama_mk, kd.nama_mk_snapshot) as nama_mk'),
-                DB::raw('COALESCE(mk.sks_default, kd.sks_snapshot) as sks_default'),
-                'kd.nilai_huruf',
-                'kd.nilai_indeks'
-            )
-
-            ->orderBy('kode_mk', 'asc')
-            ->get();
-
-        $totalSks = $transkrip->sum('sks_default');
-
-        $totalMutu = $transkrip->sum(function ($mk) {
-            return $mk->sks_default * $mk->nilai_indeks;
-        });
-
+        $totalSks = $transkrip->sum('sks_diakui');
+        $totalMutu = $transkrip->sum(fn($i) => $i->sks_diakui * $i->nilai_indeks_final);
         $ipk = $totalSks > 0 ? ($totalMutu / $totalSks) : 0;
 
         return Pdf::loadView('pdf.cetak-transkrip', [
@@ -169,13 +149,8 @@ class CetakController extends Controller
             'totalSks' => $totalSks,
             'ipk' => round($ipk, 2),
             'kaProdi' => $this->getPejabat('KAPRODI', $mahasiswa->prodi_id)
-        ])
-            ->setPaper('a4', 'portrait')
-            ->stream('Transkrip-' . $mahasiswa->nim . '.pdf');
+        ])->setPaper('a4', 'portrait')->stream('Transkrip-' . $mahasiswa->nim . '.pdf');
     }
-
-
-
 
     /**
      * Cetak Berita Acara & Daftar Hadir per Pertemuan
@@ -184,114 +159,121 @@ class CetakController extends Controller
     {
         $sesi = PerkuliahanSesi::with([
             'jadwalKuliah.mataKuliah',
-            'jadwalKuliah.dosen.person',
-            'jadwalKuliah.pesertaKelas.krs.mahasiswa.person', // Load data mahasiswa
+            'jadwalKuliah.dosens.person',
+            'jadwalKuliah.ruang',
             'absensi'
         ])->findOrFail($sesiId);
 
-        // Siapkan data peserta + status kehadiran
-        $peserta = $sesi->jadwalKuliah->pesertaKelas->map(function ($p) use ($sesi) {
-            $absen = $sesi->absensi->where('krs_detail_id', $p->id)->first();
-            return [
-                'nim' => $p->krs->mahasiswa->nim,
-                'nama' => $p->krs->mahasiswa->person->nama_lengkap,
-                'status' => $absen ? $absen->status_kehadiran : 'A', // Default Alpha
-                'waktu' => $absen ? $absen->waktu_check_in : null
-            ];
-        })->sortBy('nim');
+        $koordinator = $sesi->jadwalKuliah->dosens->where('pivot.is_koordinator', true)->first() ?? $sesi->jadwalKuliah->dosens->first();
 
-        $data = [
-            'sesi' => $sesi,
-            'peserta' => $peserta,
-            'tanggal_cetak' => Carbon::now()->isoFormat('D MMMM Y')
+        $ttdDosen = (object)[
+            'nama' => $koordinator->person->nama_lengkap ?? 'Dosen Pengampu',
+            'identitas' => "NIDN. " . ($koordinator->nidn ?? '-')
         ];
 
-        $pdf = Pdf::loadView('pdf.dosen.presensi-sesi', $data);
-        return $pdf->stream("Berita_Acara_P{$sesi->pertemuan_ke}.pdf");
+        $peserta = KrsDetail::with('krs.mahasiswa.person')
+            ->where('jadwal_kuliah_id', $sesi->jadwal_kul_id ?? $sesi->jadwal_kuliah_id)
+            ->whereHas('krs', fn($q) => $q->where('status_krs', 'DISETUJUI'))
+            ->get()
+            ->map(function ($p) use ($sesi) {
+                $absen = $sesi->absensi->where('krs_detail_id', $p->id)->first();
+                return [
+                    'nim' => $p->krs->mahasiswa->nim,
+                    'nama' => $p->krs->mahasiswa->person->nama_lengkap,
+                    'status' => $absen->status_kehadiran ?? 'A',
+                    'waktu' => $absen ? Carbon::parse($absen->waktu_check_in)->format('H:i') : null
+                ];
+            })->sortBy('nim');
+
+        return Pdf::loadView('pdf.dosen.presensi-sesi', [
+            'sesi' => $sesi,
+            'peserta' => $peserta,
+            'ttdDosen' => $ttdDosen,
+            'tanggal_cetak' => Carbon::now()->isoFormat('D MMMM Y')
+        ])->stream("Berita_Acara_P{$sesi->pertemuan_ke}.pdf");
     }
 
     /**
-     * Cetak Rekap Absensi Satu Semester (Matriks)
+     * Cetak Rekap Absensi Semester (Dosen) - PERBAIKAN MATRIX
      */
     public function cetakRekapSemester($jadwalId)
     {
         $jadwal = JadwalKuliah::with([
-            'mataKuliah',
-            'dosen.person',
-            'pesertaKelas.krs.mahasiswa.person',
-            'sesi.absensi' // Load semua sesi dan absensinya
+            'mataKuliah.prodi',
+            'dosens.person',
+            'ruang',
+            'tahunAkademik',
+            'sesi.absensi'
         ])->findOrFail($jadwalId);
 
-        // 1. List Sesi (Kolom)
         $listSesi = $jadwal->sesi->sortBy('pertemuan_ke');
+        
+        // Cari Koordinator untuk Tanda Tangan
+        $koordinator = $jadwal->dosens->where('pivot.is_koordinator', true)->first() ?? $jadwal->dosens->first();
+        $ttdDosen = (object)[
+            'nama' => $koordinator->person->nama_lengkap ?? 'Dosen Pengampu',
+            'identitas' => $koordinator->nidn ? "NIDN. " . $koordinator->nidn : "-"
+        ];
 
-        // 2. Mapping Data Mahasiswa (Baris)
-        $rekap = $jadwal->pesertaKelas->map(function ($p) use ($listSesi) {
-            $kehadiran = [];
-            $totalHadir = 0;
+        $rekap = KrsDetail::with('krs.mahasiswa.person')
+            ->where('jadwal_kuliah_id', $jadwalId)
+            ->whereHas('krs', fn($q) => $q->where('status_krs', 'DISETUJUI'))
+            ->get()
+            ->map(function ($p) use ($listSesi) {
+                $kehadiran = [];
+                $totalHadir = 0;
 
-            foreach ($listSesi as $sesi) {
-                $absen = $sesi->absensi->where('krs_detail_id', $p->id)->first();
-                $status = $absen ? $absen->status_kehadiran : '-';
-                $kehadiran[$sesi->pertemuan_ke] = $status;
+                foreach ($listSesi as $sesi) {
+                    $absen = $sesi->absensi->where('krs_detail_id', $p->id)->first();
+                    $status = $absen->status_kehadiran ?? '-';
+                    $kehadiran[$sesi->pertemuan_ke] = $status;
+                    if ($status == 'H') $totalHadir++;
+                }
 
-                if ($status == 'H') $totalHadir++;
-            }
+                return [
+                    'nim' => $p->krs->mahasiswa->nim,
+                    'nama' => $p->krs->mahasiswa->person->nama_lengkap,
+                    'kehadiran' => $kehadiran,
+                    'persentase' => $listSesi->count() > 0 ? round(($totalHadir / $listSesi->count()) * 100) : 0
+                ];
+            })->sortBy('nim');
 
-            return [
-                'nim' => $p->krs->mahasiswa->nim,
-                'nama' => $p->krs->mahasiswa->person->nama_lengkap,
-                'kehadiran' => $kehadiran,
-                'persentase' => $listSesi->count() > 0 ? round(($totalHadir / $listSesi->count()) * 100) : 0
-            ];
-        })->sortBy('nim');
-
-        $data = [
+        return Pdf::loadView('pdf.dosen.rekap-semester', [
             'jadwal' => $jadwal,
             'listSesi' => $listSesi,
             'rekap' => $rekap,
+            'ttdDosen' => $ttdDosen,
             'tanggal_cetak' => Carbon::now()->isoFormat('D MMMM Y')
-        ];
-
-        $pdf = Pdf::loadView('pdf.dosen.rekap-semester', $data)
-            ->setPaper('a4', 'landscape'); // Landscape agar muat 16 pertemuan
-
-        return $pdf->stream("Rekap_Absensi_{$jadwal->mataKuliah->nama_mk}.pdf");
+        ])->setPaper('a4', 'landscape')->stream("Rekap_Absensi_{$jadwal->mataKuliah->kode_mk}.pdf");
     }
 
-
     /**
-     * Cetak Rekap Absensi Pribadi per Mata Kuliah
+     * Cetak Rekap Absensi Pribadi (Mahasiswa)
      */
     public function cetakRekapanAbsensi($jadwalId)
     {
         $user = Auth::user();
-        $mahasiswa = $user->person->mahasiswa;
+        $mahasiswa = Mahasiswa::where('person_id', $user->person_id)->firstOrFail();
 
-        // 1. Ambil Jadwal & Validasi kepemilikan via KRS
-        $jadwal = JadwalKuliah::with(['mataKuliah', 'dosen.person', 'tahunAkademik'])->findOrFail($jadwalId);
+        $jadwal = JadwalKuliah::with(['mataKuliah', 'dosens.person', 'tahunAkademik', 'ruang'])->findOrFail($jadwalId);
 
         $krsDetail = KrsDetail::where('jadwal_kuliah_id', $jadwalId)
             ->whereHas('krs', fn($q) => $q->where('mahasiswa_id', $mahasiswa->id))
             ->firstOrFail();
 
-        // 2. Ambil Semua Sesi yang sudah terlaksana (Status Selesai/Dibuka)
         $sesiList = PerkuliahanSesi::where('jadwal_kuliah_id', $jadwalId)
             ->whereIn('status_sesi', ['selesai', 'dibuka'])
             ->orderBy('pertemuan_ke')
             ->get();
 
-        // 3. Ambil Data Absensi Mahasiswa Ini
         $absensi = PerkuliahanAbsensi::where('krs_detail_id', $krsDetail->id)
             ->get()
             ->keyBy('perkuliahan_sesi_id');
 
-        // 4. Hitung Statistik
         $totalHadir = $absensi->where('status_kehadiran', 'H')->count();
         $totalSesi = $sesiList->count();
-        $persentase = $totalSesi > 0 ? round(($totalHadir / $totalSesi) * 100) : 0;
 
-        $data = [
+        return Pdf::loadView('pdf.mahasiswa.rekap-absensi', [
             'mahasiswa' => $mahasiswa,
             'jadwal' => $jadwal,
             'sesiList' => $sesiList,
@@ -299,12 +281,9 @@ class CetakController extends Controller
             'statistik' => [
                 'hadir' => $totalHadir,
                 'total' => $totalSesi,
-                'persen' => $persentase
+                'persen' => $totalSesi > 0 ? round(($totalHadir / $totalSesi) * 100) : 0
             ],
             'tanggal_cetak' => Carbon::now()->isoFormat('D MMMM Y')
-        ];
-
-        $pdf = Pdf::loadView('pdf.mahasiswa.rekap-absensi', $data);
-        return $pdf->stream("Rekap_Absensi_{$jadwal->mataKuliah->kode_mk}_{$mahasiswa->nim}.pdf");
+        ])->stream("Absensi_{$jadwal->mataKuliah->kode_mk}.pdf");
     }
 }

@@ -1,321 +1,258 @@
-<div class="space-y-8">
-    
-    {{-- 1. HEADER & TOOLBAR --}}
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
-            <h1 class="text-2xl font-black text-[#002855] tracking-tight">Jadwal Perkuliahan</h1>
-            <p class="text-slate-500 text-sm mt-1">Penyusunan jadwal kelas, validasi bentrok ruang & dosen (Real-time).</p>
+<div class="space-y-6 max-w-[1600px] mx-auto p-4 md:p-8">
+    {{-- Header --}}
+    <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
+        <div class="space-y-1">
+            <h1 class="text-3xl font-black text-[#002855] tracking-tight flex items-center gap-3">
+                <div class="w-12 h-12 bg-[#002855] rounded-2xl flex items-center justify-center text-white shadow-xl shadow-blue-900/20">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                </div>
+                Master Penjadwalan
+            </h1>
+            <p class="text-slate-400 font-medium">Pengaturan Team Teaching & Distribusi Ruangan Semester {{ $filterSemesterId }}</p>
         </div>
         
         @if(!$showForm)
-        <button wire:click="$set('showForm', true)" class="group inline-flex items-center px-6 py-3 bg-[#fcc000] text-[#002855] rounded-2xl font-black text-sm shadow-lg shadow-orange-500/20 hover:bg-[#fbbf24] hover:scale-105 transition-all">
-            <svg class="w-5 h-5 mr-2 transition-transform group-hover:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 4v16m8-8H4" /></svg>
-            Buka Kelas Baru
+        <button wire:click="$set('showForm', true)" class="group flex items-center px-8 py-4 bg-[#fcc000] text-[#002855] rounded-2xl font-black text-sm shadow-xl shadow-amber-500/30 hover:bg-[#ffca28] hover:-translate-y-1 transition-all duration-300">
+            <svg class="w-5 h-5 mr-3 transition-transform group-hover:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 4v16m8-8H4" /></svg>
+            BUAT JADWAL BARU
         </button>
         @endif
     </div>
 
-    {{-- 2. NOTIFIKASI --}}
-    @if (session()->has('success'))
-    <div class="p-4 bg-emerald-50 border border-emerald-100 text-emerald-800 rounded-2xl text-sm font-bold flex items-center shadow-sm animate-in fade-in slide-in-from-top-2">
-        <svg class="w-5 h-5 mr-3 text-emerald-500" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>
-        {{ session('success') }}
-    </div>
-    @endif
-
-    {{-- 3. FILTER CONTEXT (TA & PRODI) --}}
+    {{-- Filter Bar --}}
     @if(!$showForm)
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4 relative overflow-hidden group hover:border-[#002855]/30 transition-colors">
-            <div class="absolute right-0 top-0 h-full w-1 bg-[#002855]"></div>
-            <div class="w-12 h-12 rounded-2xl bg-indigo-50 text-[#002855] flex items-center justify-center font-black text-xs shadow-inner">
-                TA
-            </div>
-            <div class="flex-1 min-w-0">
-                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Tahun Akademik</label>
-                <div class="relative">
-                    <select wire:model.live="filterSemesterId" class="w-full bg-transparent border-none p-0 text-sm font-bold text-[#002855] focus:ring-0 cursor-pointer truncate pr-4">
-                        @foreach($semesters as $s) <option value="{{ $s->id }}">{{ $s->nama_tahun }} {{ $s->is_active ? '(Aktif)' : '' }}</option> @endforeach
-                    </select>
-                </div>
-            </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white/50 backdrop-blur-md p-2 rounded-[2rem] border border-white shadow-sm">
+        <div class="flex items-center gap-4 p-4 bg-white rounded-3xl shadow-sm">
+            <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs uppercase tracking-tighter">SEM</div>
+            <select wire:model.live="filterSemesterId" class="flex-1 bg-transparent border-none font-bold text-[#002855] focus:ring-0">
+                @foreach($semesters as $s) <option value="{{ $s->id }}">{{ $s->nama_tahun }}</option> @endforeach
+            </select>
         </div>
-
-        <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4 relative overflow-hidden group hover:border-[#fcc000] transition-colors">
-            <div class="absolute right-0 top-0 h-full w-1 bg-[#fcc000]"></div>
-            <div class="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center font-black text-xs shadow-inner">
-                PS
-            </div>
-            <div class="flex-1 min-w-0">
-                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Program Studi</label>
-                <div class="relative">
-                    <select wire:model.live="filterProdiId" class="w-full bg-transparent border-none p-0 text-sm font-bold text-slate-800 focus:ring-0 cursor-pointer truncate pr-4">
-                        @foreach($prodis as $p) <option value="{{ $p->id }}">{{ $p->nama_prodi }}</option> @endforeach
-                    </select>
-                </div>
-            </div>
+        <div class="flex items-center gap-4 p-4 bg-white rounded-3xl shadow-sm">
+            <div class="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-xs uppercase tracking-tighter">PRD</div>
+            <select wire:model.live="filterProdiId" class="flex-1 bg-transparent border-none font-bold text-slate-700 focus:ring-0">
+                @foreach($prodis as $p) <option value="{{ $p->id }}">{{ $p->nama_prodi }}</option> @endforeach
+            </select>
         </div>
     </div>
     @endif
 
-    {{-- 4. FORM PENYUSUNAN JADWAL --}}
     @if($showForm)
-    <div class="bg-white rounded-[2.5rem] shadow-2xl border border-slate-200 overflow-hidden animate-in slide-in-from-bottom-8 duration-500">
-        
-        {{-- Header Form --}}
-        <div class="px-8 py-6 border-b border-slate-100 bg-slate-50/80 backdrop-blur-sm flex justify-between items-center sticky top-0 z-30">
-            <div class="flex items-center gap-4">
-                <div class="w-10 h-10 rounded-full bg-[#002855] flex items-center justify-center text-white shadow-lg shadow-indigo-900/20">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+    <div class="bg-white rounded-[3rem] shadow-2xl border border-slate-100 overflow-hidden animate-in slide-in-from-bottom-10 duration-500">
+        <div class="grid grid-cols-1 lg:grid-cols-12">
+            {{-- Left Side: Configuration --}}
+            <div class="lg:col-span-8 p-8 md:p-12 space-y-10 border-r border-slate-50">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-xl font-black text-[#002855] flex items-center gap-3">
+                        <span class="w-8 h-8 rounded-full bg-[#fcc000] text-[#002855] flex items-center justify-center text-sm">1</span>
+                        Konfigurasi Kelas
+                    </h2>
+                    <button wire:click="resetForm" class="text-slate-400 hover:text-rose-500 transition-colors"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
                 </div>
-                <div>
-                    <h3 class="text-sm font-black text-[#002855] uppercase tracking-wider">Form Jadwal Kuliah</h3>
-                    <div class="flex items-center gap-2 mt-0.5">
-                        <div class="w-2 h-2 rounded-full {{ $formStatus == 'green' ? 'bg-emerald-500 animate-pulse' : ($formStatus == 'red' ? 'bg-rose-500 animate-pulse' : 'bg-slate-300') }}"></div>
-                        <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wide">Status: {{ $formStatus == 'green' ? 'Aman' : ($formStatus == 'red' ? 'Konflik Terdeteksi' : 'Draft') }}</p>
-                    </div>
-                </div>
-            </div>
-            <button wire:click="resetForm" class="p-2 rounded-full text-slate-400 hover:bg-slate-100 hover:text-rose-500 transition-all">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-            </button>
-        </div>
 
-        <div class="p-8 lg:p-12 space-y-12">
-            
-            {{-- STEP 1: KURIKULUM --}}
-            <div class="relative pl-8 md:pl-12 border-l-2 border-slate-100">
-                <div class="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-[#002855] border-2 border-white ring-2 ring-indigo-50"></div>
-                
-                <h4 class="text-sm font-black text-[#002855] uppercase tracking-widest mb-6">1. Otorisasi Mata Kuliah</h4>
-                
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    {{-- Kurikulum --}}
-                    <div>
-                        <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2">Kurikulum Sumber *</label>
-                        <select wire:model.live="kurikulum_id" class="w-full rounded-xl border-slate-200 bg-slate-50 p-3 text-sm font-bold text-slate-700 focus:border-[#002855] focus:ring-[#002855] transition-all cursor-pointer">
+                    <div class="space-y-4">
+                        <label class="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Sumber Kurikulum</label>
+                        <select wire:model.live="kurikulum_id" class="w-full rounded-2xl border-slate-200 bg-slate-50 py-4 px-5 font-bold text-[#002855] focus:ring-[#fcc000]">
                             <option value="">-- Pilih Kurikulum --</option>
                             @foreach($kurikulumOptions as $ko) <option value="{{ $ko->id }}">{{ $ko->nama_kurikulum }}</option> @endforeach
                         </select>
-                        @error('kurikulum_id') <span class="text-rose-500 text-[10px] font-bold mt-1 block">Wajib dipilih</span> @enderror
-                    </div>
-
-                    {{-- Searchable Mata Kuliah --}}
-                    <div class="relative" x-data="{ open: false }">
-                        <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2">Mata Kuliah *</label>
-                        <div class="relative">
-                            <input type="text" wire:model.live="searchMk" 
-                                @focus="open = true" @click.away="open = false"
-                                placeholder="{{ $selectedMkName ?: 'Ketik Nama / Kode MK...' }}"
-                                class="w-full rounded-xl border-slate-200 p-3 pl-10 text-sm font-bold focus:border-[#002855] focus:ring-[#002855] shadow-sm placeholder:font-normal placeholder:text-slate-400 {{ !$kurikulum_id ? 'bg-slate-100 cursor-not-allowed' : 'bg-white' }}"
-                                {{ !$kurikulum_id ? 'disabled' : '' }}>
-                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                            </div>
-                        </div>
-
-                        {{-- Dropdown MK --}}
-                        @if(!empty($searchMk) && $kurikulum_id)
-                        <div x-show="open" class="absolute z-50 w-full bg-white shadow-2xl rounded-xl mt-2 border border-slate-100 overflow-hidden max-h-60 overflow-y-auto">
-                            @foreach($formMks as $mk)
-                            <div wire:click="pilihMk('{{ $mk->id }}', '{{ $mk->nama_mk }}')" @click="open = false" 
-                                class="px-4 py-3 hover:bg-indigo-50 cursor-pointer border-b border-slate-50 last:border-0 group transition-colors">
-                                <p class="text-xs font-black text-[#002855] uppercase group-hover:text-indigo-600">{{ $mk->nama_mk }}</p>
-                                <p class="text-[9px] text-slate-500 font-mono mt-0.5">{{ $mk->kode_mk }} &bull; Sem {{ $mk->semester_paket }} &bull; {{ $mk->sks_default }} SKS</p>
-                            </div>
-                            @endforeach
-                        </div>
-                        @endif
-                        @error('mata_kuliah_id') <span class="text-rose-500 text-[10px] font-bold mt-1 block">Mata kuliah wajib dipilih</span> @enderror
-                    </div>
-                </div>
-            </div>
-
-            {{-- STEP 2: WAKTU & LOKASI --}}
-            <div class="relative pl-8 md:pl-12 border-l-2 border-slate-100">
-                <div class="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-[#fcc000] border-2 border-white ring-2 ring-amber-50"></div>
-                
-                <h4 class="text-sm font-black text-[#002855] uppercase tracking-widest mb-6">2. Waktu & Lokasi</h4>
-                
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    {{-- Hari --}}
-                    <div>
-                        <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2">Hari Perkuliahan *</label>
-                        <select wire:model.live="hari" class="w-full rounded-xl border-slate-200 bg-white p-3 text-sm font-bold text-slate-700 focus:border-[#002855] focus:ring-[#002855] cursor-pointer">
-                            <option value="">-- Pilih --</option>
-                            @foreach(['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'] as $h) <option value="{{ $h }}">{{ $h }}</option> @endforeach
-                        </select>
-                    </div>
-
-                    {{-- Jam --}}
-                    <div class="lg:col-span-2">
-                        <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2">Durasi Waktu (WITA) *</label>
-                        <div class="flex items-center gap-4">
-                            <div class="relative flex-1">
-                                <input type="text" wire:model.live="jam_mulai" placeholder="08:00" maxlength="5"
-                                    class="w-full text-center text-lg font-black text-[#002855] rounded-xl border-slate-200 p-3 focus:border-[#002855] focus:ring-[#002855] @error('jam_mulai') border-rose-500 @enderror">
-                                <span class="absolute inset-y-0 right-3 flex items-center text-xs font-bold text-slate-300">WITA</span>
-                            </div>
-                            <span class="text-slate-300 font-bold">-</span>
-                            <div class="relative flex-1">
-                                <input type="text" wire:model.live="jam_selesai" placeholder="10:30" maxlength="5"
-                                    class="w-full text-center text-lg font-black text-[#002855] rounded-xl border-slate-200 p-3 focus:border-[#002855] focus:ring-[#002855] @error('jam_selesai') border-rose-500 @enderror">
-                                <span class="absolute inset-y-0 right-3 flex items-center text-xs font-bold text-slate-300">WITA</span>
-                            </div>
-                        </div>
-                        @if($timeFormatError) <span class="text-rose-500 text-[10px] font-bold mt-1 block">{{ $timeFormatError }}</span> @endif
-                    </div>
-
-                    {{-- Ruang & Kelas --}}
-                    <div class="lg:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div class="md:col-span-1">
-                            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2">Nama Ruang *</label>
-                            <input type="text" wire:model.live="ruang" placeholder="Ex: B-201" class="w-full rounded-xl border-slate-200 p-3 font-black text-[#002855] uppercase focus:border-[#002855] focus:ring-[#002855] @error('ruang') border-rose-500 @enderror">
-                            
-                            {{-- ALERT BENTROK RUANG --}}
-                            @if($roomConflict)
-                            <div class="mt-3 p-3 bg-rose-50 border border-rose-100 rounded-lg animate-in slide-in-from-top-1">
-                                <p class="text-[10px] font-black text-rose-600 uppercase">⚠ Bentrok Ruangan!</p>
-                                <p class="text-[10px] text-rose-500 leading-tight mt-1">
-                                    {{ $roomConflict['mk'] }} ({{ $roomConflict['kelas'] }})<br>
-                                    {{ $roomConflict['waktu'] }}
-                                </p>
+                        
+                        <label class="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1 block mt-6">Cari Mata Kuliah</label>
+                        <div class="relative" x-data="{ open: false }">
+                            <input type="text" wire:model.live="searchMk" @focus="open = true" @click.away="open = false"
+                                placeholder="{{ $selectedMkName ?: 'Ketik Nama MK...' }}"
+                                class="w-full rounded-2xl border-slate-200 py-4 px-5 font-bold focus:ring-[#fcc000] {{ !$kurikulum_id ? 'bg-slate-100' : 'bg-white' }}" {{ !$kurikulum_id ? 'disabled' : '' }}>
+                            @if(!empty($searchMk))
+                            <div x-show="open" class="absolute z-50 w-full bg-white shadow-2xl rounded-2xl mt-2 border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95">
+                                @foreach($formMks as $mk)
+                                <div wire:click="pilihMk('{{ $mk->id }}', '{{ $mk->nama_mk }}')" @click="open = false" class="px-5 py-4 hover:bg-amber-50 cursor-pointer border-b border-slate-50 last:border-0 transition-all">
+                                    <p class="text-xs font-black text-[#002855] uppercase">{{ $mk->nama_mk }}</p>
+                                    <p class="text-[9px] text-slate-400 font-bold mt-1 uppercase tracking-wider">{{ $mk->kode_mk }} &bull; {{ $mk->sks_default }} SKS</p>
+                                </div>
+                                @endforeach
                             </div>
                             @endif
                         </div>
-                        <div class="md:col-span-1">
-                            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2">Nama Kelas *</label>
-                            <input type="text" wire:model="nama_kelas" placeholder="Ex: TI-2A" class="w-full rounded-xl border-slate-200 p-3 font-black text-[#002855] uppercase text-center focus:border-[#002855] focus:ring-[#002855]">
+                    </div>
+
+                    <div class="space-y-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="space-y-2">
+                                <label class="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Nama Kelas</label>
+                                <input type="text" wire:model="nama_kelas" class="w-full rounded-2xl border-slate-200 py-4 text-center font-black text-[#002855] uppercase" placeholder="TI-3A">
+                            </div>
+                            <div class="space-y-2">
+                                <label class="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Kuota</label>
+                                <input type="number" wire:model="kuota_kelas" class="w-full rounded-2xl border-slate-200 py-4 text-center font-black text-slate-600">
+                            </div>
                         </div>
-                        <div class="md:col-span-1">
-                            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2">Kuota Kursi *</label>
-                            <input type="number" wire:model="kuota_kelas" class="w-full rounded-xl border-slate-200 p-3 font-bold text-slate-700 text-center focus:border-[#002855] focus:ring-[#002855]">
+
+                        <label class="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1 block mt-6">Pilih Ruangan Kuliah</label>
+                        <select wire:model.live="ruang_id" class="w-full rounded-2xl border-slate-200 bg-white py-4 px-5 font-bold text-[#002855] focus:ring-[#fcc000]">
+                            <option value="">-- Pilih Ruangan --</option>
+                            @foreach($ruangOptions as $ro) 
+                                <option value="{{ $ro->id }}">[{{ $ro->kode_ruang }}] {{ $ro->nama_ruang }} (Kapasitas: {{ $ro->kapasitas }})</option> 
+                            @endforeach
+                        </select>
+                        @if($roomConflict)
+                        <div class="p-4 bg-rose-50 border border-rose-100 rounded-2xl animate-pulse">
+                            <p class="text-[10px] font-black text-rose-600 uppercase tracking-widest">⚠ KONFLIK RUANGAN!</p>
+                            <p class="text-xs text-rose-500 font-bold mt-1">{{ $roomConflict['mk'] }} ({{ $roomConflict['kelas'] }}) jam {{ $roomConflict['waktu'] }}</p>
+                        </div>
+                        @endif
+                    </div>
+                </div>
+
+                <div class="pt-10 border-t border-slate-50 space-y-6">
+                    <h2 class="text-xl font-black text-[#002855] flex items-center gap-3">
+                        <span class="w-8 h-8 rounded-full bg-[#fcc000] text-[#002855] flex items-center justify-center text-sm">2</span>
+                        Team Teaching
+                    </h2>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+                        <div class="relative" x-data="{ open: false }">
+                            <label class="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1 mb-2 block">Cari & Tambah Dosen</label>
+                            <input type="text" wire:model.live="searchDosen" @focus="open = true" @click.away="open = false" placeholder="Ketik Nama Dosen..." class="w-full rounded-2xl border-slate-200 py-4 px-5 font-bold focus:ring-[#fcc000]">
+                            @if(!empty($searchDosen))
+                            <div x-show="open" class="absolute z-50 w-full bg-white shadow-2xl rounded-2xl mt-2 border border-slate-100 max-h-60 overflow-y-auto">
+                                @foreach($dosens as $d)
+                                <div wire:click="tambahDosen('{{ $d->id }}', '{{ $d->person->nama_lengkap }}')" @click="open = false" class="px-5 py-4 hover:bg-indigo-50 cursor-pointer border-b border-slate-50 transition-all flex justify-between items-center">
+                                    <div class="text-xs font-black text-[#002855] uppercase">{{ $d->person->nama_lengkap }}</div>
+                                    <div class="text-[10px] bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded font-bold">ADD</div>
+                                </div>
+                                @endforeach
+                            </div>
+                            @endif
+                        </div>
+
+                        <div class="space-y-3">
+                            <label class="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1 mb-2 block">Dosen Terpilih (Gunakan Radio untuk Koordinator)</label>
+                            <div class="space-y-2">
+                                @forelse($selectedDosenList as $sd)
+                                <div class="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 group transition-all">
+                                    <div class="flex items-center gap-4">
+                                        <input type="radio" wire:model="koordinator_id" value="{{ $sd['id'] }}" class="text-[#fcc000] focus:ring-[#fcc000]">
+                                        <span class="text-xs font-black text-[#002855] uppercase">{{ $sd['nama'] }}</span>
+                                        @if($koordinator_id == $sd['id']) <span class="text-[8px] bg-[#fcc000] text-[#002855] px-1.5 py-0.5 rounded font-black tracking-widest uppercase">Koor</span> @endif
+                                    </div>
+                                    <button wire:click="hapusDosen('{{ $sd['id'] }}')" class="text-slate-300 hover:text-rose-500 transition-colors"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
+                                </div>
+                                @empty
+                                <div class="text-center py-6 border-2 border-dashed border-slate-100 rounded-3xl text-slate-400 text-xs font-bold uppercase tracking-widest">Belum ada dosen terpilih</div>
+                                @endforelse
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {{-- STEP 3: DOSEN PENGAMPU --}}
-            <div class="relative pl-8 md:pl-12 border-l-2 border-transparent">
-                <div class="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-slate-300 border-2 border-white ring-2 ring-slate-100"></div>
-                
-                <h4 class="text-sm font-black text-[#002855] uppercase tracking-widest mb-6">3. Dosen Pengampu</h4>
+            {{-- Right Side: Schedule & Publish --}}
+            <div class="lg:col-span-4 bg-slate-50/50 p-8 md:p-12 space-y-10">
+                <h2 class="text-xl font-black text-[#002855] flex items-center gap-3">
+                    <span class="w-8 h-8 rounded-full bg-[#fcc000] text-[#002855] flex items-center justify-center text-sm">3</span>
+                    Waktu Perkuliahan
+                </h2>
 
-                <div class="relative" x-data="{ open: false }">
-                    <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2">Cari Dosen *</label>
-                    <div class="relative">
-                        <input type="text" wire:model.live="searchDosen" @focus="open = true" @click.away="open = false"
-                            placeholder="{{ $selectedDosenName ?: 'Ketik Nama Dosen...' }}"
-                            class="w-full rounded-xl border-slate-200 p-3 pl-10 text-sm font-bold focus:border-[#002855] focus:ring-[#002855] shadow-sm placeholder:font-normal placeholder:text-slate-400 @error('dosen_id') border-rose-500 @enderror">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                <div class="space-y-6">
+                    <div class="space-y-2">
+                        <label class="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Hari</label>
+                        <div class="grid grid-cols-3 gap-2">
+                            @foreach(['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'] as $h)
+                            <button wire:click="$set('hari', '{{ $h }}')" class="py-3 rounded-xl text-[10px] font-black uppercase transition-all {{ $hari == $h ? 'bg-[#002855] text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-200' }}">
+                                {{ $h }}
+                            </button>
+                            @endforeach
                         </div>
                     </div>
 
-                    {{-- Dropdown Dosen --}}
-                    @if(!empty($searchDosen))
-                    <div x-show="open" class="absolute z-50 w-full bg-white shadow-2xl rounded-xl mt-2 border border-slate-100 overflow-hidden max-h-60 overflow-y-auto">
-                        @foreach($dosens as $d)
-                        <div wire:click="pilihDosen('{{ $d->id }}', '{{ $d->person->nama_lengkap }}')" @click="open = false" class="px-4 py-3 hover:bg-amber-50 cursor-pointer border-b border-slate-50 last:border-0 transition-colors group">
-                            <p class="text-xs font-black text-[#002855] uppercase group-hover:text-amber-700">{{ $d->person->nama_lengkap }}</p>
-                            <p class="text-[9px] text-slate-400 font-mono mt-0.5">NIDN: {{ $d->nidn }}</p>
+                    <div class="grid grid-cols-2 gap-6">
+                        <div class="space-y-2 text-center">
+                            <label class="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Mulai</label>
+                            <input type="text" wire:model.live="jam_mulai" placeholder="00:00" class="w-full rounded-2xl border-slate-200 py-4 text-center font-black text-2xl text-[#002855]">
                         </div>
-                        @endforeach
-                    </div>
-                    @endif
-
-                    {{-- ALERT BENTROK DOSEN --}}
-                    @if($lecturerConflict)
-                    <div class="mt-3 p-4 bg-rose-50 rounded-xl border border-rose-100 animate-in slide-in-from-top-2 flex items-start gap-3">
-                        <div class="p-1 bg-rose-100 rounded text-rose-600"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg></div>
-                        <div>
-                            <p class="text-[10px] font-black text-rose-700 uppercase tracking-wide">Dosen Sedang Mengajar!</p>
-                            <p class="text-xs text-rose-600 mt-1 font-medium">
-                                Jadwal Lain: {{ $lecturerConflict['mk'] }} <br>
-                                Ruang {{ $lecturerConflict['ruang'] }} &bull; {{ $lecturerConflict['waktu'] }}
-                            </p>
+                        <div class="space-y-2 text-center">
+                            <label class="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Selesai</label>
+                            <input type="text" wire:model.live="jam_selesai" placeholder="00:00" class="w-full rounded-2xl border-slate-200 py-4 text-center font-black text-2xl text-[#002855]">
                         </div>
                     </div>
-                    @endif
-                    @error('dosen_id') <span class="text-rose-500 text-[10px] font-bold mt-1 block">Wajib memilih dosen.</span> @enderror
                 </div>
-            </div>
 
-            {{-- FOOTER ACTION --}}
-            <div class="pt-8 border-t border-slate-100 flex flex-col md:flex-row items-center justify-between gap-6 sticky bottom-0 bg-white py-4 z-20">
-                <div class="flex items-center gap-2 text-slate-400">
-                    <div class="w-2.5 h-2.5 rounded-full {{ $formStatus == 'red' ? 'bg-rose-500 animate-pulse' : ($formStatus == 'green' ? 'bg-emerald-500' : 'bg-slate-300') }}"></div>
-                    <span class="text-[10px] font-bold uppercase tracking-widest">
-                        Status: {{ $formStatus == 'green' ? 'Siap Terbit' : ($formStatus == 'red' ? 'Perbaiki Konflik' : 'Drafting') }}
-                    </span>
+                @if(!empty($lecturerConflict))
+                <div class="p-6 bg-rose-50 border border-rose-100 rounded-[2rem] space-y-4">
+                    <h5 class="text-[10px] font-black text-rose-700 uppercase tracking-widest flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                        BENTROK JADWAL DOSEN
+                    </h5>
+                    @foreach($lecturerConflict as $lc)
+                    <div class="bg-white p-3 rounded-xl border border-rose-100">
+                        <p class="text-[10px] font-black text-slate-700 uppercase">{{ $lc['nama'] }}</p>
+                        <p class="text-[10px] text-rose-500 font-bold mt-1">{{ $lc['mk'] }} &bull; {{ $lc['waktu'] }}</p>
+                    </div>
+                    @endforeach
                 </div>
-                
-                <div class="flex gap-3 w-full md:w-auto">
-                    <button wire:click="resetForm" class="flex-1 md:flex-none px-6 py-3 rounded-xl border border-slate-200 text-slate-500 text-xs font-bold uppercase tracking-widest hover:bg-slate-50 transition-colors">
-                        Batal
+                @endif
+
+                <div class="pt-10">
+                    <button wire:click="save" class="w-full py-5 rounded-3xl bg-[#002855] text-white font-black text-sm tracking-[0.3em] uppercase shadow-2xl shadow-blue-900/40 hover:-translate-y-2 transition-all duration-300 disabled:bg-slate-200 disabled:shadow-none" {{ $formStatus == 'red' ? 'disabled' : '' }}>
+                        PUBLISH JADWAL
                     </button>
-                    <button wire:click="save" 
-                        {{ $formStatus == 'red' ? 'disabled' : '' }}
-                        class="flex-1 md:flex-none px-8 py-3 rounded-xl {{ $formStatus == 'red' ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-[#002855] text-white shadow-lg hover:bg-[#001a38] hover:scale-105' }} text-xs font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2">
-                        <span wire:loading.remove>Simpan Jadwal</span>
-                        <span wire:loading class="flex items-center gap-2">
-                            <svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                            Menyimpan...
-                        </span>
-                    </button>
+                    <p class="text-center text-[10px] font-bold text-slate-400 mt-6 uppercase tracking-widest">Integritas data diverifikasi otomatis</p>
                 </div>
             </div>
-
         </div>
     </div>
     @endif
 
-    {{-- LIST TABLE (VIEW ONLY) --}}
-    <div class="bg-white rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden animate-in fade-in">
+    {{-- Jadwal Table --}}
+    <div class="bg-white rounded-[3rem] shadow-sm border border-slate-100 overflow-hidden">
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-slate-100">
-                <thead class="bg-slate-50/80">
+                <thead class="bg-slate-50/50">
                     <tr>
-                        <th class="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest w-1/4">Waktu & Lokasi</th>
-                        <th class="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest w-1/4">Mata Kuliah</th>
-                        <th class="px-8 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest w-1/4">Pengampu</th>
-                        <th class="px-8 py-5 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest w-1/4">Opsi</th>
+                        <th class="px-8 py-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Waktu & Ruang</th>
+                        <th class="px-8 py-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Mata Kuliah</th>
+                        <th class="px-8 py-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Team Teaching</th>
+                        <th class="px-8 py-6 text-right text-[10px] font-black text-slate-400 uppercase tracking-widest">Opsi</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-50">
                     @foreach($jadwals as $j)
-                    <tr class="hover:bg-indigo-50/20 transition-colors group">
-                        <td class="px-8 py-6 align-top">
-                            <div class="text-sm font-black text-[#002855] uppercase tracking-tighter">{{ $j->hari }}</div>
-                            <div class="text-xs font-bold text-slate-500 mt-1">{{ substr($j->jam_mulai,0,5) }} - {{ substr($j->jam_selesai,0,5) }} WITA</div>
-                            <div class="mt-2 inline-flex px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-600 text-[9px] font-bold uppercase tracking-widest">R. {{ $j->ruang }}</div>
-                        </td>
-                        <td class="px-8 py-6 align-top">
-                            <div class="text-sm font-bold text-slate-800 leading-tight uppercase">{{ $j->mataKuliah->nama_mk }}</div>
-                            <div class="flex items-center gap-2 mt-2">
-                                <span class="text-[9px] font-bold text-slate-400 border border-slate-200 px-1.5 py-0.5 rounded">{{ $j->nama_kelas }}</span>
-                                <span class="text-[9px] font-black bg-[#fcc000] text-[#002855] px-2 py-0.5 rounded">{{ $j->mataKuliah->sks_default }} SKS</span>
-                            </div>
-                        </td>
-                        <td class="px-8 py-6 align-top">
-                            <div class="flex items-start gap-3">
-                                <div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-[#002855] text-xs shrink-0">
-                                    {{ substr($j->dosen->person->nama_lengkap, 0, 1) }}
+                    <tr class="hover:bg-slate-50/80 transition-all group">
+                        <td class="px-8 py-8 align-top">
+                            <div class="flex items-center gap-4">
+                                <div class="w-12 h-12 bg-[#002855]/5 rounded-2xl flex flex-col items-center justify-center text-[#002855]">
+                                    <span class="text-[9px] font-black uppercase leading-none">{{ substr($j->hari, 0, 3) }}</span>
+                                    <span class="text-xs font-black mt-1">{{ substr($j->jam_mulai, 0, 5) }}</span>
                                 </div>
-                                <div class="min-w-0">
-                                    <p class="text-xs font-bold text-slate-700 uppercase">{{ $j->dosen->person->nama_lengkap }}</p>
-                                    <p class="text-[9px] font-mono text-slate-400 mt-0.5">NIDN: {{ $j->dosen->nidn }}</p>
+                                <div>
+                                    <p class="text-xs font-black text-[#002855] uppercase tracking-tighter">Ruang {{ $j->ruang->kode_ruang ?? 'TBA' }}</p>
+                                    <p class="text-[10px] font-bold text-slate-400 mt-1">{{ $j->ruang->nama_ruang ?? '-' }}</p>
                                 </div>
                             </div>
                         </td>
-                        <td class="px-8 py-6 align-top text-right">
-                            <div class="flex justify-end gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
-                                <button wire:click="edit('{{ $j->id }}')" class="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors border border-transparent hover:border-indigo-100">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                                </button>
-                                <button wire:click="delete('{{ $j->id }}')" wire:confirm="Hapus jadwal ini?" class="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors border border-transparent hover:border-rose-100">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                </button>
+                        <td class="px-8 py-8 align-top">
+                            <h4 class="text-sm font-black text-[#002855] leading-none uppercase tracking-tight">{{ $j->mataKuliah->nama_mk }}</h4>
+                            <div class="flex items-center gap-3 mt-3">
+                                <span class="px-2 py-0.5 bg-[#fcc000] text-[#002855] text-[9px] font-black rounded tracking-widest uppercase">{{ $j->nama_kelas }}</span>
+                                <span class="px-2 py-0.5 bg-slate-100 text-slate-500 text-[9px] font-bold rounded uppercase">{{ $j->mataKuliah->sks_default }} SKS</span>
+                            </div>
+                        </td>
+                        <td class="px-8 py-8 align-top">
+                            <div class="flex flex-col gap-2">
+                                @foreach($j->dosens as $d)
+                                <div class="flex items-center gap-2">
+                                    <div class="w-1.5 h-1.5 rounded-full {{ $d->pivot->is_koordinator ? 'bg-amber-400' : 'bg-slate-300' }}"></div>
+                                    <span class="text-[11px] font-bold text-slate-600 uppercase">{{ $d->person->nama_lengkap }}</span>
+                                    @if($d->pivot->is_koordinator) <span class="text-[7px] font-black text-amber-600 border border-amber-200 px-1 rounded uppercase tracking-tighter">Koor</span> @endif
+                                </div>
+                                @endforeach
+                            </div>
+                        </td>
+                        <td class="px-8 py-8 text-right align-top">
+                            <div class="flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button wire:click="edit('{{ $j->id }}')" class="p-3 text-indigo-600 hover:bg-indigo-50 rounded-xl transition-colors"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg></button>
+                                <button class="p-3 text-rose-500 hover:bg-rose-50 rounded-xl transition-colors"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
                             </div>
                         </td>
                     </tr>
@@ -323,7 +260,7 @@
                 </tbody>
             </table>
         </div>
-        <div class="p-8 bg-slate-50 border-t border-slate-100">
+        <div class="px-8 py-6 bg-slate-50/50">
             {{ $jadwals->links() }}
         </div>
     </div>

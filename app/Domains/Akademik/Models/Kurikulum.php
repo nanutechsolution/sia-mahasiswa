@@ -45,7 +45,7 @@ class Kurikulum extends Model
     }
 
     // Relasi Many-to-Many ke MK via Pivot
-    public function mataKuliahs()
+   public function mataKuliahs()
     {
         return $this->belongsToMany(MataKuliah::class, 'kurikulum_mata_kuliah', 'kurikulum_id', 'mata_kuliah_id')
             ->withPivot([
@@ -54,9 +54,8 @@ class Kurikulum extends Model
                 'sks_praktek',
                 'sks_lapangan',
                 'sifat_mk',
-                'prasyarat_mk_id',
-                'min_nilai_prasyarat'
+                // HAPUS 'prasyarat_mk_id' dan 'min_nilai_prasyarat' dari sini
             ])
-            ->orderBy('pivot_semester_paket');
+            ->withTimestamps();
     }
 }

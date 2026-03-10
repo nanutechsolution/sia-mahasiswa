@@ -6,7 +6,9 @@ use Livewire\Component;
 use Illuminate\Support\Facades\Auth;
 use App\Domains\Akademik\Models\Krs;
 use App\Domains\Mahasiswa\Models\RiwayatStatusMahasiswa;
-use App\Domains\Akademik\Models\KrsDetail; // Import Model
+use App\Domains\Akademik\Models\KrsDetail;
+use App\Models\AkademikTranskrip;
+use App\Helpers\SistemHelper;
 
 class PerwalianDetail extends Component
 {
@@ -31,44 +33,49 @@ class PerwalianDetail extends Component
         }
         $dosenId = $user->person->dosen->id;
 
-        $this->krs = Krs::with(['mahasiswa.person', 'mahasiswa.prodi', 'details.jadwalKuliah.mataKuliah', 'details.jadwalKuliah.dosen'])
-            ->findOrFail($this->krsId);
+        // Load KRS dengan relasi Team Teaching dan Ruangan terbaru
+        $this->krs = Krs::with([
+            'mahasiswa.person', 
+            'mahasiswa.prodi', 
+            'details.jadwalKuliah.mataKuliah', 
+            'details.jadwalKuliah.dosens.person',
+            'details.jadwalKuliah.ruang'
+        ])->findOrFail($this->krsId);
 
         if ($this->krs->mahasiswa->dosen_wali_id !== $dosenId) {
             abort(403, 'Anda tidak memiliki hak akses ke KRS mahasiswa ini.');
         }
 
-        // Ambil Riwayat Akademik Terakhir
+        // Ambil Riwayat Akademik Terakhir (Snapshot IPK/IPS)
         $this->riwayat = RiwayatStatusMahasiswa::where('mahasiswa_id', $this->krs->mahasiswa_id)
             ->where('tahun_akademik_id', '<', $this->krs->tahun_akademik_id)
             ->orderBy('tahun_akademik_id', 'desc')
             ->first();
 
-        // [BARU] Ambil Detail Mata Kuliah & Nilai Semester Lalu
+        // Ambil Detail KHS Semester Lalu menggunakan relasi yang benar
         if ($this->riwayat) {
-            $this->khsLalu = KrsDetail::join('jadwal_kuliah', 'krs_detail.jadwal_kuliah_id', '=', 'jadwal_kuliah.id')
-                ->join('master_mata_kuliahs', 'jadwal_kuliah.mata_kuliah_id', '=', 'master_mata_kuliahs.id')
-                ->join('krs', 'krs_detail.krs_id', '=', 'krs.id')
-                ->where('krs.mahasiswa_id', $this->krs->mahasiswa_id)
-                ->where('krs.tahun_akademik_id', $this->riwayat->tahun_akademik_id) // Sesuai semester riwayat
-                ->where('is_published', true) // Hanya nilai final
-                ->select('master_mata_kuliahs.nama_mk', 'master_mata_kuliahs.kode_mk', 'master_mata_kuliahs.sks_default', 'krs_detail.nilai_huruf', 'krs_detail.nilai_indeks')
+            $this->khsLalu = KrsDetail::with(['jadwalKuliah.mataKuliah'])
+                ->whereHas('krs', function($q) {
+                    $q->where('mahasiswa_id', $this->krs->mahasiswa_id)
+                      ->where('tahun_akademik_id', $this->riwayat->tahun_akademik_id);
+                })
+                ->where('is_published', true)
                 ->get();
         }
 
-        $this->totalSks = $this->krs->details->sum(fn($d) => $d->jadwalKuliah->mataKuliah->sks_default ?? 0);
+        $this->totalSks = $this->krs->details->sum('sks_snapshot');
     }
 
     public function setujui()
     {
         $this->krs->update(['status_krs' => 'DISETUJUI']);
-        session()->flash('success', 'KRS Berhasil Disetujui.');
+        session()->flash('success', 'KRS Mahasiswa berhasil disetujui.');
     }
 
     public function tolak()
     {
         $this->krs->update(['status_krs' => 'DRAFT']); 
-        session()->flash('success', 'KRS Ditolak/Dikembalikan ke Mahasiswa.');
+        session()->flash('success', 'KRS telah dikembalikan ke Mahasiswa untuk direvisi.');
     }
 
     public function render()

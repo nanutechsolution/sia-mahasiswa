@@ -5,14 +5,14 @@ namespace App\Livewire\Mahasiswa;
 use Livewire\Component;
 use Illuminate\Support\Facades\Auth;
 use App\Domains\Mahasiswa\Models\Mahasiswa;
-use App\Domains\Akademik\Models\KrsDetail;
+use App\Models\AkademikTranskrip;
 use Illuminate\Support\Facades\DB;
 
 class TranskripPage extends Component
 {
     public $mahasiswa;
 
-    // Statistik Akademik
+    // Statistik Akademik Kumulatif
     public $totalSks = 0;
     public $totalMutu = 0;
     public $ipk = 0;
@@ -21,9 +21,8 @@ class TranskripPage extends Component
     {
         $user = Auth::user();
 
-        // Validasi koneksi User ke Person
         if (!$user->person_id) {
-            abort(403, 'Akun Anda belum terhubung dengan Data Personil (SSOT). Silakan hubungi Admin.');
+            abort(403, 'Akun Anda belum terhubung dengan Data Personil (SSOT).');
         }
 
         $this->mahasiswa = Mahasiswa::with(['prodi.fakultas', 'programKelas', 'person'])
@@ -33,46 +32,33 @@ class TranskripPage extends Component
 
     public function render()
     {
-        $riwayatBelajar = KrsDetail::join('krs', 'krs_detail.krs_id', '=', 'krs.id')
-            ->join('ref_tahun_akademik', 'krs.tahun_akademik_id', '=', 'ref_tahun_akademik.id')
+        // PERBAIKAN: Ambil data dari Materialized View 'akademik_transkrip'
+        // Ini menjamin performa tinggi dan akurasi nilai terbaik (logic retake sudah dihandle observer)
+        $riwayatBelajar = AkademikTranskrip::with([
+                'mataKuliah', 
+                'krsDetail.krs.tahunAkademik'
+            ])
+            ->where('mahasiswa_id', $this->mahasiswa->id)
+            ->get()
+            ->sortBy(function($item) {
+                // Urutkan berdasarkan kode tahun akademik dari relasi krsDetail
+                return $item->krsDetail->krs->tahunAkademik->kode_tahun ?? 0;
+            });
 
-            // LEFT JOIN supaya data lama tetap muncul
-            ->leftJoin('jadwal_kuliah', 'krs_detail.jadwal_kuliah_id', '=', 'jadwal_kuliah.id')
-            ->leftJoin('master_mata_kuliahs', 'jadwal_kuliah.mata_kuliah_id', '=', 'master_mata_kuliahs.id')
-
-            ->where('krs.mahasiswa_id', $this->mahasiswa->id)
-            ->where('krs_detail.is_published', true)
-
-            ->select(
-                'krs_detail.*',
-                'ref_tahun_akademik.nama_tahun as nama_semester',
-                'ref_tahun_akademik.kode_tahun',
-
-                // Gunakan master jika ada, kalau tidak pakai snapshot
-                DB::raw('COALESCE(master_mata_kuliahs.kode_mk, krs_detail.kode_mk_snapshot) as kode_mk'),
-                DB::raw('COALESCE(master_mata_kuliahs.nama_mk, krs_detail.nama_mk_snapshot) as nama_mk'),
-                DB::raw('COALESCE(master_mata_kuliahs.sks_default, krs_detail.sks_snapshot) as sks_default')
-            )
-
-            ->orderBy('ref_tahun_akademik.kode_tahun', 'asc')
-            ->orderBy('kode_mk', 'asc')
-            ->get();
-
-        // Reset statistik
-        $this->totalSks = 0;
-        $this->totalMutu = 0;
-
-        foreach ($riwayatBelajar as $mk) {
-            $this->totalSks += $mk->sks_default;
-            $this->totalMutu += ($mk->sks_default * $mk->nilai_indeks);
-        }
+        // Hitung Statistik Kumulatif
+        $this->totalSks = $riwayatBelajar->sum('sks_diakui');
+        $this->totalMutu = $riwayatBelajar->sum(function ($item) {
+            return $item->sks_diakui * $item->nilai_indeks_final;
+        });
 
         if ($this->totalSks > 0) {
-            $this->ipk = $this->totalMutu / $this->totalSks;
+            $this->ipk = round($this->totalMutu / $this->totalSks, 2);
         }
 
-        // Group per semester
-        $transkripGrouped = $riwayatBelajar->groupBy('nama_semester');
+        // Group per Semester untuk tampilan UI yang rapi
+        $transkripGrouped = $riwayatBelajar->groupBy(function($item) {
+            return $item->krsDetail->krs->tahunAkademik->nama_tahun ?? 'Data Konversi/Lainnya';
+        });
 
         return view('livewire.mahasiswa.transkrip-page', [
             'transkripGrouped' => $transkripGrouped

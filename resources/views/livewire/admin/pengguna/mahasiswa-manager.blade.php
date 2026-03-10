@@ -137,7 +137,6 @@
 
                     <div>
                         <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">NIM *</label>
-                        {{-- PERBAIKAN: Input NIM tetap editable tapi otomatis terisi --}}
                         <input type="text" wire:model="nim" 
                             class="block w-full rounded-lg border-slate-300 bg-slate-50 p-2.5 focus:border-[#002855] focus:ring-[#002855] text-sm font-bold placeholder-slate-400 transition-all" 
                             placeholder="Akan muncul otomatis setelah pilih Prodi & Angkatan">
@@ -179,7 +178,6 @@
                     <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Tahun Angkatan *</label>
-                            {{-- PERBAIKAN: wire:model.live agar men-trigger updatedAngkatanId --}}
                             <select wire:model.live="angkatan_id" class="block w-full rounded-lg border-slate-300 bg-slate-50 p-2.5 focus:border-[#002855] focus:ring-[#002855] text-sm font-bold text-slate-700">
                                 @foreach($angkatans as $akt) <option value="{{ $akt->id_tahun }}">{{ $akt->id_tahun }}</option> @endforeach
                             </select>
@@ -196,11 +194,24 @@
 
                     <div>
                         <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Program Studi *</label>
-                        {{-- PERBAIKAN: wire:model.live agar men-trigger updatedProdiId --}}
                         <select wire:model.live="prodi_id" class="block w-full rounded-lg border-slate-300 bg-slate-50 p-2.5 focus:border-[#002855] focus:ring-[#002855] text-sm font-bold text-slate-700">
                             <option value="">Pilih Prodi</option>
                             @foreach($prodis as $p) <option value="{{ $p->id }}">{{ $p->nama_prodi }}</option> @endforeach
                         </select>
+                        @error('prodi_id') <span class="text-rose-500 text-xs font-bold mt-1 block">{{ $message }}</span> @enderror
+                    </div>
+
+                    {{-- Kurikulum Selection --}}
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Kurikulum Aktif *</label>
+                        <select wire:model="kurikulum_id" class="block w-full rounded-lg border-slate-300 bg-slate-50 p-2.5 focus:border-[#002855] focus:ring-[#002855] text-sm font-bold text-slate-700">
+                            <option value="">Pilih Kurikulum</option>
+                            @foreach($kurikulums->where('prodi_id', $this->prodi_id) as $k) 
+                                <option value="{{ $k->id }}">{{ $k->nama_kurikulum }}</option> 
+                            @endforeach
+                        </select>
+                        @error('kurikulum_id') <span class="text-rose-500 text-xs font-bold mt-1 block">{{ $message }}</span> @enderror
+                        <p class="text-[10px] text-slate-400 mt-1 italic">Diperlukan untuk menentukan MK Prasyarat mahasiswa ini.</p>
                     </div>
 
                     {{-- Dosen Wali (Searchable) --}}
@@ -338,9 +349,9 @@
             <table class="min-w-full divide-y divide-slate-100">
                 <thead class="bg-[#002855] text-white">
                     <tr>
-                        <th class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest">NIM / Identitas</th>
-                        <th class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest">Nama Mahasiswa</th>
-                        <th class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest">Info Akademik</th>
+                        <th class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-left">NIM / Identitas</th>
+                        <th class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-left">Nama Mahasiswa</th>
+                        <th class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-left">Info Akademik</th>
                         <th class="px-6 py-4 text-center text-[10px] font-bold uppercase tracking-widest">Kelas</th>
                         <th class="px-6 py-4 text-right text-[10px] font-bold uppercase tracking-widest">Aksi</th>
                     </tr>
@@ -366,6 +377,15 @@
                         <td class="px-6 py-4 align-top">
                             <div class="text-xs font-bold text-slate-600 uppercase">{{ $mhs->prodi->nama_prodi }}</div>
                             <div class="text-[10px] text-slate-400 font-bold mt-1">Angkatan {{ $mhs->angkatan_id }}</div>
+                            
+                            {{-- Info Kurikulum --}}
+                            <div class="text-[10px] text-slate-400 font-bold mt-0.5 flex items-center gap-1">
+                                <svg class="w-3 h-3 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                                </svg>
+                                Kur: {{ $mhs->kurikulum->nama_kurikulum ?? 'Belum Diatur' }}
+                            </div>
+
                             <div class="mt-2 flex items-center text-[10px] text-[#002855] font-medium bg-indigo-50 px-2 py-1 rounded w-fit border border-indigo-100">
                                 <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />

@@ -4,9 +4,10 @@ namespace App\Livewire\Admin\Pengguna;
 
 use App\Domains\Akademik\Models\Dosen;
 use App\Domains\Core\Models\Person;
+use App\Domains\Akademik\Models\Kurikulum; // Tambahan untuk mengambil Kurikulum
 use Livewire\Component;
 use Livewire\WithPagination;
-use Livewire\WithFileUploads; 
+use Livewire\WithFileUploads;
 use App\Domains\Mahasiswa\Models\Mahasiswa;
 use App\Models\User;
 use App\Domains\Core\Models\Prodi;
@@ -28,13 +29,14 @@ class MahasiswaManager extends Component
     public $mhsId;
     public $nim;
     public $nama_lengkap;
-    public $angkatan_id; 
+    public $angkatan_id;
     public $prodi_id;
     public $program_kelas_id;
+    public $kurikulum_id; // Tambahan Form State
     public $dosen_wali_id;
     public $email_pribadi;
     public $nomor_hp;
-    public $password_baru; 
+    public $password_baru;
     public $bebas_keuangan = false;
 
     // Import State
@@ -49,7 +51,10 @@ class MahasiswaManager extends Component
         $this->angkatan_id = date('Y');
     }
 
-    public function updatedSearch() { $this->resetPage(); }
+    public function updatedSearch()
+    {
+        $this->resetPage();
+    }
 
     // --- REAL-TIME NIM GENERATOR HOOKS ---
 
@@ -57,6 +62,13 @@ class MahasiswaManager extends Component
     public function updatedProdiId()
     {
         $this->fillNimOtomatis();
+        // Otomatis pilih kurikulum aktif untuk prodi tersebut
+        $kurikulumAktif = Kurikulum::where('prodi_id', $this->prodi_id)->where('is_active', true)->first();
+        if ($kurikulumAktif) {
+            $this->kurikulum_id = $kurikulumAktif->id;
+        } else {
+            $this->kurikulum_id = null;
+        }
     }
 
     // Trigger otomatis saat Angkatan dipilih di Form
@@ -87,7 +99,7 @@ class MahasiswaManager extends Component
 
         // Ambil Format, default: {THN}{KODE}{NO:3}
         $format = $prodi->format_nim ?? '{THN}{KODE}{NO:3}';
-        
+
         // 1. Replace Variable Statis
         $thn2 = substr($angkatan, 2, 2); // 24
         $thn4 = $angkatan; // 2024
@@ -104,7 +116,7 @@ class MahasiswaManager extends Component
         if (preg_match('/\{NO:(\d+)\}/', $prefix, $matches)) {
             $length = (int) $matches[1]; // Panjang digit, misal 3
             $patternToken = $matches[0]; // String "{NO:3}"
-            
+
             // Base prefix adalah string sebelum token NO
             $basePrefix = explode($patternToken, $prefix)[0];
 
@@ -125,13 +137,13 @@ class MahasiswaManager extends Component
 
             // Format nomor urut dengan leading zero
             $noStr = str_pad($nextNo, $length, '0', STR_PAD_LEFT);
-            
+
             // Gabungkan kembali
             return str_replace($patternToken, $noStr, $prefix);
         }
 
         // Jika format tidak mengandung {NO:x}, kembalikan prefix (manual fallback)
-        return $prefix; 
+        return $prefix;
     }
 
     // --- IMPORT CSV FEATURE ---
@@ -160,9 +172,12 @@ class MahasiswaManager extends Component
 
         $path = $this->fileImport->getRealPath();
         $file = fopen($path, 'r');
-        fgetcsv($file); 
+        fgetcsv($file);
 
         $countSuccess = 0;
+        
+        // Caching kurikulum aktif per prodi untuk optimasi import
+        $kurikulumAktifPerProdi = Kurikulum::where('is_active', true)->pluck('id', 'prodi_id');
 
         DB::beginTransaction();
         try {
@@ -183,11 +198,11 @@ class MahasiswaManager extends Component
                 $kelas = ProgramKelas::where('kode_internal', $kodeKelas)->first();
 
                 if (!$prodi || !$kelas) {
-                    continue; 
+                    continue;
                 }
 
                 $person = Person::where('nik', $nik)->first();
-                
+
                 if (!$person) {
                     $person = Person::create([
                         'nama_lengkap' => $nama,
@@ -206,7 +221,7 @@ class MahasiswaManager extends Component
                     $user = User::create([
                         'name' => $nama,
                         'username' => $nim,
-                        'email' => $email ?: $nim.'@student.unmaris.ac.id',
+                        'email' => $email ?: $nim . '@student.unmaris.ac.id',
                         'password' => Hash::make($nim),
                         'role' => 'mahasiswa',
                         'is_active' => true,
@@ -220,9 +235,10 @@ class MahasiswaManager extends Component
                     [
                         'person_id' => $person->id,
                         'prodi_id' => $prodi->id,
+                        'kurikulum_id' => $kurikulumAktifPerProdi[$prodi->id] ?? null, // Simpan Kurikulum
                         'program_kelas_id' => $kelas->id,
                         'angkatan_id' => $angkatan,
-                        'dosen_wali_id' => null, 
+                        'dosen_wali_id' => null,
                         'data_tambahan' => ['bebas_keuangan' => false]
                     ]
                 );
@@ -246,28 +262,29 @@ class MahasiswaManager extends Component
             ->where('is_active', true)
             ->get()
             ->sortBy(fn($d) => $d->person->nama_lengkap ?? '')
-            ->values(); 
+            ->values();
 
         $prodis = Prodi::all();
         $programKelasList = ProgramKelas::where('is_active', true)->get();
         $angkatans = DB::table('ref_angkatan')->orderBy('id_tahun', 'desc')->get();
+        $kurikulums = Kurikulum::where('is_active', true)->get(); // Ambil list kurikulum aktif
 
-        $mahasiswas = Mahasiswa::with(['prodi', 'programKelas', 'user', 'dosenWali.person', 'person'])
-            ->where(function($q) {
+        $mahasiswas = Mahasiswa::with(['prodi', 'programKelas', 'user', 'dosenWali.person', 'person', 'kurikulum']) // Eager load kurikulum
+            ->where(function ($q) {
                 $q->whereRaw('LENGTH(nim) < 15')
-                  ->where('nim', 'not like', '%PMB%');
+                    ->where('nim', 'not like', '%PMB%');
             })
-            ->when($this->filterProdiId, function($q) {
+            ->when($this->filterProdiId, function ($q) {
                 $q->where('prodi_id', $this->filterProdiId);
             })
-            ->when($this->filterAngkatan, function($q) {
+            ->when($this->filterAngkatan, function ($q) {
                 $q->where('angkatan_id', $this->filterAngkatan);
             })
-            ->where(function($q) {
-                $q->whereHas('person', function($qp) {
-                    $qp->where('nama_lengkap', 'like', '%'.$this->search.'%');
+            ->where(function ($q) {
+                $q->whereHas('person', function ($qp) {
+                    $qp->where('nama_lengkap', 'like', '%' . $this->search . '%');
                 })
-                ->orWhere('nim', 'like', '%'.$this->search.'%');
+                    ->orWhere('nim', 'like', '%' . $this->search . '%');
             })
             ->orderBy('nim', 'desc')
             ->paginate(10);
@@ -277,37 +294,53 @@ class MahasiswaManager extends Component
             'prodis' => $prodis,
             'programKelasList' => $programKelasList,
             'angkatans' => $angkatans,
-            'dosens' => $dosens
+            'dosens' => $dosens,
+            'kurikulums' => $kurikulums // Kirim kurikulum ke view
         ]);
     }
-    
-    public function create() { $this->resetForm(); $this->showForm = true; $this->editMode = false; }
 
-    public function edit($id) {
+    public function create()
+    {
+        $this->resetForm();
+        $this->showForm = true;
+        $this->editMode = false;
+    }
+
+    public function edit($id)
+    {
         $mhs = Mahasiswa::with(['user', 'person'])->find($id);
         $this->mhsId = $id;
         $this->nim = $mhs->nim;
-        $this->nama_lengkap = $mhs->person->nama_lengkap ?? $mhs->nama_lengkap; 
+        $this->nama_lengkap = $mhs->person->nama_lengkap ?? $mhs->nama_lengkap;
         $this->email_pribadi = $mhs->person->email ?? '';
         $this->nomor_hp = $mhs->person->no_hp ?? '';
         $this->angkatan_id = $mhs->angkatan_id;
         $this->prodi_id = $mhs->prodi_id;
         $this->program_kelas_id = $mhs->program_kelas_id;
-        $this->dosen_wali_id = $mhs->dosen_wali_id; 
+        $this->kurikulum_id = $mhs->kurikulum_id; // Set kurikulum_id saat edit
+        $this->dosen_wali_id = $mhs->dosen_wali_id;
         $this->bebas_keuangan = $mhs->data_tambahan['bebas_keuangan'] ?? false;
-        $this->editMode = true; $this->showForm = true;
+        $this->editMode = true;
+        $this->showForm = true;
     }
 
-    public function save() {
-        $rules = [ 'nama_lengkap' => 'required', 'angkatan_id' => 'required|digits:4', 'prodi_id' => 'required', 'program_kelas_id' => 'required' ];
-        
+    public function save()
+    {
+        $rules = [
+            'nama_lengkap' => 'required', 
+            'angkatan_id' => 'required|digits:4', 
+            'prodi_id' => 'required', 
+            'program_kelas_id' => 'required',
+            'kurikulum_id' => 'required' // Tambahkan validasi kurikulum
+        ];
+
         if ($this->editMode) {
-             $rules['nim'] = ['required', Rule::unique('mahasiswas')->ignore($this->mhsId)];
+            $rules['nim'] = ['required', Rule::unique('mahasiswas')->ignore($this->mhsId)];
         } else {
-             $rules['nim'] = 'required|unique:mahasiswas,nim';
-             $rules['password_baru'] = 'required|min:6'; 
+            $rules['nim'] = 'required|unique:mahasiswas,nim';
+            $rules['password_baru'] = 'required|min:6';
         }
-        
+
         $this->validate($rules);
 
         DB::transaction(function () {
@@ -320,24 +353,32 @@ class MahasiswaManager extends Component
 
             $user = User::where('person_id', $person->id)->first();
             if (!$user) {
-                $user = User::create(['name' => $this->nama_lengkap, 'username' => $this->nim, 'email' => $this->nim . '@student.unmaris.ac.id', 'password' => Hash::make($this->password_baru ?? $this->nim), 'role' => 'mahasiswa', 'is_active' => true, 'person_id' => $person->id]);
+                $user = User::create(['name' => $this->nama_lengkap, 'username' => $this->nim, 'email' => $email ?: $this->nim . '@student.unmaris.ac.id', 'password' => Hash::make($this->password_baru ?? $this->nim), 'role' => 'mahasiswa', 'is_active' => true, 'person_id' => $person->id]);
                 $user->assignRole('mahasiswa');
             } else {
                 $user->update(['name' => $this->nama_lengkap, 'username' => $this->nim]);
-                if($this->password_baru) $user->update(['password' => Hash::make($this->password_baru)]);
+                if ($this->password_baru) $user->update(['password' => Hash::make($this->password_baru)]);
             }
 
-            $dataMhs = ['nim' => $this->nim, 'person_id' => $person->id, 'angkatan_id' => $this->angkatan_id, 'prodi_id' => $this->prodi_id, 'program_kelas_id' => $this->program_kelas_id, 'dosen_wali_id' => $this->dosen_wali_id ?: null];
-            
-            if (!$this->editMode) { 
-                $dataMhs['data_tambahan'] = ['bebas_keuangan' => $this->bebas_keuangan]; 
-                Mahasiswa::create($dataMhs); 
-            } else { 
-                $mhs = Mahasiswa::find($this->mhsId); 
-                $currentData = $mhs->data_tambahan ?? []; 
-                $currentData['bebas_keuangan'] = $this->bebas_keuangan; 
-                $dataMhs['data_tambahan'] = $currentData; 
-                $mhs->update($dataMhs); 
+            $dataMhs = [
+                'nim' => $this->nim, 
+                'person_id' => $person->id, 
+                'angkatan_id' => $this->angkatan_id, 
+                'prodi_id' => $this->prodi_id, 
+                'program_kelas_id' => $this->program_kelas_id, 
+                'kurikulum_id' => $this->kurikulum_id, // Simpan kurikulum_id
+                'dosen_wali_id' => $this->dosen_wali_id ?: null
+            ];
+
+            if (!$this->editMode) {
+                $dataMhs['data_tambahan'] = ['bebas_keuangan' => $this->bebas_keuangan];
+                Mahasiswa::create($dataMhs);
+            } else {
+                $mhs = Mahasiswa::find($this->mhsId);
+                $currentData = $mhs->data_tambahan ?? [];
+                $currentData['bebas_keuangan'] = $this->bebas_keuangan;
+                $dataMhs['data_tambahan'] = $currentData;
+                $mhs->update($dataMhs);
             }
         });
 
@@ -346,16 +387,23 @@ class MahasiswaManager extends Component
         $this->showForm = false;
     }
 
-    public function delete($id) {
+    public function delete($id)
+    {
         $mhs = Mahasiswa::find($id);
         if ($mhs->person && $mhs->person->user) $mhs->person->user->delete();
         $mhs->delete();
         session()->flash('success', 'Mahasiswa dihapus.');
     }
-    
-    public function resetForm() {
-        $this->reset(['mhsId', 'nim', 'nama_lengkap', 'email_pribadi', 'nomor_hp', 'password_baru', 'editMode', 'prodi_id', 'program_kelas_id', 'angkatan_id', 'dosen_wali_id', 'bebas_keuangan', 'fileImport']);
+
+    public function resetForm()
+    {
+        $this->reset(['mhsId', 'nim', 'nama_lengkap', 'email_pribadi', 'nomor_hp', 'password_baru', 'editMode', 'prodi_id', 'program_kelas_id', 'angkatan_id', 'dosen_wali_id', 'kurikulum_id', 'bebas_keuangan', 'fileImport']);
         $this->angkatan_id = date('Y'); // Reset ke tahun ini
     }
-    public function batal() { $this->showForm = false; $this->showImportModal = false; $this->resetForm(); }
+    public function batal()
+    {
+        $this->showForm = false;
+        $this->showImportModal = false;
+        $this->resetForm();
+    }
 }

@@ -10,9 +10,10 @@ use App\Domains\Mahasiswa\Models\RiwayatStatusMahasiswa;
 use App\Domains\Akademik\Models\Krs;
 use App\Domains\Akademik\Models\KrsDetail;
 use App\Domains\Akademik\Models\JadwalKuliah;
-use App\Domains\Akademik\Models\Kurikulum;
 use App\Domains\Akademik\Models\MataKuliah;
 use App\Domains\Akademik\Models\Ekuivalensi;
+use App\Models\AkademikTranskrip; // Import model transkrip baru
+use App\Models\KurikulumMataKuliah;
 use App\Helpers\SistemHelper;
 
 class KrsPage extends Component
@@ -32,7 +33,6 @@ class KrsPage extends Component
     public $blockKrs = false;
     public $pesanBlock = '';
     public $reasonType = ''; // 'NIM', 'FINANCE', 'LEAVE', 'SYSTEM'
-
 
     public function mount()
     {
@@ -58,20 +58,18 @@ class KrsPage extends Component
 
     private function loadMahasiswaData()
     {
-        $this->mahasiswa = Mahasiswa::with(['prodi', 'person', 'programKelas'])
+        $this->mahasiswa = Mahasiswa::with(['prodi', 'person', 'programKelas', 'kurikulum'])
             ->where('person_id', Auth::user()->person_id)
             ->firstOrFail();
     }
 
     private function cekValidasiAwal()
     {
-        // A. CEK MASA KRS
         if (!SistemHelper::isMasaKrsOpen()) {
             $this->blockAccess('Masa pengisian KRS untuk semester ini belum dibuka atau sudah berakhir.', 'SYSTEM');
             return true;
         }
 
-        // B. [NEW] CEK STATUS CUTI (Administrative Guard)
         $riwayatStatus = RiwayatStatusMahasiswa::where('mahasiswa_id', $this->mahasiswa->id)
             ->where('tahun_akademik_id', $this->tahunAkademikId)
             ->first();
@@ -81,7 +79,7 @@ class KrsPage extends Component
             return true;
         }
 
-        // C. CEK KEUANGAN (Dispensasi vs Realisasi)
+        // Cek Keuangan
         $isDispensasi = (bool) ($this->mahasiswa->data_tambahan['bebas_keuangan'] ?? false);
         if (!$isDispensasi) {
             $tagihan = DB::table('tagihan_mahasiswas')
@@ -104,7 +102,6 @@ class KrsPage extends Component
             }
         }
 
-        // D. CEK DOSEN WALI
         if (!$this->mahasiswa->dosen_wali_id) {
             $this->blockAccess('Akses Terkunci: Anda belum memiliki Dosen Wali (Pembimbing Akademik).', 'SYSTEM');
             return true;
@@ -120,36 +117,53 @@ class KrsPage extends Component
         $this->reasonType = $type;
     }
 
+    /**
+     * Logic Pengambilan Mata Kuliah dengan Validasi Prasyarat
+     */
     public function ambilMatkul($jadwalId)
     {
         if ($this->blockKrs || $this->statusKrs !== 'DRAFT') return;
 
-        // Cek Special MK
         if (str_starts_with($jadwalId, 'SPECIAL_')) {
             $this->ambilMatkulSpesial(str_replace('SPECIAL_', '', $jadwalId));
             return;
         }
 
-        $jadwal = JadwalKuliah::with('mataKuliah')->findOrFail($jadwalId);
+        $jadwal = JadwalKuliah::with(['mataKuliah', 'ruang'])->findOrFail($jadwalId);
         $mk = $jadwal->mataKuliah;
 
-        // Validasi SKS
+        // 1. Validasi Prasyarat (Many-to-Many)
+        $unmetPrerequisites = $this->checkPrerequisites($mk->id);
+        if (!empty($unmetPrerequisites)) {
+            session()->flash('error', "Gagal: Anda belum memenuhi prasyarat lulus untuk MK: " . implode(', ', $unmetPrerequisites));
+            return;
+        }
+
+        // 2. Validasi Kuota
+        $currentParticipants = KrsDetail::where('jadwal_kuliah_id', $jadwalId)->count();
+        if ($currentParticipants >= $jadwal->kuota_kelas) {
+            session()->flash('error', "Gagal: Kuota kelas sudah penuh.");
+            return;
+        }
+
+        // 3. Validasi SKS
         if ($mk->activity_type !== KrsDetail::TYPE_CONTINUATION && !$this->isPaket) {
             if (($this->totalSks + $mk->sks_default) > $this->maxSks) {
-                session()->flash('error', "Gagal: SKS melebihi jatah.");
+                session()->flash('error', "Gagal: SKS melebihi jatah maksimum.");
                 return;
             }
         }
 
-        // Cari apakah MK ini diambil melalui jalur ekuivalensi
+        // 4. Cari Jalur Ekuivalensi
         $ekuivalensi = Ekuivalensi::where('prodi_id', $this->mahasiswa->prodi_id)
             ->where('mk_tujuan_id', $mk->id)
             ->where('is_active', true)
             ->first();
 
         KrsDetail::updateOrCreate(
-            ['krs_id' => $this->krsId, 'jadwal_kuliah_id' => $jadwalId],
+            ['krs_id' => $this->krsId, 'mata_kuliah_id' => $mk->id], // Sekarang unik per MK per semester
             [
+                'jadwal_kuliah_id' => $jadwalId,
                 'kode_mk_snapshot' => $mk->kode_mk,
                 'nama_mk_snapshot' => $mk->nama_mk,
                 'sks_snapshot'     => $mk->sks_default,
@@ -160,22 +174,50 @@ class KrsPage extends Component
         );
 
         $this->hitungSks();
-        session()->flash('success', "{$mk->nama_mk} berhasil ditambahkan.");
+        session()->flash('success', "Mata kuliah {$mk->nama_mk} berhasil ditambahkan ke rencana studi.");
+    }
+
+    /**
+     * Memeriksa apakah mahasiswa sudah lulus mata kuliah prasyarat
+     */
+    private function checkPrerequisites($mkId)
+    {
+        $kurikulumId = $this->mahasiswa->kurikulum_id ?? DB::table('master_kurikulums')
+            ->where('prodi_id', $this->mahasiswa->prodi_id)
+            ->where('is_active', true)
+            ->value('id');
+
+        $kurikulumMk = KurikulumMataKuliah::where('kurikulum_id', $kurikulumId)
+            ->where('mata_kuliah_id', $mkId)
+            ->first();
+
+        if (!$kurikulumMk) return [];
+
+        $unmet = [];
+        // Ambil daftar prasyarat dari tabel pivot baru
+        $prasyarats = $kurikulumMk->prasyarats;
+
+        foreach ($prasyarats as $p) {
+            // Cek di tabel transkrip (Materialized View) untuk performa
+            $passed = AkademikTranskrip::where('mahasiswa_id', $this->mahasiswa->id)
+                ->where('mata_kuliah_id', $p->id)
+                ->where('nilai_indeks_final', '>', 0) // Asumsi 0 adalah E/Tidak Lulus
+                ->first();
+
+            if (!$passed) {
+                $unmet[] = $p->nama_mk;
+            }
+        }
+
+        return $unmet;
     }
 
     protected function ambilMatkulSpesial($mkId)
     {
         $mk = MataKuliah::findOrFail($mkId);
 
-        if ($mk->activity_type !== KrsDetail::TYPE_CONTINUATION) {
-            if (($this->totalSks + $mk->sks_default) > $this->maxSks) {
-                session()->flash('error', "Gagal: SKS melebihi jatah.");
-                return;
-            }
-        }
-
         KrsDetail::updateOrCreate(
-            ['krs_id' => $this->krsId, 'kode_mk_snapshot' => $mk->kode_mk],
+            ['krs_id' => $this->krsId, 'mata_kuliah_id' => $mk->id],
             [
                 'jadwal_kuliah_id' => null,
                 'kode_mk_snapshot' => $mk->kode_mk,
@@ -187,7 +229,7 @@ class KrsPage extends Component
         );
 
         $this->hitungSks();
-        session()->flash('success', "{$mk->nama_mk} berhasil ditambahkan.");
+        session()->flash('success', "Kegiatan {$mk->nama_mk} ditambahkan.");
     }
 
     public function hitungSks()
@@ -210,11 +252,6 @@ class KrsPage extends Component
     public function hitungSemesterBerjalan()
     {
         $this->semesterBerjalan = SistemHelper::semesterMahasiswa($this->mahasiswa);
-        // $ta = DB::table('ref_tahun_akademik')->find($this->tahunAkademikId);
-        // $tahunTa = (int) substr($ta->kode_tahun, 0, 4);
-        // $smtTipe = (int) substr($ta->kode_tahun, 4, 1);
-        // $angkatan = (int) preg_replace('/[^0-9]/', '', $this->mahasiswa->angkatan_id);
-        // $this->semesterBerjalan = max(1, (($tahunTa - $angkatan) * 2) + ($smtTipe >= 2 ? 2 : 1));
     }
 
     public function ajukanKrs()
@@ -233,7 +270,7 @@ class KrsPage extends Component
 
     public function ambilPaketOtomatis()
     {
-        $curId = DB::table('master_kurikulums')
+        $curId = $this->mahasiswa->kurikulum_id ?? DB::table('master_kurikulums')
             ->where('prodi_id', $this->mahasiswa->prodi_id)
             ->where('is_active', true)
             ->value('id');
@@ -246,28 +283,28 @@ class KrsPage extends Component
 
         foreach ($mkPaket as $item) {
             $jadwal = JadwalKuliah::where('tahun_akademik_id', $this->tahunAkademikId)
-                ->where('mata_kuliah_id', $item->mata_kul_id ?? $item->mata_kuliah_id)
+                ->where('mata_kuliah_id', $item->mata_kuliah_id)
                 ->first();
 
             if ($jadwal) $this->ambilMatkul($jadwal->id);
         }
     }
 
-
     public function render()
     {
         $this->semesterBerjalan = SistemHelper::semesterMahasiswa($this->mahasiswa);
 
-        $krsDiambil = KrsDetail::with(['jadwalKuliah.mataKuliah', 'jadwalKuliah.dosen.person'])
+        // Load dengan relasi Team Teaching (dosens) dan Ruangan
+        $krsDiambil = KrsDetail::with(['jadwalKuliah.mataKuliah', 'jadwalKuliah.dosens.person', 'jadwalKuliah.ruang'])
             ->where('krs_id', $this->krsId)->get();
 
-        $takenMkIds = $krsDiambil->pluck('jadwalKuliah.mata_kuliah_id')->filter()->toArray();
+        $takenMkIds = $krsDiambil->pluck('mata_kuliah_id')->filter()->toArray();
         $takenMkCodes = $krsDiambil->pluck('kode_mk_snapshot')->toArray();
 
         $jadwalTersedia = collect();
 
         if (!$this->blockKrs) {
-            $activeKurikulumId = DB::table('master_kurikulums')
+            $activeKurikulumId = $this->mahasiswa->kurikulum_id ?? DB::table('master_kurikulums')
                 ->where('prodi_id', $this->mahasiswa->prodi_id)
                 ->where('is_active', true)
                 ->value('id');
@@ -275,34 +312,9 @@ class KrsPage extends Component
             $ta = SistemHelper::getTahunAktif();
             $semesterAktif = $ta->semester; // 1 = ganjil, 2 = genap
 
-            // 1. AMBIL JADWAL REGULER
-            // Tambahkan use ($takenMkIds) agar variabel bisa diakses dalam closure
-            $jadwalReguler = JadwalKuliah::with(['mataKuliah', 'dosen.person'])
+            // AMBIL JADWAL REGULER (Filter Ganjil/Genap Kurikulum)
+            $jadwalReguler = JadwalKuliah::with(['mataKuliah', 'dosens.person', 'ruang'])
                 ->where('tahun_akademik_id', $this->tahunAkademikId)
-                // ->whereHas('mataKuliah', function ($q) use ($activeKurikulumId) {
-                // ->whereHas('mataKuliah', function ($q) use ($activeKurikulumId, $semesterAktif) {
-                //     $q->where('prodi_id', $this->mahasiswa->prodi_id)
-                //         ->where('activity_type', KrsDetail::TYPE_REGULAR)
-                //         // 🔥 FILTER GANJIL / GENAP 
-                //         ->whereRaw('MOD(semester_paket, 2) = ?', [$semesterAktif % 2])
-                //         ->where(function ($sq) use ($activeKurikulumId) {
-                //             $sq->whereIn('id', function ($sub) use ($activeKurikulumId) {
-                //                 $sub->select('mata_kuliah_id')
-                //                     ->from('kurikulum_mata_kuliah')
-                //                     ->where('kurikulum_id', $activeKurikulumId);
-                //             })
-                //                 ->orWhereIn('id', function ($sub) use ($activeKurikulumId) {
-                //                     $sub->select('mk_tujuan_id')
-                //                         ->from('akademik_ekuivalensi')
-                //                         ->where('is_active', true)
-                //                         ->whereIn('mk_asal_id', function ($origin) use ($activeKurikulumId) {
-                //                             $origin->select('mata_kuliah_id')
-                //                                 ->from('kurikulum_mata_kuliah')
-                //                                 ->where('kurikulum_id', $activeKurikulumId);
-                //                         });
-                //                 });
-                //         });
-                // })
                 ->whereHas('mataKuliah', function ($q) use ($activeKurikulumId, $semesterAktif) {
                     $q->where('prodi_id', $this->mahasiswa->prodi_id)
                         ->where('activity_type', KrsDetail::TYPE_REGULAR)
@@ -313,15 +325,14 @@ class KrsPage extends Component
                                 ->whereRaw('MOD(semester_paket, 2) = ?', [$semesterAktif % 2]);
                         });
                 })
-
                 ->whereNotIn('mata_kuliah_id', $takenMkIds)
                 ->orderBy('hari')->orderBy('jam_mulai')
                 ->get();
 
             $jadwalTersedia = $jadwalTersedia->merge($jadwalReguler);
 
-            // 2. AMBIL MK SPESIAL (Semester Akhir)
-            if ($this->semesterBerjalan >= 7) {
+            // AMBIL MK SPESIAL
+            if ($this->semesterBerjalan >= 6) {
                 $specialMks = MataKuliah::where('prodi_id', $this->mahasiswa->prodi_id)
                     ->whereIn('activity_type', [KrsDetail::TYPE_THESIS, KrsDetail::TYPE_MBKM, KrsDetail::TYPE_CONTINUATION])
                     ->whereNotIn('kode_mk', $takenMkCodes)
@@ -336,12 +347,7 @@ class KrsPage extends Component
                     $dummyJadwal->hari = 'Fleksibel';
                     $dummyJadwal->jam_mulai = '00:00';
                     $dummyJadwal->jam_selesai = '23:59';
-                    $dummyJadwal->ruang = '-';
-
-                    $dosen = new \stdClass();
-                    $dosen->person = (object)['nama_lengkap' => 'Koordinator Prodi'];
-                    $dummyJadwal->setRelation('dosen', $dosen);
-
+                    $dummyJadwal->ruang_id = null;
                     $jadwalTersedia->push($dummyJadwal);
                 }
             }

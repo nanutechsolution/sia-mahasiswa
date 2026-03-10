@@ -13,10 +13,9 @@ class InputNilai extends Component
 {
     public $jadwalId;
     public $jadwal;
-    public $komponenBobot = []; // Daftar komponen (nama & persen)
+    public $komponenBobot = []; 
     public $pesertaKelas = [];
     
-    // State Form: inputNilai[mhs_id][komponen_id] = nilai
     public $inputNilai = [];
     public $isLocked = false;
 
@@ -24,39 +23,49 @@ class InputNilai extends Component
     {
         $this->jadwalId = $jadwalId;
         $this->loadConfiguration();
+        $this->checkSecurity(); // Tambahan Keamanan
         $this->loadStudents();
     }
 
     /**
-     * Load konfigurasi komponen nilai berdasarkan kurikulum matakuliah
+     * Memastikan dosen yang login adalah bagian dari Team Teaching jadwal ini
      */
+    private function checkSecurity()
+    {
+        $dosenId = Auth::user()->person->dosen->id ?? null;
+        
+        $isAuthorized = $this->jadwal->dosens->contains('id', $dosenId);
+
+        if (!$isAuthorized) {
+            abort(403, 'Anda tidak memiliki otorisasi untuk menginput nilai pada kelas ini.');
+        }
+    }
+
     public function loadConfiguration()
     {
-        $this->jadwal = JadwalKuliah::with(['mataKuliah', 'tahunAkademik'])->findOrFail($this->jadwalId);
+        // Eager load dosens dan ruang untuk efisiensi
+        $this->jadwal = JadwalKuliah::with(['mataKuliah', 'tahunAkademik', 'dosens', 'ruang'])
+            ->findOrFail($this->jadwalId);
         
-        // 1. Cari Kurikulum yang memuat matakuliah ini
         $kurikulumId = DB::table('kurikulum_mata_kuliah')
-            ->where('mata_kuliah_id', $this->jadwal->mata_kuliah_id)
+            ->where('mata_kuliah_id', $this->jadwal->mata_kul_id ?? $this->jadwal->mata_kuliah_id)
+            ->where('kurikulum_id', $this->jadwal->kurikulum_id)
             ->value('kurikulum_id');
 
         if (!$kurikulumId) {
-            session()->flash('error', 'Konfigurasi kurikulum untuk matakuliah ini tidak ditemukan.');
+            session()->flash('error', 'Konfigurasi kurikulum tidak ditemukan.');
             return;
         }
 
-        // 2. Ambil Komponen & Bobot (SSOT dari Manajemen Bobot Nilai)
         $this->komponenBobot = DB::table('kurikulum_komponen_nilai as kkn')
             ->join('ref_komponen_nilai as rk', 'kkn.komponen_id', '=', 'rk.id')
             ->where('kkn.kurikulum_id', $kurikulumId)
             ->select('rk.id', 'rk.nama_komponen', 'kkn.bobot_persen')
             ->get();
 
-        $this->isLocked = !$this->jadwal->tahunAkademik->buka_input_nilai;
+        $this->isLocked = !($this->jadwal->tahunAkademik->buka_input_nilai ?? true);
     }
 
-    /**
-     * Load daftar mahasiswa dan nilai yang sudah ada
-     */
     public function loadStudents()
     {
         $this->pesertaKelas = KrsDetail::with(['krs.mahasiswa.person'])
@@ -65,7 +74,6 @@ class InputNilai extends Component
             ->get();
 
         foreach ($this->pesertaKelas as $mhs) {
-            // Ambil nilai per komponen dari tabel transaksi krs_detail_nilai
             $existingValues = DB::table('krs_detail_nilai')
                 ->where('krs_detail_id', $mhs->id)
                 ->pluck('nilai_angka', 'komponen_id');
@@ -76,15 +84,11 @@ class InputNilai extends Component
         }
     }
 
-    /**
-     * Simpan nilai mahasiswa (per baris)
-     */
     public function saveLine($mhsDetailId)
     {
         if ($this->isLocked) return;
 
         DB::transaction(function () use ($mhsDetailId) {
-            // 1. Simpan/Update nilai per komponen
             foreach ($this->inputNilai[$mhsDetailId] as $komponenId => $nilai) {
                 DB::table('krs_detail_nilai')->updateOrInsert(
                     ['krs_detail_id' => $mhsDetailId, 'komponen_id' => $komponenId],
@@ -92,18 +96,14 @@ class InputNilai extends Component
                 );
             }
 
-            // 2. Jalankan Action Hitung Nilai Akhir (Total, Huruf, Indeks)
             $detail = KrsDetail::find($mhsDetailId);
             (new HitungNilaiAkhirAction())->execute($detail);
         });
 
         session()->flash('ok-' . $mhsDetailId, 'Tersimpan');
-        $this->loadStudents(); // Refresh data tampilan
+        $this->loadStudents(); 
     }
 
-    /**
-     * Publikasikan nilai agar muncul di KHS Mahasiswa
-     */
     public function publishAll()
     {
         if ($this->isLocked) return;
@@ -112,11 +112,12 @@ class InputNilai extends Component
             $action = new HitungNilaiAkhirAction();
             foreach ($this->pesertaKelas as $mhs) {
                 $mhs->update(['is_published' => true]);
-                $action->hitungIps($mhs->krs); // Update IPK/IPS mahasiswa
+                // Logika Observer akan otomatis mengupdate akademik_transkrip (Materialized View)
+                $action->hitungIps($mhs->krs); 
             }
         });
 
-        session()->flash('global_success', 'Seluruh nilai berhasil dipublikasikan ke KHS.');
+        session()->flash('global_success', 'Seluruh nilai telah dipublikasikan dan terkunci di KHS Mahasiswa.');
         $this->loadStudents();
     }
 

@@ -6,7 +6,9 @@ use Livewire\Component;
 use Illuminate\Support\Facades\Auth;
 use App\Domains\Mahasiswa\Models\Mahasiswa;
 use App\Domains\Akademik\Models\Krs;
+use App\Domains\Akademik\Models\KrsDetail;
 use App\Domains\Mahasiswa\Models\RiwayatStatusMahasiswa;
+use App\Models\AkademikTranskrip;
 use App\Helpers\SistemHelper;
 use Illuminate\Support\Facades\DB;
 
@@ -19,37 +21,33 @@ class KhsPage extends Component
     public $tahunAkademikId;
     public $kaProdi;
     
-    // Properti baru untuk Dropdown Semester
     public $listSemester = [];
-
-    // State EDOM Gatekeeper
     public $isEdomComplete = false;
     public $unfilledCourses = [];
+
+    // Stats Kumulatif
+    public $ipkKumulatif = 0.00;
+    public $totalSksLulus = 0;
 
     public function mount()
     {
         $user = Auth::user();
+        if (!$user->person_id) abort(403, 'Profil Anda belum terhubung dengan data personil.');
 
-        if (!$user->person_id) {
-            abort(403, 'Akun Anda belum terhubung dengan Data Personil (SSOT).');
-        }
-
-        // 1. Load Mahasiswa (Cukup sekali di mount)
-        $this->mahasiswa = Mahasiswa::with(['prodi.fakultas', 'programKelas', 'person'])
+        $this->mahasiswa = Mahasiswa::with(['prodi.fakultas', 'person', 'kurikulum'])
             ->where('person_id', $user->person_id)
             ->firstOrFail();
 
-        // 2. Ambil Riwayat Semester Mahasiswa
-        // Hanya ambil tahun akademik di mana mahasiswa ini sudah memiliki KRS
-        $this->listSemester = Krs::join('ref_tahun_akademik as ta', 'krs.tahun_akademik_id', '=', 'ta.id')
-            ->where('krs.mahasiswa_id', $this->mahasiswa->id)
-            ->select('ta.id', 'ta.kode_tahun', 'ta.nama_tahun')
-            ->orderBy('ta.kode_tahun', 'desc')
-            ->get();
+        // 1. Ambil List Semester yang memiliki record KRS
+        $this->listSemester = Krs::with('tahunAkademik')
+            ->where('mahasiswa_id', $this->mahasiswa->id)
+            ->get()
+            ->pluck('tahunAkademik')
+            ->unique('id')
+            ->sortByDesc('kode_tahun');
 
         $this->tahunAkademikId = SistemHelper::idTahunAktif();
 
-        // Jika mahasiswa belum punya KRS di tahun aktif, otomatis set ke KRS semester terakhirnya
         if ($this->listSemester->isNotEmpty() && !$this->listSemester->contains('id', $this->tahunAkademikId)) {
             $this->tahunAkademikId = $this->listSemester->first()->id;
         }
@@ -57,64 +55,67 @@ class KhsPage extends Component
         $this->loadData();
     }
 
-    // Listener Livewire saat Dropdown Semester diubah
     public function updatedTahunAkademikId()
     {
         $this->loadData();
     }
 
+    /**
+     * Fungsi Inti Pengambilan Data KHS - Refactored for reliability
+     */
     public function loadData()
     {
-        // Reset state sebelumnya
-        $this->krs = null;
-        $this->details = [];
-        $this->unfilledCourses = [];
-        $this->riwayat = null;
-        $this->isEdomComplete = false;
-
         if (!$this->tahunAkademikId) return;
 
-        // 1. Ambil KRS Semester yang Dipilih
-        $this->krs = Krs::with(['tahunAkademik'])
-            ->where('mahasiswa_id', $this->mahasiswa->id)
+        // 1. Load KRS Semester Terpilih
+        $this->krs = Krs::where('mahasiswa_id', $this->mahasiswa->id)
             ->where('tahun_akademik_id', $this->tahunAkademikId)
             ->first();
 
         if ($this->krs) {
-            // 2. Ambil Seluruh Mata Kuliah yang Diambil (Gunakan Query Builder agar Fresh/No Cache)
-            $allDetails = DB::table('krs_detail as kd')
-                ->leftJoin('jadwal_kuliah as jk', 'kd.jadwal_kuliah_id', '=', 'jk.id')
-                ->leftJoin('master_mata_kuliahs as mk', 'jk.mata_kuliah_id', '=', 'mk.id')
-                ->where('kd.krs_id', $this->krs->id)
-                ->select(
-                    'kd.*',
-                    DB::raw('COALESCE(mk.nama_mk, kd.nama_mk_snapshot) as nama_mk'),
-                    DB::raw('COALESCE(mk.kode_mk, kd.kode_mk_snapshot) as kode_mk'),
-                    DB::raw('COALESCE(mk.sks_default, kd.sks_snapshot) as sks_default')
-                )
+            // Ambil semua detail KRS (Gunakan Query Builder agar lebih presisi dibanding Collection filter)
+            $allDetailsQuery = KrsDetail::where('krs_id', $this->krs->id);
+            $allDetails = $allDetailsQuery->get();
+            
+            /**
+             * EVALUASI EDOM (Gunakan filter yang lebih fleksibel terhadap tipe data 0/1 atau true/false)
+             */
+            $this->unfilledCourses = $allDetails->filter(function($item) {
+                return $item->is_edom_filled == false || $item->is_edom_filled == 0;
+            });
+            
+            $this->isEdomComplete = $this->unfilledCourses->isEmpty();
+
+            /**
+             * PENGAMBILAN DETAIL NILAI
+             * Kita ambil data langsung dari database untuk menghindari isu tipe data pada koleksi PHP.
+             * Data diambil hanya jika is_published = 1 (sudah dipublish dosen).
+             */
+            $this->details = KrsDetail::where('krs_id', $this->krs->id)
+                ->where('is_published', 1) 
                 ->get();
             
-            // 3. Filter MK yang belum diisi EDOM
-            $this->unfilledCourses = $allDetails->where('is_edom_filled', false);
-
-            // 4. Logika Penentuan Tampilan
-            // Mengaktifkan kembali Gatekeeper EDOM: Wajib isi semua EDOM untuk lihat KHS
-            if (count($this->unfilledCourses) === 0) {
-                $this->isEdomComplete = true;
-                // Hanya tampilkan nilai yang sudah dipublikasikan oleh dosen / admin import
-                $this->details = $allDetails->where('is_published', true);
-            } else {
-                $this->isEdomComplete = false;
-                $this->details = []; // Sembunyikan semua nilai jika belum lengkap
-            }
+            // Catatan: Jika Anda ingin mengunci nilai berdasarkan EDOM, aktifkan baris di bawah ini:
+            // if (!$this->isEdomComplete) { $this->details = collect(); }
+            
+        } else {
+            $this->details = collect();
+            $this->isEdomComplete = true;
         }
 
-        // 5. Load Statistik (IPS/IPK)
+        // 2. Load Statistik Semester (IPS)
         $this->riwayat = RiwayatStatusMahasiswa::where('mahasiswa_id', $this->mahasiswa->id)
             ->where('tahun_akademik_id', $this->tahunAkademikId)
             ->first();
 
-        // 6. Ambil Data Pejabat untuk Tanda Tangan
+        // 3. Load Statistik Kumulatif dari Materialized Transkrip
+        $transkrip = AkademikTranskrip::where('mahasiswa_id', $this->mahasiswa->id)->get();
+        $this->totalSksLulus = $transkrip->sum('sks_diakui');
+        $this->ipkKumulatif = $this->totalSksLulus > 0 
+            ? round($transkrip->sum(fn($i) => $i->sks_diakui * $i->nilai_indeks_final) / $this->totalSksLulus, 2)
+            : 0.00;
+
+        // 4. Ambil Data Pejabat
         $this->kaProdi = $this->getPejabat('KAPRODI', $this->mahasiswa->prodi_id);
     }
 
@@ -122,6 +123,7 @@ class KhsPage extends Component
     {
         $today = now()->format('Y-m-d');
         $person = DB::table('ref_person as p')
+            ->join('trx_dosen as d', 'p.id', '=', 'd.person_id')
             ->join('trx_person_jabatan as pj', 'p.id', '=', 'pj.person_id')
             ->join('ref_jabatan as j', 'pj.jabatan_id', '=', 'j.id')
             ->where('j.kode_jabatan', $kodeJabatan)
@@ -130,22 +132,13 @@ class KhsPage extends Component
             ->where(function ($q) use ($today) {
                 $q->whereNull('pj.tanggal_selesai')->orWhere('pj.tanggal_selesai', '>=', $today);
             })
-            ->select('p.nama_lengkap', 'p.nik', 'p.id')->first();
+            ->select('p.nama_lengkap', 'd.nidn')->first();
 
         if (!$person) return null;
 
-        // Ambil Gelar (Format Lengkap)
-        $gelars = DB::table('trx_person_gelar as tpg')
-            ->join('ref_gelar as rg', 'tpg.gelar_id', '=', 'rg.id')
-            ->where('tpg.person_id', $person->id)
-            ->select('rg.kode', 'rg.posisi')->orderBy('tpg.urutan', 'asc')->get();
-
-        $gelarDepan = $gelars->where('posisi', 'DEPAN')->pluck('kode')->implode(' ');
-        $gelarBelakang = $gelars->where('posisi', 'BELAKANG')->pluck('kode')->implode(', ');
-
         return (object)[
-            'nama' => trim(($gelarDepan ? $gelarDepan . ' ' : '') . $person->nama_lengkap . ($gelarBelakang ? ', ' . $gelarBelakang : '')),
-            'identitas' => $person->nik
+            'nama' => $person->nama_lengkap,
+            'identitas' => "NIDN. " . $person->nidn
         ];
     }
 

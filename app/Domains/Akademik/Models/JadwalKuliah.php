@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use App\Domains\Akademik\Models\MataKuliah;
 use App\Domains\Core\Models\ProgramKelas;
 use App\Domains\Core\Models\TahunAkademik;
+use App\Models\RefRuang;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
@@ -21,19 +22,14 @@ class JadwalKuliah extends Model
         'tahun_akademik_id',
         'kurikulum_id',
         'mata_kuliah_id',
-        'dosen_id',
         'nama_kelas',
         'hari',
         'jam_mulai',
         'jam_selesai',
-        'ruang',
+        'ruang_id', // Menggunakan relasi ke ref_ruang
         'kuota_kelas',
         'id_program_kelas_allow'
     ];
-    // protected $casts = [
-    //     'jam_mulai' => 'datetime:H:i',
-    //     'jam_selesai' => 'datetime:H:i',
-    // ];
 
     /**
      * Konfigurasi Spatie Activitylog
@@ -44,41 +40,46 @@ class JadwalKuliah extends Model
             ->logOnly([
                 'tahun_akademik_id',
                 'mata_kuliah_id',
-                'dosen_id',
                 'nama_kelas',
                 'hari',
                 'jam_mulai',
                 'jam_selesai',
-                'ruang',
+                'ruang_id',
                 'kuota_kelas',
                 'id_program_kelas_allow',
                 'deleted_at',
             ])
             ->useLogName('Jadwal Kuliah')
-            ->logOnlyDirty() // hanya perubahan yang dicatat
-            ->dontSubmitEmptyLogs(); // jangan log kalau tidak ada perubahan
+            ->logOnlyDirty()
+            ->dontSubmitEmptyLogs();
     }
 
     /**
-     * Custom description untuk event
+     * Deskripsi audit log disesuaikan untuk Team Teaching
      */
     public function getDescriptionForEvent(string $eventName): string
     {
         $mk = $this->mataKuliah->nama_mk ?? '-';
-        $dosen = $this->dosen->person->nama_lengkap ?? '-';
         $kelas = $this->nama_kelas ?? '-';
-
-        return "Jadwal Kuliah [MK: {$mk}, Kelas: {$kelas}, Dosen: {$dosen}] telah di {$eventName}.";
+        return "Jadwal Kuliah [MK: {$mk}, Kelas: {$kelas}] telah di {$eventName}.";
     }
-    // Relasi yang dibutuhkan Livewire KrsPage
+
     public function mataKuliah()
     {
         return $this->belongsTo(MataKuliah::class, 'mata_kuliah_id');
     }
 
-    public function dosen()
+    // Relasi Many-to-Many untuk Team Teaching
+    public function dosens()
     {
-        return $this->belongsTo(\App\Domains\Akademik\Models\Dosen::class, 'dosen_id');
+        return $this->belongsToMany(Dosen::class, 'jadwal_kuliah_dosen', 'jadwal_kuliah_id', 'dosen_id')
+            ->withPivot('is_koordinator', 'rencana_tatap_muka')
+            ->withTimestamps();
+    }
+
+    public function ruang()
+    {
+        return $this->belongsTo(RefRuang::class, 'ruang_id');
     }
 
     public function programKelasAllow()
@@ -86,66 +87,23 @@ class JadwalKuliah extends Model
         return $this->belongsTo(ProgramKelas::class, 'id_program_kelas_allow');
     }
 
-    /**
-     * Relasi ke Detail KRS (Untuk menghitung peserta kelas)
-     */
     public function krsDetails()
     {
         return $this->hasMany(KrsDetail::class, 'jadwal_kuliah_id');
     }
 
-    /**
-     * Relasi ke Tahun Akademik (Untuk Kop Surat PDF)
-     */
     public function tahunAkademik()
     {
         return $this->belongsTo(TahunAkademik::class, 'tahun_akademik_id');
     }
-
-
 
     public function kurikulum()
     {
         return $this->belongsTo(Kurikulum::class, 'kurikulum_id');
     }
 
-
-
-
-
-    /**
-     * Mendapatkan daftar semua sesi pertemuan (Rencana Pertemuan 1-16)
-     * Digunakan untuk halaman detail presensi di sisi Dosen/Admin
-     */
     public function sesi()
     {
-        return $this->hasMany(PerkuliahanSesi::class, 'jadwal_kuliah_id')
-            ->orderBy('pertemuan_ke', 'asc');
-    }
-
-    /**
-     * Helper Cerdas: Mendapatkan sesi yang SEDANG DIBUKA saat ini.
-     * Sangat berguna untuk Dashboard Mahasiswa: 
-     * $jadwal->sesiAktif akan null jika kelas tutup, dan berisi objek jika dosen sudah klik "Buka Kelas".
-     */
-    public function sesiAktif()
-    {
-        return $this->hasOne(PerkuliahanSesi::class, 'jadwal_kuliah_id')
-            ->where('status_sesi', 'dibuka')
-            ->latestOfMany();
-    }
-
-    /**
-     * Relasi ke KRS Detail untuk mengambil daftar peserta kelas
-     * Digunakan saat generate lembar absensi kosong untuk Dosen
-     */
-    public function pesertaKelas()
-    {
-        return $this->hasMany(KrsDetail::class, 'jadwal_kuliah_id')
-            ->where('status_ambil', 'B') // Asumsi 'A' = Approved/Ambil
-            ->join('krs', 'krs_detail.krs_id', '=', 'krs.id')
-            ->join('mahasiswas', 'krs.mahasiswa_id', '=', 'mahasiswas.id') // Join ke data MHS untuk sort nama
-            ->orderBy('mahasiswas.nim', 'asc')
-            ->select('krs_detail.*');
+        return $this->hasMany(PerkuliahanSesi::class, 'jadwal_kuliah_id')->orderBy('pertemuan_ke', 'asc');
     }
 }

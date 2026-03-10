@@ -50,6 +50,7 @@ use App\Livewire\Admin\Lpm\IndikatorManager;
 use App\Livewire\Admin\Lpm\KuisionerManager;
 use App\Livewire\Admin\Lpm\LpmDashboard;
 use App\Livewire\Admin\Lpm\StandarManager;
+use App\Livewire\Admin\Pengguna\PlotingKurikulumManager;
 use App\Livewire\Admin\System\AuditLogViewer;
 use App\Livewire\Admin\System\UserManager;
 use App\Livewire\Admin\System\RoleManager;
@@ -148,7 +149,8 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/cetak-absensi/{jadwalId}', [AdminCetakController::class, 'cetakAbsensi'])->name('admin.cetak.absensi');
             Route::get('/ploting-pa', PlotingPaManager::class)->name('admin.ploting-pa');
             Route::get('/mutasi', MutasiMhsManager::class)->name('admin.akademik.mutasi');
-
+            Route::get('admin/cetak/rekap-absensi/{jadwalId}', [AdminCetakController::class, 'cetakRekapAbsensi'])->name('admin.cetak.rekap-absensi');
+            Route::get('/admin/pengguna/ploting-kurikulum', PlotingKurikulumManager::class)->name('admin.ploting.kurikulum');
             // Manajemen Pengguna Akademik
             Route::get('/mahasiswa', MahasiswaManager::class)->name('admin.mahasiswa');
             Route::get('/camaba', CamabaManager::class)->name('admin.camaba');

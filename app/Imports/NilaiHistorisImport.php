@@ -8,6 +8,7 @@ use App\Domains\Akademik\Models\MataKuliah;
 use App\Domains\Akademik\Models\SkalaNilai;
 use App\Domains\Core\Models\TahunAkademik;
 use App\Domains\Mahasiswa\Models\Mahasiswa;
+use App\Models\AkademikTranskrip;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
@@ -22,106 +23,139 @@ class NilaiHistorisImport implements ToCollection, WithHeadingRow, WithChunkRead
 
     public function collection(Collection $rows)
     {
-        // Cache master data di memori untuk mempercepat query dalam loop
-        // Ini sangat berguna jika data yang diimport ribuan
+        // --- PRE-LOAD DATA (PERFORMANCE OPTIMIZATION) ---
+        // Load data master ke memori sekali saja untuk menghindari ribuan query ke DB
         $tahunAkademikCache = TahunAkademik::all()->keyBy('kode_tahun');
         $skalaNilaiCache = SkalaNilai::all()->keyBy('huruf');
-        
-        // Loop setiap baris di Excel
+
+        // Load Mata Kuliah ke cache (karena jumlahnya biasanya tidak sebanyak mahasiswa)
+        $mkCache = MataKuliah::all()->keyBy('kode_mk');
+
+        // Untuk Mahasiswa, kita ambil NIM yang ada di chunk ini saja agar hemat RAM
+        $nims = $rows->pluck('nim')->filter()->unique()->toArray();
+        $mahasiswaCache = Mahasiswa::whereIn('nim', $nims)->get()->keyBy('nim');
+
         foreach ($rows as $index => $row) {
-            $barisExcel = $index + 2; // +2 karena index mulai dari 0 dan baris 1 adalah header
+            $barisExcel = $index + 2;
 
             try {
                 // 1. Validasi Kolom Wajib
                 if (empty($row['nim']) || empty($row['kode_tahun']) || empty($row['kode_mk']) || empty($row['nilai_huruf'])) {
-                    $this->errors[] = "Baris $barisExcel: Kolom wajib (NIM, Kode Tahun, Kode MK, Nilai Huruf) ada yang kosong.";
+                    $this->errors[] = [
+                        'row' => $barisExcel,
+                        'message' => "Kolom wajib (NIM, Kode Tahun, Kode MK, Nilai Huruf) ada yang kosong."
+                    ];
                     continue;
                 }
 
-                // 2. Cari Data Master
-                $mahasiswa = Mahasiswa::where('nim', $row['nim'])->first();
-                $mk = MataKuliah::where('kode_mk', $row['kode_mk'])->first();
-                
+                // 2. Ambil dari Cache
+                $mahasiswa = $mahasiswaCache->get($row['nim']);
+                $mk = $mkCache->get($row['kode_mk']);
                 $tahun = $tahunAkademikCache->get($row['kode_tahun']);
                 $skala = $skalaNilaiCache->get(strtoupper($row['nilai_huruf']));
 
-                // Cek ketersediaan data master
+                // 3. Validasi Ketersediaan Master Data
                 if (!$mahasiswa) {
-                    $this->errors[] = "Baris $barisExcel: Mahasiswa dengan NIM {$row['nim']} tidak ditemukan.";
+                    $this->errors[] = [
+                        'row' => $barisExcel,
+                        'message' => "Mahasiswa dengan NIM {$row['nim']} tidak ditemukan."
+                    ];
                     continue;
                 }
                 if (!$tahun) {
-                    $this->errors[] = "Baris $barisExcel: Tahun Akademik {$row['kode_tahun']} tidak ditemukan.";
+                    $this->errors[] = [
+                        'row' => $barisExcel,
+                        'message' => "Kode Tahun {$row['kode_tahun']} tidak ditemukan."
+                    ];
                     continue;
                 }
                 if (!$mk) {
-                    $this->errors[] = "Baris $barisExcel: Mata Kuliah {$row['kode_mk']} tidak ditemukan.";
+                    $this->errors[] = [
+                        'row' => $barisExcel,
+                        'message' => "Kode MK {$row['kode_mk']} tidak ditemukan."
+                    ];
                     continue;
                 }
                 if (!$skala) {
-                    $this->errors[] = "Baris $barisExcel: Nilai Huruf {$row['nilai_huruf']} tidak valid/tidak ada di master.";
+                    $this->errors[] = [
+                        'row' => $barisExcel,
+                        'message' => "Huruf Nilai {$row['nilai_huruf']} tidak terdaftar di Skala Nilai."
+                    ];
                     continue;
                 }
 
-                // 3. Eksekusi Database menggunakan Transaction
+                // 4. Eksekusi Database dengan Transaksi
                 DB::transaction(function () use ($mahasiswa, $tahun, $mk, $skala, $row) {
-                    
-                    // A. Buat atau Cari Header KRS
-                    // Kita cari berdasarkan mahasiswa dan tahun akademik
+
+                    // A. Header KRS (Historis)
                     $krs = Krs::firstOrCreate(
                         [
                             'mahasiswa_id' => $mahasiswa->id,
                             'tahun_akademik_id' => $tahun->id,
                         ],
                         [
-                            'id' => Str::uuid()->toString(),
-                            'status_krs' => 'DISETUJUI', // Langsung disetujui
+                            'id' => (string) Str::uuid(),
+                            'status_krs' => 'DISETUJUI',
                             'tgl_krs' => now(),
                         ]
                     );
 
-                    // B. Masukkan Detail Nilai
-                    // Cek dulu apakah MK ini sudah ada di KRS semester ini (mencegah duplikat)
-                    $existingDetail = KrsDetail::where('krs_id', $krs->id)
-                                             ->where('kode_mk_snapshot', $mk->kode_mk)
-                                             ->first();
-
-                    if ($existingDetail) {
-                        // Jika sudah ada, update nilainya saja
-                        $existingDetail->update([
-                            'nilai_angka' => $row['nilai_angka'] ?? 0,
-                            'nilai_huruf' => $skala->huruf,
-                            'nilai_indeks' => $skala->bobot_indeks,
-                            'is_published' => 1,
-                        ]);
-                    } else {
-                        // Jika belum ada, buat baru
-                        KrsDetail::create([
+                    // B. Detail Nilai (Harden Snapshot & FK)
+                    $detail = KrsDetail::updateOrCreate(
+                        [
                             'krs_id' => $krs->id,
-                            'jadwal_kuliah_id' => null, // Data historis tidak butuh jadwal
+                            'mata_kuliah_id' => $mk->id, // Wajib diisi untuk data historis
+                        ],
+                        [
+                            'id' => (string) Str::uuid(),
+                            'jadwal_kuliah_id' => null,
                             'kode_mk_snapshot' => $mk->kode_mk,
                             'nama_mk_snapshot' => $mk->nama_mk,
                             'sks_snapshot' => $mk->sks_default,
-                            'activity_type_snapshot' => $mk->activity_type,
-                            'status_ambil' => 'B', // B = Baru, U = Ulang
-                            'nilai_angka' => $row['nilai_angka'] ?? 0,
+                            'activity_type_snapshot' => $mk->activity_type ?? 'KULIAH',
+                            'status_ambil' => 'B',
+                            'nilai_angka' => $row['nilai_angka'] ?? $skala->batas_bawah,
                             'nilai_huruf' => $skala->huruf,
                             'nilai_indeks' => $skala->bobot_indeks,
-                            'is_published' => 1, // Langsung muncul di transkrip
-                            'is_edom_filled' => 1, // Anggap sudah isi edom agar tidak nyangkut
-                        ]);
+                            'is_published' => 1,
+                            'is_edom_filled' => 1,
+                        ]
+                    );
+
+                    // C. SINKRONISASI TRANSKRIP (Manual trigger untuk memastikan update transkrip segera)
+                    // Cari data transkrip eksis untuk cek logic 'Nilai Terbaik'
+                    $existingTranskrip = AkademikTranskrip::where('mahasiswa_id', $mahasiswa->id)
+                        ->where('mata_kuliah_id', $mk->id)
+                        ->first();
+
+                    if (!$existingTranskrip || (float)$skala->bobot_indeks >= (float)$existingTranskrip->nilai_indeks_final) {
+                        AkademikTranskrip::updateOrCreate(
+                            [
+                                'mahasiswa_id' => $mahasiswa->id,
+                                'mata_kuliah_id' => $mk->id,
+                            ],
+                            [
+                                'krs_detail_id' => $detail->id,
+                                'sks_diakui' => $mk->sks_default,
+                                'nilai_angka_final' => $detail->nilai_angka,
+                                'nilai_huruf_final' => $detail->nilai_huruf,
+                                'nilai_indeks_final' => $detail->nilai_indeks,
+                                'is_konversi' => false,
+                            ]
+                        );
                     }
                 });
 
                 $this->successCount++;
-
             } catch (\Exception $e) {
-                $this->errors[] = "Baris $barisExcel: Terjadi kesalahan sistem - " . $e->getMessage();
+                $this->errors[] = [
+                    'row' => $barisExcel,
+                    'message' => "Gagal karena sistem - " . $e->getMessage()
+                ];
             }
         }
     }
 
-    // Membaca per 500 baris agar RAM server tidak penuh jika import 10.000 data
     public function chunkSize(): int
     {
         return 500;
