@@ -89,14 +89,25 @@
                         </div>
 
                         <label class="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1 block mt-6">Pilih Ruangan Kuliah</label>
-                        <select wire:model.live="ruang_id" class="w-full rounded-2xl border-slate-200 bg-white py-4 px-5 font-bold text-[#002855] focus:ring-[#fcc000]">
-                            <option value="">-- Pilih Ruangan --</option>
-                            @foreach($ruangOptions as $ro) 
-                                <option value="{{ $ro->id }}">[{{ $ro->kode_ruang }}] {{ $ro->nama_ruang }} (Kapasitas: {{ $ro->kapasitas }})</option> 
-                            @endforeach
-                        </select>
+                        {{-- PERBAIKAN: Searchable Room Selector --}}
+                        <div class="relative" x-data="{ open: false }">
+                            <input type="text" wire:model.live="searchRuang" @focus="open = true" @click.away="open = false"
+                                placeholder="{{ $selectedRuangName ?: 'Cari Kode atau Nama Ruang...' }}"
+                                class="w-full rounded-2xl border-slate-200 py-4 px-5 font-bold focus:ring-[#fcc000] bg-white">
+                            @if(!empty($searchRuang))
+                            <div x-show="open" class="absolute z-50 w-full bg-white shadow-2xl rounded-2xl mt-2 border border-slate-100 max-h-64 overflow-y-auto animate-in fade-in zoom-in-95">
+                                @foreach($ruangOptions as $ro)
+                                <div wire:click="pilihRuang('{{ $ro->id }}', '[{{ $ro->kode_ruang }}] {{ $ro->nama_ruang }}')" @click="open = false" class="px-5 py-4 hover:bg-indigo-50 cursor-pointer border-b border-slate-50 last:border-0 transition-all">
+                                    <p class="text-xs font-black text-[#002855] uppercase">[{{ $ro->kode_ruang }}] {{ $ro->nama_ruang }}</p>
+                                    <p class="text-[9px] text-slate-400 font-bold mt-1 uppercase tracking-wider">Kapasitas: {{ $ro->kapasitas }} Mahasiswa</p>
+                                </div>
+                                @endforeach
+                            </div>
+                            @endif
+                        </div>
+
                         @if($roomConflict)
-                        <div class="p-4 bg-rose-50 border border-rose-100 rounded-2xl animate-pulse">
+                        <div class="p-4 bg-rose-50 border border-rose-100 rounded-2xl animate-pulse mt-4">
                             <p class="text-[10px] font-black text-rose-600 uppercase tracking-widest">⚠ KONFLIK RUANGAN!</p>
                             <p class="text-xs text-rose-500 font-bold mt-1">{{ $roomConflict['mk'] }} ({{ $roomConflict['kelas'] }}) jam {{ $roomConflict['waktu'] }}</p>
                         </div>

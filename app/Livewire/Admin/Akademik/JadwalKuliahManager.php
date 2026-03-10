@@ -26,8 +26,8 @@ class JadwalKuliahManager extends Component
     public $jadwalId;
     public $kurikulum_id;
     public $mata_kuliah_id;
-    public $dosen_ids = []; // Team Teaching
-    public $koordinator_id;
+    public $dosen_ids = []; 
+    public $koordinator_id; 
     public $nama_kelas;
     public $hari;
     public $jam_mulai;
@@ -38,14 +38,16 @@ class JadwalKuliahManager extends Component
     // Search & UI States
     public $searchMk = '';
     public $searchDosen = '';
+    public $searchRuang = ''; // Tambahan state pencarian ruang
     public $selectedMkName = '';
-    public $selectedDosenList = [];
+    public $selectedRuangName = ''; // Tambahan state nama ruang terpilih
+    public $selectedDosenList = []; 
     public $showForm = false;
 
     // Validation States
     public $roomConflict = null;
     public $lecturerConflict = [];
-    public $formStatus = 'neutral';
+    public $formStatus = 'neutral'; 
 
     public function mount()
     {
@@ -59,14 +61,11 @@ class JadwalKuliahManager extends Component
             $this->reset(['mata_kuliah_id', 'selectedMkName', 'searchMk']);
         }
 
-        if (in_array($propertyName, ['hari', 'jam_mulai', 'jam_selesai', 'ruang_id', 'dosen_ids'])) {
+        if (in_array($propertyName, ['hari', 'jam_mulai', 'jam_selesai', 'ruang_id', 'dosen_ids', 'koordinator_id'])) {
             $this->validateRealTime();
         }
     }
 
-    /**
-     * Validasi bentrok ruang dan dosen secara real-time
-     */
     protected function validateRealTime()
     {
         $this->roomConflict = null;
@@ -93,7 +92,6 @@ class JadwalKuliahManager extends Component
             $baseQuery->where('id', '!=', $this->jadwalId);
         }
 
-        // Cek Bentrok Ruangan
         if ($this->ruang_id) {
             $conflict = (clone $baseQuery)->where('ruang_id', $this->ruang_id)->first();
             if ($conflict) {
@@ -106,7 +104,6 @@ class JadwalKuliahManager extends Component
             }
         }
 
-        // Cek Bentrok Dosen (Multi-dosen)
         if (!empty($this->dosen_ids)) {
             foreach ($this->dosen_ids as $d_id) {
                 $conflict = (clone $baseQuery)->whereHas('dosens', fn($q) => $q->where('dosen_id', $d_id))->first();
@@ -126,7 +123,16 @@ class JadwalKuliahManager extends Component
     public function render()
     {
         $kurikulumOptions = Kurikulum::where('prodi_id', $this->filterProdiId)->where('is_active', true)->get();
-        $ruangOptions = RefRuang::where('is_active', true)->orderBy('kode_ruang')->get();
+        
+        // Fitur Search Ruangan
+        $ruangOptions = RefRuang::where('is_active', true)
+            ->when($this->searchRuang, function($q) {
+                $q->where('nama_ruang', 'like', "%{$this->searchRuang}%")
+                  ->orWhere('kode_ruang', 'like', "%{$this->searchRuang}%");
+            })
+            ->orderBy('kode_ruang')
+            ->take(10)
+            ->get();
 
         $formMks = [];
         if ($this->kurikulum_id) {
@@ -160,28 +166,30 @@ class JadwalKuliahManager extends Component
         ]);
     }
 
-    /**
-     * Method untuk memilih Mata Kuliah dari dropdown search
-     */
     public function pilihMk($id, $nama)
     {
         $this->mata_kuliah_id = $id;
         $this->selectedMkName = $nama;
         $this->searchMk = '';
-        // Cek bentrok ulang jika MK berubah (opsional, tapi bagus untuk validasi sisa)
         $this->validateRealTime();
     }
 
     /**
-     * Menambahkan dosen ke dalam tim pengampu (Team Teaching)
+     * Method untuk memilih Ruangan via Search
      */
+    public function pilihRuang($id, $nama)
+    {
+        $this->ruang_id = $id;
+        $this->selectedRuangName = $nama;
+        $this->searchRuang = '';
+        $this->validateRealTime();
+    }
+
     public function tambahDosen($id, $nama)
     {
         if (!in_array($id, $this->dosen_ids)) {
             $this->dosen_ids[] = $id;
             $this->selectedDosenList[] = ['id' => $id, 'nama' => $nama];
-            
-            // Set koordinator otomatis jika ini dosen pertama
             if (count($this->dosen_ids) === 1) {
                 $this->koordinator_id = $id;
             }
@@ -194,8 +202,6 @@ class JadwalKuliahManager extends Component
     {
         $this->dosen_ids = array_values(array_filter($this->dosen_ids, fn($val) => $val != $id));
         $this->selectedDosenList = array_values(array_filter($this->selectedDosenList, fn($val) => $val['id'] != $id));
-        
-        // Reset koordinator jika yang dihapus adalah koordinator
         if ($this->koordinator_id == $id) {
             $this->koordinator_id = $this->dosen_ids[0] ?? null;
         }
@@ -211,10 +217,10 @@ class JadwalKuliahManager extends Component
             'kurikulum_id' => 'required',
             'mata_kuliah_id' => 'required',
             'hari' => 'required',
-            'jam_mulai' => 'required',
-            'jam_selesai' => 'required',
+            'jam_mulai' => 'required|date_format:H:i',
+            'jam_selesai' => 'required|date_format:H:i|after:jam_mulai',
             'ruang_id' => 'required',
-            'nama_kelas' => 'required',
+            'nama_kelas' => 'required|max:20',
             'kuota_kelas' => 'required|numeric|min:1'
         ]);
 
@@ -231,21 +237,25 @@ class JadwalKuliahManager extends Component
                 'kuota_kelas' => $this->kuota_kelas,
             ]);
 
-            // Sync Team Teaching
             $syncData = [];
             foreach ($this->dosen_ids as $id) {
-                $syncData[$id] = ['is_koordinator' => ($id == $this->koordinator_id)];
+                $syncData[$id] = [
+                    'is_koordinator' => ($id == $this->koordinator_id),
+                    'rencana_tatap_muka' => 14 
+                ];
             }
             $jadwal->dosens()->sync($syncData);
         });
 
         $this->resetForm();
-        session()->flash('success', 'Jadwal kuliah berhasil diterbitkan.');
+        session()->flash('success', 'Jadwal Kuliah berhasil diterbitkan ke sistem.');
     }
 
     public function edit($id)
     {
-        $j = JadwalKuliah::with(['mataKuliah', 'dosens.person'])->find($id);
+        $j = JadwalKuliah::with(['mataKuliah', 'dosens.person', 'ruang'])->find($id);
+        if (!$j) return;
+
         $this->jadwalId = $id;
         $this->kurikulum_id = $j->kurikulum_id;
         $this->mata_kuliah_id = $j->mata_kuliah_id;
@@ -256,8 +266,8 @@ class JadwalKuliahManager extends Component
         $this->ruang_id = $j->ruang_id;
         $this->kuota_kelas = $j->kuota_kelas;
         $this->selectedMkName = $j->mataKuliah->nama_mk;
+        $this->selectedRuangName = $j->ruang ? "[{$j->ruang->kode_ruang}] {$j->ruang->nama_ruang}" : '';
         
-        // Load Team Teaching
         $this->dosen_ids = [];
         $this->selectedDosenList = [];
         foreach ($j->dosens as $d) {
@@ -275,10 +285,10 @@ class JadwalKuliahManager extends Component
     public function resetForm()
     {
         $this->reset([
-            'jadwalId', 'mata_kuliah_id', 'dosen_ids', 'selectedDosenList', 
+            'jadwalId', 'mata_kuliah_id', 'ruang_id', 'dosen_ids', 'selectedDosenList', 
             'koordinator_id', 'nama_kelas', 'hari', 'jam_mulai', 'jam_selesai', 
-            'ruang_id', 'selectedMkName', 'showForm', 'roomConflict', 
-            'lecturerConflict', 'formStatus'
+            'selectedMkName', 'selectedRuangName', 'showForm', 'roomConflict', 
+            'lecturerConflict', 'formStatus', 'searchMk', 'searchDosen', 'searchRuang'
         ]);
         $this->kuota_kelas = 40;
     }
