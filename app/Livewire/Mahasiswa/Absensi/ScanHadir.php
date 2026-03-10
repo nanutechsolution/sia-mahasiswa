@@ -7,6 +7,7 @@ use App\Domains\Akademik\Models\JadwalKuliah;
 use App\Domains\Akademik\Models\PerkuliahanAbsensi;
 use App\Domains\Akademik\Models\KrsDetail;
 use App\Domains\Akademik\Models\PerkuliahanSesi;
+use App\Models\JadwalUjianPeserta; // Import Model Ujian
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Facades\Log; 
@@ -15,9 +16,16 @@ use Illuminate\Support\Str;
 
 class ScanHadir extends Component
 {
+    // Mode State: 'KULIAH' atau 'UJIAN'
+    public $scanMode = null; 
+
+    // Active Instances
     public $jadwalAktif;
-    public $sesiAktif;
+    public $sesiAktif; // Untuk Kuliah
+    public $ujianAktif; // Untuk Ujian
     public $krsDetailAktif;
+    public $pesertaUjianAktif; // Untuk Ujian
+
     public $sudahAbsen = false;
     public $waktuAbsen;
     
@@ -67,9 +75,13 @@ class ScanHadir extends Component
         $mahasiswaId = $this->getMahasiswaId();
         if (!$mahasiswaId) return;
 
-        // Cari KrsDetail yang jadwalnya memiliki sesi status 'dibuka'
-        // Join ke relasi untuk memastikan SSOT
-        $krsDetail = KrsDetail::query()
+        // Reset semua state sebelum mengecek ulang
+        $this->reset(['scanMode', 'jadwalAktif', 'sesiAktif', 'ujianAktif', 'pesertaUjianAktif', 'krsDetailAktif', 'sudahAbsen', 'waktuAbsen']);
+
+        // ========================================================
+        // 1. CEK PERKULIAHAN BIASA (Dosen membuka sesi)
+        // ========================================================
+        $krsDetailKuliah = KrsDetail::query()
             ->whereHas('krs', fn($q) => $q->where('mahasiswa_id', $mahasiswaId)->where('status_krs', 'DISETUJUI'))
             ->whereHas('jadwalKuliah', function($q) {
                 $q->whereHas('sesi', fn($s) => $s->where('status_sesi', 'dibuka'));
@@ -77,19 +89,17 @@ class ScanHadir extends Component
             ->with(['jadwalKuliah.mataKuliah', 'jadwalKuliah.dosens.person', 'jadwalKuliah.ruang'])
             ->first();
 
-        $this->reset(['jadwalAktif', 'sesiAktif', 'krsDetailAktif', 'sudahAbsen', 'waktuAbsen']);
-
-        if ($krsDetail) {
-            $this->krsDetailAktif = $krsDetail;
-            $this->jadwalAktif = $krsDetail->jadwalKuliah;
+        if ($krsDetailKuliah) {
+            $this->krsDetailAktif = $krsDetailKuliah;
+            $this->jadwalAktif = $krsDetailKuliah->jadwalKuliah;
             
-            // Ambil sesi terbaru yang dibuka untuk jadwal ini
             $this->sesiAktif = PerkuliahanSesi::where('jadwal_kuliah_id', $this->jadwalAktif->id)
                 ->where('status_sesi', 'dibuka')
                 ->latest('created_at')
                 ->first();
 
             if ($this->sesiAktif) {
+                $this->scanMode = 'KULIAH';
                 $absen = PerkuliahanAbsensi::where('perkuliahan_sesi_id', $this->sesiAktif->id)
                     ->where('krs_detail_id', $this->krsDetailAktif->id)
                     ->first();
@@ -100,7 +110,43 @@ class ScanHadir extends Component
                 }
                 
                 $this->loadRiwayatAbsensi();
+                return; // Stop, dahulukan kelas reguler jika ada
             }
+        }
+
+        // ========================================================
+        // 2. CEK JADWAL UJIAN (UTS / UAS)
+        // ========================================================
+        $now = Carbon::now('Asia/Makassar');
+        $today = $now->toDateString();
+
+        $pesertaUjian = JadwalUjianPeserta::with([
+                'jadwalUjian.jadwalKuliah.mataKuliah', 
+                'jadwalUjian.ruang', 
+                'jadwalUjian.jadwalKuliah.dosens.person', 
+                'krsDetail'
+            ])
+            ->whereHas('krsDetail.krs', fn($q) => $q->where('mahasiswa_id', $mahasiswaId)->where('status_krs', 'DISETUJUI'))
+            ->whereHas('jadwalUjian', function($q) use ($today, $now) {
+                // Toleransi absen 30 menit sebelum ujian dimulai hingga ujian selesai
+                $q->where('tanggal_ujian', $today)
+                  ->whereTime('jam_mulai', '<=', $now->copy()->addMinutes(30)->toTimeString())
+                  ->whereTime('jam_selesai', '>=', $now->toTimeString());
+            })
+            ->first();
+
+        if ($pesertaUjian) {
+            $this->scanMode = 'UJIAN';
+            $this->pesertaUjianAktif = $pesertaUjian;
+            $this->ujianAktif = $pesertaUjian->jadwalUjian;
+            $this->jadwalAktif = $pesertaUjian->jadwalUjian->jadwalKuliah;
+            $this->krsDetailAktif = $pesertaUjian->krsDetail;
+
+            if ($pesertaUjian->status_kehadiran === 'H') {
+                $this->sudahAbsen = true;
+                $this->waktuAbsen = $pesertaUjian->waktu_check_in ? Carbon::parse($pesertaUjian->waktu_check_in)->timezone('Asia/Makassar')->format('H:i') : 'Manual';
+            }
+            $this->loadRiwayatAbsensi();
         }
     }
 
@@ -108,6 +154,7 @@ class ScanHadir extends Component
     {
         if (!$this->krsDetailAktif) return;
 
+        // Tampilkan 5 riwayat absensi kelas terakhir sebagai referensi
         $this->riwayatAbsensi = PerkuliahanAbsensi::with('sesi')
             ->where('krs_detail_id', $this->krsDetailAktif->id)
             ->orderByDesc('created_at')
@@ -119,7 +166,6 @@ class ScanHadir extends Component
     {
         $this->notifType = $type;
         $this->notifMessage = $msg;
-        // Reset message setelah 5 detik di sisi frontend (dispatch browser event jika perlu)
     }
 
     public function checkIn()
@@ -127,8 +173,8 @@ class ScanHadir extends Component
         $this->reset(['notifMessage', 'notifType']);
         $this->cekJadwalBerlangsung(); // Re-validation
 
-        if (!$this->sesiAktif) {
-            $this->notify('error', 'Sesi perkuliahan sudah ditutup oleh dosen.');
+        if (!$this->scanMode) {
+            $this->notify('error', 'Sesi perkuliahan atau ujian sudah ditutup / belum dimulai.');
             return;
         }
 
@@ -137,64 +183,93 @@ class ScanHadir extends Component
             return;
         }
 
-        $metode = $this->sesiAktif->metode_validasi;
-        $jarak = 0;
+        // ========================================
+        // CHECK IN MODE KULIAH REGULER
+        // ========================================
+        if ($this->scanMode === 'KULIAH') {
+            $metode = $this->sesiAktif->metode_validasi;
+            $jarak = 0;
 
-        // 1. Validasi Metode: QR/TOKEN
-        if ($metode === 'QR') {
-            if (empty($this->inputToken)) {
-                $this->notify('error', 'Token wajib diisi. Lihat kode di proyektor kelas.');
-                return;
+            if ($metode === 'QR') {
+                if (empty($this->inputToken) || strtoupper(trim($this->inputToken)) !== strtoupper(trim($this->sesiAktif->token_sesi))) {
+                    $this->notify('error', 'Token salah atau sudah kadaluarsa.');
+                    return;
+                }
             }
-            if (strtoupper(trim($this->inputToken)) !== strtoupper(trim($this->sesiAktif->token_sesi))) {
-                $this->notify('error', 'Token salah atau sudah kadaluarsa.');
-                return;
-            }
-        }
 
-        // 2. Validasi Metode: GPS
-        if ($metode === 'GPS') {
+            if ($metode === 'GPS') {
+                if (!$this->latitude || !$this->longitude) {
+                    $this->notify('warning', 'Data lokasi tidak tersedia. Pastikan GPS aktif.');
+                    return;
+                }
+                $jarak = $this->hitungJarak($this->latitude, $this->longitude, $this->latKampus, $this->longKampus);
+                if ($jarak > $this->maxRadiusMeter) {
+                    $this->notify('error', "Terdeteksi di luar radius kampus (" . number_format($jarak, 0) . "m). Silakan mendekat ke area kelas.");
+                    return;
+                }
+            }
+
+            try {
+                PerkuliahanAbsensi::create([
+                    'id' => (string) Str::uuid(),
+                    'perkuliahan_sesi_id' => $this->sesiAktif->id,
+                    'krs_detail_id' => $this->krsDetailAktif->id,
+                    'status_kehadiran' => 'H',
+                    'waktu_check_in' => Carbon::now('Asia/Makassar'),
+                    'bukti_validasi' => [
+                        'ip' => Request::ip(),
+                        'method' => $metode,
+                        'dist' => round($jarak, 2),
+                        'lat' => $this->latitude,
+                        'long' => $this->longitude,
+                        'acc' => $this->accuracy,
+                        'ua' => Request::header('User-Agent')
+                    ],
+                    'is_manual_update' => false
+                ]);
+
+                $this->sudahAbsen = true;
+                $this->waktuAbsen = Carbon::now('Asia/Makassar')->format('H:i');
+                $this->notify('success', 'Presensi kuliah berhasil tercatat. Selamat belajar!');
+                $this->loadRiwayatAbsensi();
+
+            } catch (\Exception $e) {
+                Log::error("Absensi Kuliah Gagal: " . $e->getMessage());
+                $this->notify('error', 'Terjadi kesalahan sistem saat memproses presensi.');
+            }
+
+        // ========================================
+        // CHECK IN MODE UJIAN (UTS / UAS)
+        // ========================================
+        } elseif ($this->scanMode === 'UJIAN') {
+            
+            // Wajib GPS untuk Ujian (Keamanan ketat)
             if (!$this->latitude || !$this->longitude) {
-                $this->notify('warning', 'Data lokasi tidak tersedia. Pastikan GPS aktif.');
+                $this->notify('warning', 'Data lokasi tidak tersedia. Absen ujian memerlukan Validasi GPS.');
                 return;
             }
 
             $jarak = $this->hitungJarak($this->latitude, $this->longitude, $this->latKampus, $this->longKampus);
             
             if ($jarak > $this->maxRadiusMeter) {
-                $this->notify('error', "Terdeteksi di luar radius kampus (" . number_format($jarak, 0) . "m). Silakan mendekat ke area kelas.");
+                $this->notify('error', "Terdeteksi di luar kampus (" . number_format($jarak, 0) . "m). Dilarang melakukan absen ujian dari luar area kampus!");
                 return;
             }
-        }
 
-        // 3. Eksekusi Simpan
-        try {
-            PerkuliahanAbsensi::create([
-                'id' => (string) Str::uuid(),
-                'perkuliahan_sesi_id' => $this->sesiAktif->id,
-                'krs_detail_id' => $this->krsDetailAktif->id,
-                'status_kehadiran' => 'H',
-                'waktu_check_in' => Carbon::now('Asia/Makassar'),
-                'bukti_validasi' => [
-                    'ip' => Request::ip(),
-                    'method' => $metode,
-                    'dist' => round($jarak, 2),
-                    'lat' => $this->latitude,
-                    'long' => $this->longitude,
-                    'acc' => $this->accuracy,
-                    'ua' => Request::header('User-Agent')
-                ],
-                'is_manual_update' => false
-            ]);
+            try {
+                $this->pesertaUjianAktif->update([
+                    'status_kehadiran' => 'H',
+                    'waktu_check_in' => Carbon::now('Asia/Makassar')
+                ]);
 
-            $this->sudahAbsen = true;
-            $this->waktuAbsen = Carbon::now('Asia/Makassar')->format('H:i');
-            $this->notify('success', 'Presensi berhasil tercatat. Selamat belajar!');
-            $this->loadRiwayatAbsensi();
+                $this->sudahAbsen = true;
+                $this->waktuAbsen = Carbon::now('Asia/Makassar')->format('H:i');
+                $this->notify('success', 'Kehadiran ujian berhasil disahkan. Semoga sukses!');
 
-        } catch (\Exception $e) {
-            Log::error("Absensi Gagal: " . $e->getMessage());
-            $this->notify('error', 'Terjadi kesalahan sistem saat memproses presensi.');
+            } catch (\Exception $e) {
+                Log::error("Absensi Ujian Gagal: " . $e->getMessage());
+                $this->notify('error', 'Terjadi kesalahan sistem saat menyimpan data kehadiran ujian.');
+            }
         }
     }
 

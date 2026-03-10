@@ -24,21 +24,26 @@
     </div>
     @endif
 
-    {{-- KARTU UTAMA SESSION --}}
-    @if($jadwalAktif && $sesiAktif)
-        <div class="relative overflow-hidden rounded-[2.5rem] bg-[#002855] text-white shadow-2xl shadow-blue-900/20 border border-white/5">
+    {{-- KARTU UTAMA SESSION (Berubah tergantung Kuliah atau Ujian) --}}
+    @if($jadwalAktif && $scanMode)
+        <div class="relative overflow-hidden rounded-[2.5rem] {{ $scanMode === 'UJIAN' ? 'bg-[#1e1b4b]' : 'bg-[#002855]' }} text-white shadow-2xl border border-white/5 transition-colors duration-500">
             {{-- Aksen Latar Belakang --}}
-            <div class="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-blue-500/20 blur-3xl"></div>
+            <div class="absolute -right-20 -top-20 h-64 w-64 rounded-full {{ $scanMode === 'UJIAN' ? 'bg-amber-500/20' : 'bg-blue-500/20' }} blur-3xl"></div>
             
             <div class="relative z-10 p-8">
                 {{-- Status Bar --}}
                 <div class="flex items-center justify-between mb-8">
                     <div class="px-3 py-1 bg-white/10 rounded-full border border-white/10 flex items-center gap-2">
                         <span class="relative flex h-2 w-2">
-                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full {{ $scanMode === 'UJIAN' ? 'bg-amber-400' : 'bg-emerald-400' }} opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-2 w-2 {{ $scanMode === 'UJIAN' ? 'bg-amber-500' : 'bg-emerald-500' }}"></span>
                         </span>
-                        <span class="text-[9px] font-black uppercase tracking-[0.2em] text-white/80">Pertemuan {{ $sesiAktif->pertemuan_ke }} Aktif</span>
+                        
+                        @if($scanMode === 'KULIAH')
+                            <span class="text-[9px] font-black uppercase tracking-[0.2em] text-white/80">Pertemuan {{ $sesiAktif->pertemuan_ke }} Aktif</span>
+                        @elseif($scanMode === 'UJIAN')
+                            <span class="text-[9px] font-black uppercase tracking-[0.2em] text-[#fcc000]">Ujian {{ $ujianAktif->jenis_ujian }} Aktif</span>
+                        @endif
                     </div>
                     @if($sudahAbsen)
                     <div class="text-[10px] font-black text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-lg border border-emerald-500/20 uppercase tracking-widest italic">Hadir • {{ $waktuAbsen }}</div>
@@ -47,7 +52,7 @@
 
                 {{-- Course Detail --}}
                 <div class="space-y-2 mb-10">
-                    <h2 class="text-3xl font-black leading-none uppercase tracking-tighter italic italic">{{ $jadwalAktif->mataKuliah->nama_mk }}</h2>
+                    <h2 class="text-3xl font-black leading-none uppercase tracking-tighter italic">{{ $jadwalAktif->mataKuliah->nama_mk }}</h2>
                     <div class="flex flex-wrap items-center gap-x-4 gap-y-2 pt-2">
                         <div class="flex items-center gap-2 text-slate-300 text-xs font-bold uppercase tracking-wide">
                             <div class="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-[10px] text-white">👨‍🏫</div>
@@ -59,19 +64,27 @@
                 <div class="grid grid-cols-2 gap-4 mb-10">
                     <div class="bg-white/5 rounded-2xl p-4 border border-white/5 backdrop-blur-sm">
                         <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Lokasi Sesi</p>
-                        <p class="text-sm font-black uppercase tracking-tight">{{ $jadwalAktif->ruang->kode_ruang ?? 'ONLINE' }}</p>
+                        @if($scanMode === 'KULIAH')
+                            <p class="text-sm font-black uppercase tracking-tight">{{ $jadwalAktif->ruang->kode_ruang ?? 'ONLINE' }}</p>
+                        @else
+                            <p class="text-sm font-black uppercase tracking-tight text-[#fcc000]">{{ $ujianAktif->ruang->kode_ruang ?? 'ONLINE' }}</p>
+                        @endif
                     </div>
                     <div class="bg-white/5 rounded-2xl p-4 border border-white/5 backdrop-blur-sm">
                         <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Batas Waktu</p>
-                        <p class="text-sm font-black uppercase tracking-tight">{{ substr($jadwalAktif->jam_selesai, 0, 5) }} WITA</p>
+                        @if($scanMode === 'KULIAH')
+                            <p class="text-sm font-black uppercase tracking-tight">{{ substr($jadwalAktif->jam_selesai, 0, 5) }} WITA</p>
+                        @else
+                            <p class="text-sm font-black uppercase tracking-tight text-[#fcc000]">{{ substr($ujianAktif->jam_selesai, 0, 5) }} WITA</p>
+                        @endif
                     </div>
                 </div>
 
                 {{-- SCANNER / INPUT AREA --}}
                 <div x-data="absensiHandler()" class="space-y-6">
                     @if(!$sudahAbsen)
-                        {{-- Metode QR/TOKEN --}}
-                        @if($sesiAktif->metode_validasi === 'QR')
+                        {{-- Metode QR/TOKEN hanya untuk Kuliah --}}
+                        @if($scanMode === 'KULIAH' && $sesiAktif->metode_validasi === 'QR')
                         <div class="space-y-3">
                             <input type="text" wire:model="inputToken" maxlength="6"
                                 class="w-full text-center uppercase text-4xl font-black tracking-[0.4em] py-5 rounded-2xl border-2 border-white/20 bg-white/5 text-[#fcc000] focus:border-[#fcc000] transition-all outline-none placeholder:text-white/10" 
@@ -87,7 +100,7 @@
                             
                             <div class="relative z-10 flex items-center justify-center gap-4">
                                 <div x-show="!processing" class="flex items-center gap-4">
-                                    <span class="text-sm font-black uppercase tracking-[0.3em]">Konfirmasi Kehadiran</span>
+                                    <span class="text-sm font-black uppercase tracking-[0.3em]">{{ $scanMode === 'UJIAN' ? 'Absen Ujian' : 'Konfirmasi Hadir' }}</span>
                                     <svg class="w-6 h-6 group-hover:translate-x-2 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
                                 </div>
                                 <div x-show="processing" class="flex items-center gap-3">
@@ -98,14 +111,21 @@
                         </button>
 
                         <div class="flex items-center justify-center gap-4 pt-4 border-t border-white/5 opacity-50">
-                            <div class="flex items-center gap-1.5">
-                                <div class="w-1.5 h-1.5 rounded-full {{ $sesiAktif->metode_validasi == 'GPS' ? 'bg-emerald-400' : 'bg-slate-500' }}"></div>
-                                <span class="text-[8px] font-black uppercase tracking-widest">GPS Check</span>
-                            </div>
-                            <div class="flex items-center gap-1.5">
-                                <div class="w-1.5 h-1.5 rounded-full {{ $sesiAktif->metode_validasi == 'QR' ? 'bg-[#fcc000]' : 'bg-slate-500' }}"></div>
-                                <span class="text-[8px] font-black uppercase tracking-widest">Token Auth</span>
-                            </div>
+                            @if($scanMode === 'UJIAN')
+                                <div class="flex items-center gap-1.5">
+                                    <div class="w-1.5 h-1.5 rounded-full bg-[#fcc000]"></div>
+                                    <span class="text-[8px] font-black uppercase tracking-widest text-[#fcc000]">Strict GPS Verification Required</span>
+                                </div>
+                            @else
+                                <div class="flex items-center gap-1.5">
+                                    <div class="w-1.5 h-1.5 rounded-full {{ $sesiAktif->metode_validasi == 'GPS' ? 'bg-emerald-400' : 'bg-slate-500' }}"></div>
+                                    <span class="text-[8px] font-black uppercase tracking-widest">GPS Check</span>
+                                </div>
+                                <div class="flex items-center gap-1.5">
+                                    <div class="w-1.5 h-1.5 rounded-full {{ $sesiAktif->metode_validasi == 'QR' ? 'bg-[#fcc000]' : 'bg-slate-500' }}"></div>
+                                    <span class="text-[8px] font-black uppercase tracking-widest">Token Auth</span>
+                                </div>
+                            @endif
                         </div>
                     @else
                         <div class="p-6 bg-emerald-500/10 border border-emerald-500/30 rounded-3xl flex flex-col items-center justify-center text-center space-y-3">
@@ -126,9 +146,9 @@
         <div class="py-24 px-10 text-center border-4 border-dashed border-slate-200 rounded-[3rem] bg-slate-50/50 flex flex-col items-center justify-center space-y-6">
             <div class="w-24 h-24 bg-white rounded-full flex items-center justify-center shadow-xl text-5xl grayscale opacity-30">⏳</div>
             <div>
-                <h3 class="text-xl font-black text-slate-800 uppercase tracking-tight italic">Menunggu Kelas Dibuka</h3>
+                <h3 class="text-xl font-black text-slate-800 uppercase tracking-tight italic">Menunggu Jadwal Dibuka</h3>
                 <p class="text-slate-400 text-xs font-medium mt-2 leading-relaxed max-w-xs mx-auto uppercase tracking-widest">
-                    Belum ada sesi perkuliahan aktif untuk jadwal Anda hari ini. Halaman akan diperbarui otomatis.
+                    Belum ada sesi perkuliahan atau ujian aktif untuk jadwal Anda hari ini.
                 </p>
             </div>
             <div class="pt-4">
@@ -143,7 +163,7 @@
     @if(count($riwayatAbsensi) > 0)
     <div class="bg-white rounded-[2.5rem] border border-slate-200 p-8 shadow-sm">
         <div class="flex items-center justify-between mb-8">
-            <h3 class="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Riwayat Terakhir</h3>
+            <h3 class="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Riwayat Kuliah Terakhir</h3>
             <button wire:click="cetakRekapan" class="px-4 py-2 bg-slate-50 text-slate-600 hover:bg-[#002855] hover:text-white rounded-xl text-[9px] font-black uppercase tracking-widest border border-slate-100 transition-all">Download Log</button>
         </div>
 
@@ -181,7 +201,8 @@
                     this.processing = true;
                     this.statusMsg = 'Mengunci Sesi...';
 
-                    let method = @js($sesiAktif->metode_validasi ?? 'GPS');
+                    // Cek Metode: Ujian selalu memaksa GPS. Jika Kuliah, cek metodenya.
+                    let method = '{{ $scanMode === "KULIAH" ? ($sesiAktif->metode_validasi ?? "GPS") : "GPS" }}';
 
                     if (method === 'GPS') {
                         this.statusMsg = 'Mencari Koordinat...';
@@ -203,7 +224,7 @@
                                 });
                             },
                             (err) => {
-                                alert("Gagal mendapatkan lokasi. Harap aktifkan GPS Anda.");
+                                alert("Gagal mendapatkan lokasi. Harap aktifkan/berikan izin GPS pada browser Anda.");
                                 this.processing = false;
                             },
                             { enableHighAccuracy: true, timeout: 10000 }

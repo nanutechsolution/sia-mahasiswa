@@ -106,4 +106,15 @@ class JadwalKuliah extends Model
     {
         return $this->hasMany(PerkuliahanSesi::class, 'jadwal_kuliah_id')->orderBy('pertemuan_ke', 'asc');
     }
+
+    public function komponenNilai()
+    {
+        return $this->hasMany(\App\Models\JadwalKomponenNilai::class, 'jadwal_kuliah_id');
+    }
+
+    // Relasi ke Jadwal Ujian
+    public function ujiana()
+    {
+        return $this->hasMany(\App\Models\JadwalUjian::class, 'jadwal_kuliah_id');
+    }
 }

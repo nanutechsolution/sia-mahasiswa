@@ -34,7 +34,7 @@
     @if($role === 'mahasiswa')
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
         
-        {{-- Alerts --}}
+        {{-- Alerts & Notifications --}}
         @if($stats['edom_pending'] > 0 || $stats['finance']['debt'] > 0)
         <div class="lg:col-span-12 grid grid-cols-1 md:grid-cols-2 gap-6">
             @if($stats['edom_pending'] > 0)
@@ -60,7 +60,7 @@
         </div>
         @endif
 
-        {{-- Surveys --}}
+        {{-- Surveys Section --}}
         @if(count($activeSurveys) > 0)
         <div class="lg:col-span-12 space-y-4">
             <div class="flex items-center gap-2 px-2">
@@ -74,7 +74,7 @@
                         <div class="w-12 h-12 bg-slate-50 text-2xl flex items-center justify-center rounded-2xl group-hover:bg-[#002855] transition-colors">📊</div>
                         <div>
                             <h4 class="text-xs font-black text-[#002855] uppercase tracking-wide line-clamp-1">{{ $survey['title'] }}</h4>
-                            <p class="text-[10px] text-slate-400 mt-1 font-bold">Batas Waktu: {{ Carbon\Carbon::now()->addDays(2)->isoFormat('D MMM') }}</p>
+                            <p class="text-[10px] text-slate-400 mt-1 font-bold">Partisipasi Aktif</p>
                         </div>
                     </div>
                     <div class="mt-6 pt-4 border-t border-slate-50 text-right">
@@ -86,7 +86,7 @@
         </div>
         @endif
 
-        {{-- Stats Cards --}}
+        {{-- Academic Real-time Stats --}}
         <div class="lg:col-span-4 space-y-6">
             <div class="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-200 relative overflow-hidden h-full flex flex-col justify-between">
                 <div class="relative z-10">
@@ -99,7 +99,7 @@
                     </div>
                 </div>
                 
-                <div class="grid grid-cols-3 gap-3 mt-10">
+                <div class="grid grid-cols-4 gap-3 mt-10">
                     <a href="{{ route('mhs.krs') }}" class="p-4 bg-slate-50 rounded-2xl flex flex-col items-center hover:bg-[#002855] group transition-all" wire:navigate>
                         <span class="text-xl mb-1 group-hover:scale-125 transition-transform">📄</span>
                         <span class="text-[8px] font-black text-slate-500 uppercase group-hover:text-[#fcc000]">KRS</span>
@@ -112,12 +112,25 @@
                         <span class="text-xl mb-1 group-hover:scale-125 transition-transform">🎓</span>
                         <span class="text-[8px] font-black text-slate-500 uppercase group-hover:text-[#fcc000]">SKPI</span>
                     </a>
+                    
+                    {{-- Tambahan Tombol Cetak Kartu Ujian (Dropdown) --}}
+                    <div x-data="{ open: false }" class="relative">
+                        <button @click="open = !open" @click.away="open = false" class="w-full h-full p-4 bg-slate-50 rounded-2xl flex flex-col items-center hover:bg-[#002855] group transition-all">
+                            <span class="text-xl mb-1 group-hover:scale-125 transition-transform">🎫</span>
+                            <span class="text-[8px] font-black text-slate-500 uppercase group-hover:text-[#fcc000]">UJIAN</span>
+                        </button>
+                        
+                        <div x-show="open" style="display: none;" class="absolute bottom-full mb-2 right-0 w-32 bg-[#002855] rounded-[1rem] shadow-2xl overflow-hidden z-50 animate-in fade-in zoom-in-95 origin-bottom-right border border-blue-800">
+                            <a href="{{ route('mhs.cetak.ujian', 'UTS') }}" target="_blank" class="block px-4 py-3 text-[10px] font-black text-white hover:bg-indigo-600 text-center border-b border-white/10 uppercase tracking-widest transition-colors">Kartu UTS</a>
+                            <a href="{{ route('mhs.cetak.ujian', 'UAS') }}" target="_blank" class="block px-4 py-3 text-[10px] font-black text-[#fcc000] hover:bg-indigo-600 text-center uppercase tracking-widest transition-colors">Kartu UAS</a>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
 
         <div class="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-8">
-            {{-- Financial --}}
+            {{-- Financial Health --}}
             <div class="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-200 flex flex-col">
                 <div class="flex justify-between items-start mb-8">
                     <div>
@@ -145,7 +158,7 @@
                 </div>
             </div>
 
-            {{-- Schedule --}}
+            {{-- Daily Agenda --}}
             <div class="bg-white rounded-[3rem] shadow-sm border border-slate-200 overflow-hidden flex flex-col">
                 <div class="px-8 py-6 bg-slate-50/50 border-b border-slate-100 flex justify-between items-center">
                     <h4 class="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
@@ -181,7 +194,7 @@
 
     @elseif($role === 'dosen')
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {{-- Lecturer Stats --}}
+        {{-- Lecturer Performance Stats --}}
         <div class="lg:col-span-4 space-y-6">
             <div class="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-200">
                 <p class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6">Kinerja Pengajaran</p>
@@ -210,7 +223,7 @@
             @endif
         </div>
 
-        {{-- Lecturer Schedule --}}
+        {{-- Lecturer Schedule supporting Team Teaching --}}
         <div class="lg:col-span-8 bg-white rounded-[3rem] shadow-sm border border-slate-200 overflow-hidden">
             <div class="px-10 py-6 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
                 <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Agenda Mengajar Hari Ini</h3>
@@ -237,7 +250,7 @@
                         <a href="{{ route('dosen.nilai', $j->id) }}" class="px-6 py-2.5 bg-[#002855] text-white hover:bg-indigo-600 rounded-2xl text-[9px] font-black uppercase tracking-[0.2em] transition-all shadow-lg shadow-blue-900/10" wire:navigate>Input Nilai</a>
                         @if($j->dosens->count() > 1)
                         <div class="flex items-center gap-1 justify-end">
-                            <span class="text-[8px] font-black text-amber-500 uppercase tracking-widest">Team Teaching</span>
+                            <span class="text-[8px] font-black text-amber-500 uppercase tracking-widest italic">Tim</span>
                         </div>
                         @endif
                     </div>
@@ -253,12 +266,12 @@
     </div>
     @endif
 
-    {{-- FOOTER VERSION --}}
+    {{-- System Status Footer --}}
     <div class="pt-10 flex flex-col items-center gap-2 opacity-30 grayscale pointer-events-none border-t border-slate-100">
         <p class="text-[9px] font-black uppercase tracking-[0.6em] text-[#002855]">UNMARIS Enterprise Digital Environment &bull; v4.2 PRO</p>
     </div>
 
-    {{-- Floating Notifications --}}
+    {{-- Global Alert Notifications --}}
     @if(count($notifications) > 0)
     <div x-data="{ show: true }" x-show="show" x-transition class="fixed bottom-8 right-8 z-50 flex flex-col gap-4">
         @foreach($notifications as $notif)

@@ -13,110 +13,111 @@
     </div>
 
     {{-- 2. Filter & Search Bento Box --}}
-    <div class="bg-white p-2 shadow-sm rounded-[2.5rem] border border-slate-200 grid grid-cols-1 md:grid-cols-3 gap-2">
-        <div class="flex items-center gap-4 p-4 bg-slate-50 rounded-[1.8rem] border border-slate-100 group focus-within:border-[#002855] transition-all">
-            <div class="w-10 h-10 rounded-xl bg-white text-[#002855] flex items-center justify-center font-black text-[10px] shadow-sm">SEM</div>
-            <select wire:model.live="filterSemesterId" class="flex-1 bg-transparent border-none font-black text-[#002855] focus:ring-0 text-sm uppercase">
+    <div class="bg-white p-3 shadow-sm rounded-[2rem] border border-slate-200 grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100 group focus-within:border-[#002855] transition-all">
+            <div class="w-11 h-11 shrink-0 rounded-[10px] bg-white text-[#002855] flex items-center justify-center font-black text-[10px] tracking-widest shadow-sm">SEM</div>
+            <select wire:model.live="filterSemesterId" class="flex-1 bg-transparent border-none font-bold text-[#002855] focus:ring-0 text-sm uppercase">
                 @foreach($semesters as $sem)
                     <option value="{{ $sem->id }}">{{ $sem->nama_tahun }}</option>
                 @endforeach
             </select>
         </div>
 
-        <div class="flex items-center gap-4 p-4 bg-slate-50 rounded-[1.8rem] border border-slate-100 group focus-within:border-[#002855] transition-all">
-            <div class="w-10 h-10 rounded-xl bg-white text-indigo-600 flex items-center justify-center font-black text-[10px] shadow-sm">PRD</div>
-            <select wire:model.live="filterProdiId" class="flex-1 bg-transparent border-none font-black text-slate-600 focus:ring-0 text-sm uppercase">
+        <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100 group focus-within:border-[#002855] transition-all">
+            <div class="w-11 h-11 shrink-0 rounded-[10px] bg-white text-indigo-600 flex items-center justify-center font-black text-[10px] tracking-widest shadow-sm">PRD</div>
+            <select wire:model.live="filterProdiId" class="flex-1 bg-transparent border-none font-bold text-slate-600 focus:ring-0 text-sm uppercase">
+                <option value="">Semua Program Studi</option>
                 @foreach($prodis as $p)
                     <option value="{{ $p->id }}">{{ $p->jenjang }} - {{ $p->nama_prodi }}</option>
                 @endforeach
             </select>
         </div>
 
-        <div class="flex items-center gap-4 p-4 bg-white rounded-[1.8rem] border border-slate-200 group focus-within:ring-4 focus-within:ring-indigo-50 transition-all">
-            <div class="text-slate-400 group-focus-within:text-[#002855] transition-colors pl-2">
-                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+        <div class="flex items-center gap-3 p-3 bg-white rounded-2xl border border-slate-200 group focus-within:ring-2 focus-within:ring-indigo-100 transition-all">
+            <div class="w-11 h-11 shrink-0 rounded-[10px] bg-slate-50 text-slate-400 group-focus-within:text-[#002855] group-focus-within:bg-indigo-50 flex items-center justify-center transition-colors">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
             </div>
-            <input type="text" wire:model.live.debounce.300ms="search" placeholder="CARI MK / DOSEN..." class="flex-1 border-none focus:ring-0 text-xs font-black uppercase tracking-widest text-slate-700 placeholder:text-slate-300">
+            <input type="text" wire:model.live.debounce.300ms="search" placeholder="Cari MK / Dosen..." class="flex-1 border-none focus:ring-0 text-sm font-bold text-slate-700 placeholder:text-slate-300 placeholder:font-medium">
         </div>
     </div>
 
     {{-- 3. Schedule Table --}}
-    <div class="bg-white rounded-[3rem] shadow-sm border border-slate-200 overflow-hidden">
+    <div class="bg-white rounded-[2rem] shadow-sm border border-slate-200 overflow-hidden">
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-slate-100">
-                <thead class="bg-slate-50/50">
+                <thead class="bg-slate-50/80">
                     <tr>
-                        <th class="px-10 py-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Mata Kuliah & Jadwal</th>
-                        <th class="px-10 py-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Tim Pengajar</th>
-                        <th class="px-6 py-6 text-center text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Status Peserta</th>
-                        <th class="px-10 py-6 text-right text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Opsi Cetak</th>
+                        <th class="px-8 py-5 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Mata Kuliah & Jadwal</th>
+                        <th class="px-6 py-5 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Tim Pengajar</th>
+                        <th class="px-6 py-5 text-center text-[10px] font-black text-slate-500 uppercase tracking-widest">Peserta</th>
+                        <th class="px-8 py-5 text-right text-[10px] font-black text-slate-500 uppercase tracking-widest">Opsi Cetak</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-50">
                     @forelse($jadwals as $jadwal)
-                    <tr class="hover:bg-slate-50/80 transition-all group">
-                        <td class="px-10 py-8">
-                            <div class="flex items-start gap-5">
-                                <div class="w-14 h-14 bg-[#002855]/5 rounded-2xl flex flex-col items-center justify-center text-[#002855] shrink-0 border border-blue-900/5">
-                                    <span class="text-[9px] font-black uppercase leading-none">{{ substr($jadwal->hari, 0, 3) }}</span>
-                                    <span class="text-sm font-black mt-1">{{ substr($jadwal->jam_mulai, 0, 5) }}</span>
+                    <tr class="hover:bg-slate-50/50 transition-colors group">
+                        <td class="px-8 py-6">
+                            <div class="flex items-start gap-4">
+                                <div class="w-14 h-14 bg-indigo-50/50 rounded-2xl flex flex-col items-center justify-center text-[#002855] shrink-0 border border-indigo-100/50 group-hover:bg-[#002855] group-hover:text-white transition-colors">
+                                    <span class="text-[9px] font-black uppercase tracking-widest">{{ substr($jadwal->hari, 0, 3) }}</span>
+                                    <span class="text-sm font-black mt-0.5">{{ substr($jadwal->jam_mulai, 0, 5) }}</span>
                                 </div>
-                                <div class="space-y-1">
-                                    <h4 class="text-sm font-black text-[#002855] uppercase tracking-tight leading-tight group-hover:text-indigo-600 transition-colors">{{ $jadwal->mataKuliah->nama_mk }}</h4>
-                                    <div class="flex items-center gap-3">
-                                        <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">{{ $jadwal->mataKuliah->kode_mk }}</span>
-                                        <div class="w-1 h-1 rounded-full bg-slate-200"></div>
-                                        <span class="text-[10px] font-black text-indigo-400 uppercase tracking-widest">R.{{ $jadwal->ruang->kode_ruang ?? 'TBA' }}</span>
-                                        <div class="w-1 h-1 rounded-full bg-slate-200"></div>
-                                        <span class="text-[10px] font-black text-amber-500 uppercase tracking-widest">KLS {{ $jadwal->nama_kelas }}</span>
+                                <div class="space-y-1.5">
+                                    <h4 class="text-sm font-black text-slate-800 uppercase tracking-tight leading-tight group-hover:text-[#002855] transition-colors">{{ $jadwal->mataKuliah->nama_mk }}</h4>
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <span class="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md uppercase">{{ $jadwal->mataKuliah->kode_mk }}</span>
+                                        <span class="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100 uppercase">R. {{ $jadwal->ruang->kode_ruang ?? 'TBA' }}</span>
+                                        <span class="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-100 uppercase">KLS {{ $jadwal->nama_kelas }}</span>
                                     </div>
                                 </div>
                             </div>
                         </td>
-                        <td class="px-10 py-8">
+                        <td class="px-6 py-6">
                             <div class="flex flex-col gap-2">
                                 @foreach($jadwal->dosens as $dosen)
-                                <div class="flex items-center gap-3">
-                                    <div class="w-2 h-2 rounded-full {{ $dosen->pivot->is_koordinator ? 'bg-[#fcc000]' : 'bg-slate-200' }}"></div>
-                                    <span class="text-[11px] font-bold text-slate-600 uppercase tracking-tighter">{{ $dosen->person->nama_lengkap }}</span>
+                                <div class="flex items-center gap-2">
+                                    <div class="w-1.5 h-1.5 rounded-full {{ $dosen->pivot->is_koordinator ? 'bg-amber-500 animate-pulse' : 'bg-slate-300' }}"></div>
+                                    <span class="text-xs font-bold text-slate-600 tracking-tight">{{ $dosen->person->nama_lengkap }}</span>
                                     @if($dosen->pivot->is_koordinator)
-                                        <span class="text-[7px] font-black bg-amber-50 text-amber-600 border border-amber-100 px-1.5 py-0.5 rounded uppercase tracking-widest">Koor</span>
+                                        <span class="text-[8px] font-black bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded uppercase tracking-widest ml-1">Koor</span>
                                     @endif
                                 </div>
                                 @endforeach
                             </div>
                         </td>
-                        <td class="px-6 py-8 text-center">
-                            <div class="inline-flex flex-col items-center">
-                                <span class="text-xl font-black text-[#002855] italic">{{ $jadwal->peserta_count }}</span>
-                                <span class="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em]">Mahasiswa Aktif</span>
+                        <td class="px-6 py-6 text-center align-middle">
+                            <div class="inline-flex flex-col items-center justify-center w-12 h-12 bg-slate-50 rounded-xl border border-slate-100">
+                                <span class="text-lg font-black text-[#002855]">{{ $jadwal->peserta_count }}</span>
                             </div>
                         </td>
-                        <td class="px-10 py-8 text-right">
+                        <td class="px-8 py-6 text-right align-middle">
                             <div class="flex flex-col sm:flex-row justify-end gap-2">
                                 @if($jadwal->peserta_count > 0)
-                                    {{-- Tombol DHMD --}}
                                     <a href="{{ route('admin.cetak.absensi', $jadwal->id) }}" target="_blank" 
-                                        class="inline-flex items-center justify-center px-5 py-2.5 bg-slate-900 text-white rounded-xl text-[9px] font-black uppercase tracking-[0.15em] hover:bg-indigo-600 transition-all shadow-lg shadow-slate-900/10">
-                                        DHMD PDF
+                                        class="inline-flex items-center justify-center px-4 py-2 bg-[#002855] text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-colors shadow-sm">
+                                        <svg class="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                        DHMD
                                     </a>
-                                    {{-- Tombol Rekap (Reuse Dosen Method) --}}
                                     <a href="{{ route('admin.cetak.rekap-absensi', $jadwal->id) }}" target="_blank" 
-                                        class="inline-flex items-center justify-center px-5 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-[9px] font-black uppercase tracking-[0.15em] hover:border-[#002855] hover:text-[#002855] transition-all shadow-sm">
-                                        REKAP SEMESTER
+                                        class="inline-flex items-center justify-center px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-[10px] font-black uppercase tracking-widest hover:border-[#002855] hover:text-[#002855] transition-colors shadow-sm">
+                                        <svg class="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                        Rekap
                                     </a>
                                 @else
-                                    <span class="text-[9px] font-black text-rose-400 uppercase tracking-widest bg-rose-50 px-4 py-2 rounded-xl border border-rose-100 italic">Peserta 0</span>
+                                    <span class="inline-flex items-center px-3 py-1.5 rounded-lg text-[10px] font-bold text-rose-500 bg-rose-50 border border-rose-100">
+                                        Kosong
+                                    </span>
                                 @endif
                             </div>
                         </td>
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="4" class="px-10 py-32 text-center">
-                            <div class="flex flex-col items-center justify-center space-y-4">
-                                <div class="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center text-4xl grayscale opacity-20">📂</div>
-                                <p class="text-slate-400 font-black uppercase tracking-[0.3em] text-xs">Data perkuliahan tidak ditemukan</p>
+                        <td colspan="4" class="px-8 py-24 text-center">
+                            <div class="flex flex-col items-center justify-center space-y-3">
+                                <div class="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center text-3xl grayscale opacity-40">📝</div>
+                                <p class="text-slate-500 font-bold text-sm">Tidak ada jadwal perkuliahan yang ditemukan.</p>
+                                <p class="text-slate-400 text-xs">Coba sesuaikan filter pencarian Anda.</p>
                             </div>
                         </td>
                     </tr>
@@ -124,13 +125,13 @@
                 </tbody>
             </table>
         </div>
-        <div class="px-10 py-8 bg-slate-50/50 border-t border-slate-100">
+        <div class="px-8 py-4 bg-slate-50/50 border-t border-slate-100">
             {{ $jadwals->links() }}
         </div>
     </div>
 
     {{-- Footer Info --}}
-    <div class="pt-10 flex flex-col items-center gap-2 opacity-20 grayscale pointer-events-none border-t border-slate-100">
-        <p class="text-[9px] font-black uppercase tracking-[0.6em] text-[#002855]">OFFICIAL DOCUMENT MANAGER &bull; v4.2 PRO</p>
+    <div class="pt-8 flex flex-col items-center gap-2 opacity-30 grayscale pointer-events-none">
+        <p class="text-[10px] font-black uppercase tracking-[0.4em] text-[#002855]">SIAKAD &bull; Document Generator</p>
     </div>
 </div>

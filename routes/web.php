@@ -27,6 +27,7 @@ use App\Livewire\Admin\Akademik\PlotingPaManager;
 use App\Livewire\Admin\Akademik\CetakAbsensiManager;
 use App\Livewire\Admin\Akademik\EkuivalensiManager;
 use App\Livewire\Admin\Akademik\ImportNilaiManager;
+use App\Livewire\Admin\Akademik\JadwalUjianManager;
 use App\Livewire\Admin\Akademik\PerbaikanNilaiManager;
 use App\Livewire\Admin\Akademik\SkalaNilaiManager;
 
@@ -92,10 +93,8 @@ Route::middleware(['auth'])->group(function () {
         // --- ROUTE BARU: SCAN ABSENSI MAHASISWA ---
         Route::get('/absensi/scan', ScanHadir::class)->name('mhs.absensi.scan');
         Route::get('/cetak/rekapan/{jadwalId}', [CetakController::class, 'cetakRekapanAbsensi'])->name('mhs.cetak.rekapan');
-
-
-
-
+        Route::get('/mahasiswa/cetak-ujian/{jenis}', [\App\Http\Controllers\Mahasiswa\CetakController::class, 'cetakKartuUjian'])
+            ->name('mhs.cetak.ujian');
         // Cetak PDF
         Route::get('/cetak/krs', [CetakController::class, 'cetakKrs'])->name('mhs.cetak.krs');
         Route::get('/cetak/khs', [CetakController::class, 'cetakKhs'])->name('mhs.cetak.khs');
@@ -161,6 +160,8 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/akademik/ekuivalensi-mata-kuliah', EkuivalensiManager::class)
                 ->name('admin.akademik.ekuivalensi-mk');
             Route::get('/perbaikan-nilai', PerbaikanNilaiManager::class)->name('admin.perbaikan-nilai');
+            Route::get('/admin/akademik/jadwal-ujian', JadwalUjianManager::class)->name('admin.jadwal-ujian');
+            Route::get('/admin/master/ruang', \App\Livewire\Admin\Master\RuangManager::class)->name('admin.master.ruang');
             // absen
 
         });

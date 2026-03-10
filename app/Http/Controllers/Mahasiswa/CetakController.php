@@ -53,11 +53,47 @@ class CetakController extends Controller
 
         $gelarDepan = $gelars->where('posisi', 'DEPAN')->pluck('kode')->implode(' ');
         $gelarBelakang = $gelars->where('posisi', 'BELAKANG')->pluck('kode')->implode(', ');
-        
+
         return (object)[
             'nama' => trim(($gelarDepan ? $gelarDepan . ' ' : '') . $person->nama_lengkap . ($gelarBelakang ? ', ' . $gelarBelakang : '')),
             'identitas' => $person->nidn ? "NIDN. " . $person->nidn : "NIK. " . $person->nik
         ];
+    }
+
+    /**
+     * Cetak Kartu Ujian (UTS / UAS) Mahasiswa
+     */
+    public function cetakKartuUjian($jenisUjian)
+    {
+        $user = Auth::user();
+        $mahasiswa = Mahasiswa::with(['prodi.fakultas', 'programKelas', 'person'])
+            ->where('person_id', $user->person_id)
+            ->firstOrFail();
+
+        $ta = SistemHelper::getTahunAktif();
+
+        // Cari daftar ujian berdasarkan KRS mahasiswa yang telah disetujui
+        $jadwalUjians = \App\Models\JadwalUjianPeserta::with(['jadwalUjian.jadwalKuliah.mataKuliah', 'jadwalUjian.ruang'])
+            ->whereHas('krsDetail.krs', function ($q) use ($mahasiswa, $ta) {
+                $q->where('mahasiswa_id', $mahasiswa->id)
+                    ->where('tahun_akademik_id', $ta->id)
+                    ->where('status_krs', 'DISETUJUI');
+            })
+            ->whereHas('jadwalUjian', function ($q) use ($jenisUjian) {
+                $q->where('jenis_ujian', strtoupper($jenisUjian));
+            })
+            ->get()
+            ->sortBy(function ($peserta) {
+                return $peserta->jadwalUjian->tanggal_ujian . ' ' . $peserta->jadwalUjian->jam_mulai;
+            });
+
+        return Pdf::loadView('pdf.cetak-kartu-ujian', [
+            'mahasiswa' => $mahasiswa,
+            'ta' => $ta,
+            'jenis_ujian' => strtoupper($jenisUjian),
+            'pesertaUjians' => $jadwalUjians,
+            'kaProdi' => $this->getPejabat('KAPRODI', $mahasiswa->prodi_id)
+        ])->setPaper('a4', 'portrait')->stream('Kartu_Ujian_' . strtoupper($jenisUjian) . '_' . $mahasiswa->nim . '.pdf');
     }
 
     /**
@@ -73,13 +109,13 @@ class CetakController extends Controller
         $ta = SistemHelper::getTahunAktif();
 
         $krs = Krs::with([
-            'details.jadwalKuliah.mataKuliah', 
+            'details.jadwalKuliah.mataKuliah',
             'details.jadwalKuliah.dosens.person',
             'details.jadwalKuliah.ruang'
         ])
-        ->where('mahasiswa_id', $mahasiswa->id)
-        ->where('tahun_akademik_id', $ta->id)
-        ->firstOrFail();
+            ->where('mahasiswa_id', $mahasiswa->id)
+            ->where('tahun_akademik_id', $ta->id)
+            ->firstOrFail();
 
         return Pdf::loadView('pdf.cetak-krs', [
             'mahasiswa' => $mahasiswa,
@@ -103,7 +139,7 @@ class CetakController extends Controller
         $ta = SistemHelper::getTahunAktif();
 
         $details = KrsDetail::with(['jadwalKuliah.mataKuliah', 'jadwalKuliah.ruang'])
-            ->whereHas('krs', function($q) use ($mahasiswa, $ta) {
+            ->whereHas('krs', function ($q) use ($mahasiswa, $ta) {
                 $q->where('mahasiswa_id', $mahasiswa->id)->where('tahun_akademik_id', $ta->id);
             })
             ->where('is_published', true)
@@ -207,7 +243,7 @@ class CetakController extends Controller
         ])->findOrFail($jadwalId);
 
         $listSesi = $jadwal->sesi->sortBy('pertemuan_ke');
-        
+
         // Cari Koordinator untuk Tanda Tangan
         $koordinator = $jadwal->dosens->where('pivot.is_koordinator', true)->first() ?? $jadwal->dosens->first();
         $ttdDosen = (object)[
