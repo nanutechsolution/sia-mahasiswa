@@ -149,7 +149,7 @@ class RealMahasiswaSeeder extends Seeder
                             'jenis_kelamin' => $gender,
                             'tempat_lahir' => $tempatLahir,
                             'tanggal_lahir' => $tglLahir,
-                            'email' => $nim . '@student.unmaris.ac.id',
+                            'email' => $nim . '@student.unmarissumba.ac.id',
                             'no_hp' => '081234567890',
                             'updated_at' => now()
                         ]
