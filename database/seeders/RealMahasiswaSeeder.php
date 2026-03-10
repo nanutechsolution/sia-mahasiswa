@@ -35,7 +35,7 @@ class RealMahasiswaSeeder extends Seeder
         $countImport = 0;
         $countSkip   = 0;
         $countError  = 0;
-        $limit       = 10; // Batasi import 100 mahasiswa
+        $limit       = 4000; // Batasi import 100 mahasiswa
 
         $prodis = Prodi::pluck('id', 'nama_prodi');
 
@@ -49,7 +49,7 @@ class RealMahasiswaSeeder extends Seeder
         );
         $kelasRegulerId = $kelasReguler->id;
 
-        $taAktifId = SistemHelper::idTahunAktif(); 
+        $taAktifId = SistemHelper::idTahunAktif();
 
         $progress = new ProgressBar($this->command->getOutput(), $limit);
         $progress->setFormat(" %current%/%max% [%bar%] %percent:3s%% | %message%");
@@ -112,8 +112,8 @@ class RealMahasiswaSeeder extends Seeder
                     // Mapping Prodi
                     $prodiId = $prodis[$prodiCsv] ?? null;
                     if (!$prodiId) {
-                        $cleanName = trim(str_replace(['S1','D3','D4'], '', $prodiCsv));
-                        $prodiDb = Prodi::where('nama_prodi','like',"%$cleanName%")->first();
+                        $cleanName = trim(str_replace(['S1', 'D3', 'D4'], '', $prodiCsv));
+                        $prodiDb = Prodi::where('nama_prodi', 'like', "%$cleanName%")->first();
                         $prodiId = $prodiDb ? $prodiDb->id : Prodi::first()->id ?? 1;
                     }
 
@@ -125,8 +125,8 @@ class RealMahasiswaSeeder extends Seeder
                         $tempatLahir = trim($parts[0]);
                         try {
                             $dateStr = str_ireplace(
-                                ['Mei','Agustus','Oktober','Desember','Januari','Februari','Maret','April','Juni','Juli','September','November'],
-                                ['May','August','October','December','January','February','March','April','June','July','September','November'],
+                                ['Mei', 'Agustus', 'Oktober', 'Desember', 'Januari', 'Februari', 'Maret', 'April', 'Juni', 'Juli', 'September', 'November'],
+                                ['May', 'August', 'October', 'December', 'January', 'February', 'March', 'April', 'June', 'July', 'September', 'November'],
                                 trim($parts[1] ?? '')
                             );
                             $tglLahir = Carbon::parse($dateStr)->format('Y-m-d');
@@ -138,7 +138,7 @@ class RealMahasiswaSeeder extends Seeder
                     }
 
                     // --- Simpan Person ---
-                    if (ModelsPerson::where('nik',$nik)->exists() || empty($nik)) {
+                    if (ModelsPerson::where('nik', $nik)->exists() || empty($nik)) {
                         $nik = rand(1000000000000000, 9999999999999999);
                     }
 
@@ -149,7 +149,7 @@ class RealMahasiswaSeeder extends Seeder
                             'jenis_kelamin' => $gender,
                             'tempat_lahir' => $tempatLahir,
                             'tanggal_lahir' => $tglLahir,
-                            'email' => $nim.'@student.unmaris.ac.id',
+                            'email' => $nim . '@student.unmaris.ac.id',
                             'no_hp' => '081234567890',
                             'updated_at' => now()
                         ]
@@ -165,14 +165,14 @@ class RealMahasiswaSeeder extends Seeder
                         'dosen_wali_id' => null,
                         'data_tambahan' => [
                             'agama' => $agama,
-                            'alamat_detail' => ['jalan'=>$alamat],
+                            'alamat_detail' => ['jalan' => $alamat],
                             'jalur_masuk' => $jenisDaftar,
                             'tgl_masuk' => $tglMasuk
                         ]
                     ]);
 
                     // --- Buat User Login ---
-                    if (!User::where('username',$nim)->exists()) {
+                    if (!User::where('username', $nim)->exists()) {
                         $user = User::create([
                             'name' => $nama,
                             'username' => $nim,
@@ -204,7 +204,7 @@ class RealMahasiswaSeeder extends Seeder
                     $progress->setMessage("✅ [SUKSES] {$nim} | {$nama} | {$prodiCsv} | Angkatan: {$angkatan}");
                 } catch (\Exception $e) {
                     $countError++;
-                    $progress->setMessage("❌ [ERROR] Baris {$countImport}: ".$e->getMessage());
+                    $progress->setMessage("❌ [ERROR] Baris {$countImport}: " . $e->getMessage());
                 }
 
                 $progress->advance();
@@ -215,7 +215,7 @@ class RealMahasiswaSeeder extends Seeder
             $this->command->line("\n🟢 Import selesai. Total SUKSES: {$countImport}, SKIP: {$countSkip}, ERROR: {$countError}");
         } catch (\Exception $e) {
             DB::rollBack();
-            $this->command->error("❌ GAGAL SYSTEM: ".$e->getMessage());
+            $this->command->error("❌ GAGAL SYSTEM: " . $e->getMessage());
         }
 
         fclose($file);
@@ -226,15 +226,15 @@ class RealMahasiswaSeeder extends Seeder
         $val = trim((string)$val);
         if (empty($val) || strtolower($val) == 'null' || $val == '-') return null;
         if (preg_match('/E\+/i', $val)) {
-            $val = number_format((float)$val,0,'','');
+            $val = number_format((float)$val, 0, '', '');
         }
-        $val = preg_replace('/[^0-9]/','',$val);
+        $val = preg_replace('/[^0-9]/', '', $val);
         return $val === '' ? null : $val;
     }
 
     private function cleanString($val)
     {
         if (empty($val) || $val == '-') return '';
-        return trim(iconv('UTF-8','UTF-8//IGNORE',$val));
+        return trim(iconv('UTF-8', 'UTF-8//IGNORE', $val));
     }
 }

@@ -22,14 +22,19 @@ class User extends Authenticatable
     protected $keyType = 'string';
     public $incrementing = false;
 
+    /**
+     * Properti fillable diperbarui untuk mendukung Audit Login.
+     */
     protected $fillable = [
         'name',
         'email',
         'username',
         'password',
-        'role', // Pastikan role ada di sini agar bisa disimpan
+        'role',
         'is_active',
-        'person_id'
+        'person_id',
+        'last_login_at', // Audit Keamanan
+        'last_login_ip', // Audit Keamanan
     ];
 
     protected $hidden = [
@@ -37,49 +42,66 @@ class User extends Authenticatable
         'remember_token',
     ];
 
+    /**
+     * Casting tipe data diperbarui.
+     */
     protected $casts = [
         'email_verified_at' => 'datetime',
+        'last_login_at' => 'datetime', // Di-cast ke Carbon instance
         'password' => 'hashed',
         'is_active' => 'boolean',
     ];
 
     /**
-     * Relasi ke Profil Dosen
+     * Relasi ke Profil Dosen (via Person)
+     * Mengikuti pola SSOT: User -> Person -> Dosen
      */
     public function dosen()
     {
-        return $this->hasOne(Dosen::class, 'user_id');
+        return $this->hasOneThrough(
+            Dosen::class, 
+            \App\Domains\Core\Models\Person::class, 
+            'id', // FK di ref_person
+            'person_id', // FK di trx_dosen
+            'person_id', // Local key di users
+            'id' // Local key di ref_person
+        );
     }
 
     /**
-     * Relasi ke Profil Mahasiswa
+     * Relasi ke Profil Mahasiswa (via Person)
+     * Mengikuti pola SSOT: User -> Person -> Mahasiswa
      */
     public function mahasiswa()
     {
-        return $this->hasOne(Mahasiswa::class, 'user_id');
+        return $this->hasOneThrough(
+            Mahasiswa::class,
+            \App\Domains\Core\Models\Person::class,
+            'id',
+            'person_id',
+            'person_id',
+            'id'
+        );
+    }
+
+    /**
+     * Relasi Inti ke Data Personil (Identity Center)
+     */
+    public function person()
+    {
+        return $this->belongsTo(\App\Domains\Core\Models\Person::class, 'person_id');
     }
 
     /**
      * Shortcut Accessor: $user->profileable
-     * Ini akan secara otomatis mengembalikan objek Dosen atau Mahasiswa 
-     * berdasarkan role user tanpa perlu kolom morph di tabel users.
+     * Secara cerdas mengembalikan objek Mahasiswa atau Dosen.
      */
     public function getProfileableAttribute()
     {
-        if ($this->role === 'dosen') {
-            return $this->dosen;
-        }
-
-        if ($this->role === 'mahasiswa') {
-            return $this->mahasiswa;
-        }
-
-        return null;
-    }
-
-    // /person
-    public function person()
-    {
-        return $this->belongsTo(\App\Domains\Core\Models\Person::class, 'person_id');
+        return match($this->role) {
+            'dosen' => $this->dosen,
+            'mahasiswa' => $this->mahasiswa,
+            default => null,
+        };
     }
 }
