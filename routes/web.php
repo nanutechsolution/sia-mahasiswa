@@ -165,7 +165,6 @@ Route::middleware(['auth'])->group(function () {
             // absen
 
         });
-
         // 2. GRUP KEUANGAN (Permission: akses_modul_keuangan)
         // Diakses oleh: Superadmin, Admin, BAUK
         Route::middleware(['permission:akses_modul_keuangan'])->group(function () {
