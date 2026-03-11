@@ -161,14 +161,22 @@ class MataKuliahManager extends Component
     public function delete($id)
     {
         try {
+            // Karena kita menggunakan Soft Deletes, QueryException (Foreign Key Constraint) 
+            // tidak akan ter-trigger secara otomatis. Kita harus cek manual.
+            $isUsedInKurikulum = DB::table('kurikulum_mata_kuliah')->where('mata_kuliah_id', $id)->exists();
+            $isUsedInJadwal = DB::table('jadwal_kuliah')->where('mata_kuliah_id', $id)->exists();
+
+            if ($isUsedInKurikulum || $isUsedInJadwal) {
+                session()->flash('error', 'Gagal menghapus! Mata kuliah ini sedang terikat dalam Kurikulum atau Jadwal Perkuliahan aktif.');
+                return;
+            }
+
             $mk = MataKuliah::findOrFail($id);
-            $mk->delete();
-            session()->flash('success', 'Mata kuliah berhasil dihapus dari sistem.');
-        } catch (\Illuminate\Database\QueryException $e) {
-            // Tangkap error jika MK sedang dipakai di relasi lain (Kurikulum/Jadwal)
-            session()->flash('error', 'Gagal menghapus! Mata kuliah ini sedang digunakan dalam Kurikulum atau Jadwal Perkuliahan.');
+            $mk->delete(); // Eksekusi Soft Delete
+            
+            session()->flash('success', 'Mata kuliah berhasil dihapus (Soft Delete) dari sistem.');
         } catch (\Exception $e) {
-            session()->flash('error', 'Terjadi kesalahan saat menghapus data.');
+            session()->flash('error', 'Terjadi kesalahan saat menghapus data: ' . $e->getMessage());
         }
     }
 
@@ -189,9 +197,9 @@ class MataKuliahManager extends Component
     {
         $mks = MataKuliah::with('prodi')
             ->when($this->filterProdiId, fn($q) => $q->where('prodi_id', $this->filterProdiId))
-            ->where(function ($q) {
+            ->where(function($q) {
                 $q->where('nama_mk', 'like', '%' . $this->search . '%')
-                    ->orWhere('kode_mk', 'like', '%' . $this->search . '%');
+                  ->orWhere('kode_mk', 'like', '%' . $this->search . '%');
             })
             ->orderBy('kode_mk', 'asc')
             ->paginate(10);
