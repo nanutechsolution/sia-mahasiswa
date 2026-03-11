@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use App\Models\User; // Sesuaikan jika User ada di App\Models\User
 use App\Domains\Core\Models\ProgramKelas;
 use App\Domains\Core\Models\Prodi;
-use App\Domains\Core\Models\TahunAkademik; 
+use App\Domains\Core\Models\TahunAkademik;
 use App\Models\AkademikTranskrip;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
@@ -97,9 +97,9 @@ class Mahasiswa extends Model
         return $this->belongsTo(User::class, 'user_id', 'id');
     }
 
-    // ==========================================
-    // RELASI PENDUKUNG (Future Use)
-    // ==========================================
+// ==========================================
+// RELASI PENDUKUNG (Future Use)
+// ==========================================
 
     /**
      * Relasi ke Tagihan (Untuk cek lunas/belum)

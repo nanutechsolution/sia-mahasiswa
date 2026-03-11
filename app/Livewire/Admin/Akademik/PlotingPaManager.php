@@ -14,28 +14,31 @@ class PlotingPaManager extends Component
     use WithPagination;
 
     // Filters
-    public $filterProdiId;
-    public $filterAngkatan;
+    public $filterProdiId = '';
+    public $filterAngkatan = '';
     public $filterStatusPa = 'all'; // all, belum, sudah
     public $search = '';
 
     // Action State
     public $selectedMhs = []; // Array ID mahasiswa yang dicentang
-    public $targetDosenId;    // ID Dosen yang akan dipilih
+    public $targetDosenId = '';    // ID Dosen yang akan dipilih
     public $selectAll = false; // Toggle Select All
 
     public function mount()
     {
         $this->filterAngkatan = date('Y');
-        $this->filterProdiId = Prodi::first()->id ?? null;
+        $this->filterProdiId = Prodi::first()->id ?? '';
     }
 
-    // Reset pagination & selection saat filter berubah
-    public function updatedFilterProdiId() { $this->resetPage(); $this->resetSelection(); }
-    public function updatedFilterAngkatan() { $this->resetPage(); $this->resetSelection(); }
-    public function updatedFilterStatusPa() { $this->resetPage(); $this->resetSelection(); }
-    public function updatedSearch() { $this->resetPage(); $this->resetSelection(); }
-    
+    // Reset pagination & selection saat filter apapun berubah
+    public function updated($propertyName)
+    {
+        if (in_array($propertyName, ['filterProdiId', 'filterAngkatan', 'filterStatusPa', 'search'])) {
+            $this->resetPage();
+            $this->resetSelection();
+        }
+    }
+
     // Handle Select All di Halaman Ini
     public function updatedSelectAll($value)
     {
@@ -47,7 +50,7 @@ class PlotingPaManager extends Component
                 ->pluck('id')
                 ->map(fn($id) => (string) $id)
                 ->toArray();
-            
+
             $this->selectedMhs = $ids;
         } else {
             $this->selectedMhs = [];
@@ -58,18 +61,19 @@ class PlotingPaManager extends Component
     {
         $this->selectedMhs = [];
         $this->selectAll = false;
+        $this->targetDosenId = '';
     }
 
     private function getMahasiswaQuery()
     {
         return Mahasiswa::query()
             ->with(['person', 'programKelas', 'dosenWali.person']) // Eager load relations
-            ->where('prodi_id', $this->filterProdiId)
-            ->where('angkatan_id', $this->filterAngkatan)
-            ->when($this->search, function($q) {
-                $q->where(function($sub) {
-                    $sub->whereHas('person', fn($p) => $p->where('nama_lengkap', 'like', '%'.$this->search.'%'))
-                        ->orWhere('nim', 'like', '%'.$this->search.'%');
+            ->when($this->filterProdiId, fn($q) => $q->where('prodi_id', $this->filterProdiId))
+            ->when($this->filterAngkatan, fn($q) => $q->where('angkatan_id', $this->filterAngkatan))
+            ->when($this->search, function ($q) {
+                $q->where(function ($sub) {
+                    $sub->whereHas('person', fn($p) => $p->where('nama_lengkap', 'like', '%' . $this->search . '%'))
+                        ->orWhere('nim', 'like', '%' . $this->search . '%');
                 });
             })
             ->when($this->filterStatusPa == 'belum', fn($q) => $q->whereNull('dosen_wali_id'))
@@ -91,15 +95,17 @@ class PlotingPaManager extends Component
 
         $count = count($this->selectedMhs);
         $dosen = Dosen::with('person')->find($this->targetDosenId);
-        $namaDosen = $dosen->person->nama_dengan_gelar ?? $dosen->person->nama_lengkap;
+        
+        // PERBAIKAN: Gunakan person->nama_lengkap yang standar
+        $namaDosen = $dosen->person->nama_lengkap ?? 'Unknown';
 
         DB::transaction(function () {
             Mahasiswa::whereIn('id', $this->selectedMhs)
                 ->update(['dosen_wali_id' => $this->targetDosenId]);
         });
 
-        session()->flash('success', "Berhasil! $count Mahasiswa telah dipindahkan ke Dosen Wali: $namaDosen.");
-        
+        session()->flash('success', "Berhasil! $count Mahasiswa telah dipetakan ke Dosen Wali: $namaDosen.");
+
         $this->resetSelection();
     }
 
@@ -107,7 +113,7 @@ class PlotingPaManager extends Component
     {
         $prodis = Prodi::all();
         $angkatans = DB::table('ref_angkatan')->orderBy('id_tahun', 'desc')->get();
-        
+
         // Ambil data dosen untuk dropdown (Searchable)
         $dosens = Dosen::with('person')
             ->where('is_active', true)
@@ -118,6 +124,15 @@ class PlotingPaManager extends Component
         $mahasiswas = $this->getMahasiswaQuery()
             ->orderBy('nim', 'asc')
             ->paginate(50);
+
+        // PERBAIKAN: Sinkronisasi checkbox "Select All" jika user pindah halaman 
+        // atau jika semua item di halaman ini tercentang secara manual
+        $currentPageIds = $mahasiswas->pluck('id')->map(fn($id) => (string) $id)->toArray();
+        if (count($currentPageIds) > 0 && count(array_intersect($this->selectedMhs, $currentPageIds)) === count($currentPageIds)) {
+            $this->selectAll = true;
+        } else {
+            $this->selectAll = false;
+        }
 
         return view('livewire.admin.akademik.ploting-pa-manager', [
             'mahasiswas' => $mahasiswas,

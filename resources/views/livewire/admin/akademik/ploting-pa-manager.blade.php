@@ -35,6 +35,8 @@
                     <label class="block text-[10px] font-bold text-[#002855] uppercase tracking-widest mb-2">Program Studi</label>
                     <div class="relative">
                         <select wire:model.live="filterProdiId" class="block w-full rounded-xl border-slate-200 bg-slate-50 py-2.5 pl-4 pr-10 text-sm focus:border-[#002855] focus:ring-[#002855] font-bold text-slate-700">
+                            {{-- PERBAIKAN: Menambahkan Opsi 'Semua' --}}
+                            <option value="">Semua Prodi</option>
                             @foreach($prodis as $p)
                                 <option value="{{ $p->id }}">{{ $p->jenjang }} - {{ $p->nama_prodi }}</option>
                             @endforeach
@@ -46,6 +48,8 @@
                     <label class="block text-[10px] font-bold text-[#002855] uppercase tracking-widest mb-2">Angkatan</label>
                     <div class="relative">
                         <select wire:model.live="filterAngkatan" class="block w-full rounded-xl border-slate-200 bg-slate-50 py-2.5 pl-4 pr-10 text-sm focus:border-[#002855] focus:ring-[#002855] font-bold text-slate-700">
+                            {{-- PERBAIKAN: Menambahkan Opsi 'Semua' --}}
+                            <option value="">Semua Angkatan</option>
                             @foreach($angkatans as $a)
                                 <option value="{{ $a->id_tahun }}">{{ $a->id_tahun }}</option>
                             @endforeach
@@ -88,8 +92,9 @@
                         dosens: {{ $dosens->map(function($d) {
                             return [
                                 'id' => $d->id,
-                                'name' => ($d->nama_lengkap_gelar ?? 'Nama Tidak Tersedia') . ($d->nidn ? ' (' . $d->nidn . ')' : ''),
-                                'search_text' => strtolower(($d->nama_lengkap_gelar ?? '') . ' ' . ($d->nidn ?? ''))
+                                // PERBAIKAN: Gunakan $d->person->nama_lengkap bukan nama_lengkap_gelar yang tidak ada
+                                'name' => ($d->person->nama_lengkap ?? 'Nama Tidak Tersedia') . ($d->nidn ? ' (' . $d->nidn . ')' : ''),
+                                'search_text' => strtolower(($d->person->nama_lengkap ?? '') . ' ' . ($d->nidn ?? ''))
                             ];
                         })->toJson() }},
                         get filtered() {
@@ -200,7 +205,7 @@
                                     @if($mhs->dosenWali)
                                         <div class="flex items-center gap-2">
                                             <div class="w-2 h-2 rounded-full bg-indigo-500"></div>
-                                            <span class="text-indigo-700 font-bold text-xs">{{ $mhs->dosenWali->nama_lengkap_gelar ?? $mhs->dosenWali->person->nama_lengkap }}</span>
+                                            <span class="text-indigo-700 font-bold text-xs">{{ $mhs->dosenWali->person->nama_lengkap ?? 'Unknown' }}</span>
                                         </div>
                                     @else
                                         <span class="text-rose-500 italic text-[10px] font-bold bg-rose-50 px-2 py-1 rounded border border-rose-100">Belum Ada PA</span>
