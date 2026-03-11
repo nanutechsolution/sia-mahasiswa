@@ -17,7 +17,7 @@ class MataKuliahManager extends Component
     public $mkId;
     public $kode_mk;
     public $nama_mk;
-    
+
     // SKS
     public $sks_default = 0;
     public $sks_tatap_muka = 0;
@@ -46,17 +46,27 @@ class MataKuliahManager extends Component
         $this->prodi_id = $this->filterProdiId;
     }
 
-    // --- Logic Inti (Masalah #2 Solved) ---
+    public function updatingSearch()
+    {
+        $this->resetPage();
+    }
+
+    public function updatingFilterProdiId()
+    {
+        $this->resetPage();
+    }
+
+    // --- Logic Inti ---
 
     public function updatedActivityType($value)
     {
         // Reset komponen SKS saat tipe berubah
         if ($value === self::TYPE_THESIS) {
             // Thesis: Komponen 0, Default boleh diisi manual (set default suggestion 6)
-            $this->sks_tatap_muka = 0; 
-            $this->sks_praktek = 0; 
+            $this->sks_tatap_muka = 0;
+            $this->sks_praktek = 0;
             $this->sks_lapangan = 0;
-            $this->sks_default = 6; 
+            $this->sks_default = 6;
         } elseif ($value === self::TYPE_CONTINUATION) {
             // Continuation: Semua 0
             $this->sks_tatap_muka = 0;
@@ -89,7 +99,7 @@ class MataKuliahManager extends Component
     public function create()
     {
         $this->resetForm();
-        $this->prodi_id = $this->filterProdiId; 
+        $this->prodi_id = $this->filterProdiId ?? (Prodi::first()->id ?? null);
         $this->showForm = true;
         $this->editMode = false;
     }
@@ -107,7 +117,7 @@ class MataKuliahManager extends Component
         $this->jenis_mk = $mk->jenis_mk;
         $this->prodi_id = $mk->prodi_id;
         $this->activity_type = $mk->activity_type ?? self::TYPE_REGULAR;
-        
+
         $this->showForm = true;
         $this->editMode = true;
     }
@@ -121,8 +131,8 @@ class MataKuliahManager extends Component
             'activity_type' => 'required',
             // SKS Default wajib > 0 KECUALI Continuation
             'sks_default' => [
-                'required', 
-                'integer', 
+                'required',
+                'integer',
                 function ($attribute, $value, $fail) {
                     if ($this->activity_type !== self::TYPE_CONTINUATION && $value < 1) {
                         $fail('Total SKS minimal 1 untuk tipe ini.');
@@ -140,25 +150,50 @@ class MataKuliahManager extends Component
             'sks_lapangan' => $this->sks_lapangan ?: 0,
             'jenis_mk' => $this->jenis_mk,
             'prodi_id' => $this->prodi_id,
-            'activity_type' => $this->activity_type, // Disimpan ke Master
+            'activity_type' => $this->activity_type,
         ]);
 
-        session()->flash('success', 'Data berhasil disimpan.');
+        session()->flash('success', 'Data Mata Kuliah berhasil ' . ($this->editMode ? 'diperbarui' : 'disimpan') . '.');
         $this->showForm = false;
         $this->resetForm();
+    }
+
+    public function delete($id)
+    {
+        try {
+            $mk = MataKuliah::findOrFail($id);
+            $mk->delete();
+            session()->flash('success', 'Mata kuliah berhasil dihapus dari sistem.');
+        } catch (\Illuminate\Database\QueryException $e) {
+            // Tangkap error jika MK sedang dipakai di relasi lain (Kurikulum/Jadwal)
+            session()->flash('error', 'Gagal menghapus! Mata kuliah ini sedang digunakan dalam Kurikulum atau Jadwal Perkuliahan.');
+        } catch (\Exception $e) {
+            session()->flash('error', 'Terjadi kesalahan saat menghapus data.');
+        }
     }
 
     public function resetForm()
     {
         $this->reset(['mkId', 'kode_mk', 'nama_mk', 'sks_default', 'sks_tatap_muka', 'sks_praktek', 'sks_lapangan', 'jenis_mk', 'editMode']);
+        $this->resetValidation();
         $this->activity_type = self::TYPE_REGULAR;
+    }
+
+    public function batal()
+    {
+        $this->showForm = false;
+        $this->resetForm();
     }
 
     public function render()
     {
         $mks = MataKuliah::with('prodi')
             ->when($this->filterProdiId, fn($q) => $q->where('prodi_id', $this->filterProdiId))
-            ->where('nama_mk', 'like', '%'.$this->search.'%')
+            ->where(function ($q) {
+                $q->where('nama_mk', 'like', '%' . $this->search . '%')
+                    ->orWhere('kode_mk', 'like', '%' . $this->search . '%');
+            })
+            ->orderBy('kode_mk', 'asc')
             ->paginate(10);
 
         return view('livewire.admin.akademik.mata-kuliah-manager', [
@@ -172,6 +207,4 @@ class MataKuliahManager extends Component
             ]
         ]);
     }
-
-    public function batal() { $this->showForm = false; }
 }
