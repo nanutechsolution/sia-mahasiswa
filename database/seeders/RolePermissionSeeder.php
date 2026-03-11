@@ -26,7 +26,5 @@ class RolePermissionSeeder extends Seeder
         foreach ($roles as $roleName) {
             Role::firstOrCreate(['name' => $roleName]);
         }
-        
-        // Note: Logika assignment user dipindahkan ke UserSeeder.php
     }
 }

@@ -11,6 +11,7 @@ use App\Domains\Keuangan\Models\KeuanganSaldoTransaction;
 use App\Domains\Keuangan\Actions\RecalculateInvoiceAction;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class AdjustmentManager extends Component
 {
@@ -56,10 +57,12 @@ class AdjustmentManager extends Component
             return;
         }
 
-        // Search via SSOT (Person)
+        // PERBAIKAN: Bungkus relasi orWhere ke dalam Closure (Group Query) agar aman
         $this->searchResults = Mahasiswa::with(['prodi', 'person'])
-            ->whereHas('person', fn($q) => $q->where('nama_lengkap', 'like', '%' . $this->search . '%'))
-            ->orWhere('nim', 'like', '%' . $this->search . '%')
+            ->where(function($query) {
+                $query->whereHas('person', fn($q) => $q->where('nama_lengkap', 'like', '%' . $this->search . '%'))
+                      ->orWhere('nim', 'like', '%' . $this->search . '%');
+            })
             ->limit(5)->get();
     }
 
@@ -84,7 +87,7 @@ class AdjustmentManager extends Component
 
         $this->saldo = KeuanganSaldo::firstOrCreate(
             ['mahasiswa_id' => $this->selectedMhsId],
-            ['saldo' => 0]
+            ['id' => (string) Str::uuid(), 'saldo' => 0]
         );
         
         // Load Riwayat Mutasi Saldo
@@ -113,25 +116,38 @@ class AdjustmentManager extends Component
             'adj_keterangan' => 'required|string|max:255'
         ]);
 
-        DB::transaction(function () {
-            // 1. Simpan Adjustment
-            KeuanganAdjustment::create([
-                'tagihan_id' => $this->adj_tagihan_id,
-                'jenis_adjustment' => $this->adj_jenis,
-                'nominal' => $this->adj_nominal,
-                'keterangan' => $this->adj_keterangan,
-                'created_by' => Auth::id()
+        try {
+            DB::transaction(function () {
+                // 1. Simpan Adjustment (PERBAIKAN: Gunakan UUID Eksplisit)
+                KeuanganAdjustment::create([
+                    'id' => (string) Str::uuid(),
+                    'tagihan_id' => $this->adj_tagihan_id,
+                    'jenis_adjustment' => $this->adj_jenis,
+                    'nominal' => $this->adj_nominal,
+                    'keterangan' => $this->adj_keterangan,
+                    'created_by' => Auth::id()
+                ]);
+
+                // 2. Hitung Ulang Tagihan (Panggil Action)
+                $tagihan = TagihanMahasiswa::find($this->adj_tagihan_id);
+                $action = new RecalculateInvoiceAction();
+                $action->execute($tagihan);
+            });
+
+            $this->dispatch('swal:success', [
+                'title' => 'Tersimpan!',
+                'text'  => 'Koreksi berhasil disimpan. Tagihan telah dihitung ulang.'
             ]);
+            
+            $this->showAdjustmentModal = false;
+            $this->loadData(); 
 
-            // 2. Hitung Ulang Tagihan (Panggil Action)
-            $tagihan = TagihanMahasiswa::find($this->adj_tagihan_id);
-            $action = new RecalculateInvoiceAction();
-            $action->execute($tagihan);
-        });
-
-        session()->flash('success', 'Koreksi berhasil disimpan. Tagihan telah dihitung ulang.');
-        $this->showAdjustmentModal = false;
-        $this->loadData(); 
+        } catch (\Exception $e) {
+            $this->dispatch('swal:error', [
+                'title' => 'Gagal!',
+                'text'  => 'Terjadi kesalahan: ' . $e->getMessage()
+            ]);
+        }
     }
 
     // --- REFUND / CASH OUT LOGIC ---
@@ -149,24 +165,36 @@ class AdjustmentManager extends Component
             'refund_keterangan' => 'required|string|max:255'
         ]);
 
-        DB::transaction(function () {
-            // 1. Kurangi Saldo
-            $this->saldo->decrement('saldo', $this->refund_nominal);
-            $this->saldo->touch(); 
+        try {
+            DB::transaction(function () {
+                // 1. Kurangi Saldo
+                $this->saldo->decrement('saldo', $this->refund_nominal);
+                $this->saldo->touch(); 
 
-            // 2. Catat Log Transaksi Keluar (OUT)
-            KeuanganSaldoTransaction::create([
-                'saldo_id' => $this->saldo->id,
-                'tipe' => 'OUT',
-                'nominal' => $this->refund_nominal,
-                'referensi_id' => 'REF-' . date('ymdHis'), 
-                'keterangan' => 'Pencairan Dana (Refund): ' . $this->refund_keterangan
+                // 2. Catat Log Transaksi Keluar (OUT)
+                KeuanganSaldoTransaction::create([
+                    'saldo_id' => $this->saldo->id,
+                    'tipe' => 'OUT',
+                    'nominal' => $this->refund_nominal,
+                    'referensi_id' => 'REF-' . date('ymdHis'), 
+                    'keterangan' => 'Pencairan Dana (Refund): ' . $this->refund_keterangan
+                ]);
+            });
+
+            $this->dispatch('swal:success', [
+                'title' => 'Pencairan Berhasil!',
+                'text'  => 'Dana berhasil dicairkan dan saldo telah dipotong.'
             ]);
-        });
+            
+            $this->showRefundModal = false;
+            $this->loadData();
 
-        session()->flash('success', 'Dana berhasil dicairkan dan saldo telah dipotong.');
-        $this->showRefundModal = false;
-        $this->loadData();
+        } catch (\Exception $e) {
+            $this->dispatch('swal:error', [
+                'title' => 'Gagal!',
+                'text'  => 'Terjadi kesalahan sistem: ' . $e->getMessage()
+            ]);
+        }
     }
 
     public function render()

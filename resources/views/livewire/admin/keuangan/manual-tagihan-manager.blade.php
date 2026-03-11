@@ -1,134 +1,159 @@
-<div class="max-w-5xl mx-auto space-y-6">
-    <div class="sm:flex sm:items-center sm:justify-between">
-        <div>
-            <h1 class="text-2xl font-black text-[#002855]">Buat Tagihan Manual</h1>
-            <p class="mt-2 text-sm text-slate-500">Penerbitan invoice khusus (Denda, Ganti Rugi, Biaya Susulan) perorangan.</p>
+<div class="max-w-[1600px] mx-auto p-4 md:p-8 space-y-8 animate-in fade-in duration-500">
+
+    {{-- Header Section --}}
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div class="space-y-2">
+            <h1 class="text-3xl font-black text-[#002855] tracking-tight flex items-center gap-3">
+                <div class="w-12 h-12 bg-[#002855] rounded-2xl flex items-center justify-center text-[#fcc000] shadow-xl shadow-blue-900/20">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" />
+                    </svg>
+                </div>
+                Penerbitan Invoice Manual
+            </h1>
+            <p class="text-slate-400 font-bold text-sm ml-1 uppercase tracking-widest italic">Pembuatan Tagihan Denda, Susulan, & Ganti Rugi Perorangan</p>
         </div>
     </div>
 
-    @if (session()->has('success'))
-        <div class="bg-emerald-50 border border-emerald-100 p-4 rounded-xl text-emerald-800 text-sm flex items-center shadow-sm animate-in fade-in slide-in-from-top-2">
-            <svg class="w-5 h-5 mr-3 text-emerald-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-            </svg>
-            <span class="font-bold">{{ session('success') }}</span>
-        </div>
-    @endif
+    <div class="bg-white shadow-xl shadow-slate-200/50 rounded-[3rem] border border-slate-100 overflow-hidden">
+        <div class="p-8 md:p-12 space-y-12">
 
-    <div class="bg-white shadow-xl rounded-3xl border border-slate-200 overflow-hidden">
-        <div class="p-8 space-y-10">
-            
             {{-- LANGKAH 1: PILIH MAHASISWA --}}
-            <div class="space-y-4">
-                <h4 class="text-xs font-bold text-[#002855] uppercase border-l-4 border-[#fcc000] pl-3 tracking-widest">1. Target Mahasiswa</h4>
-                
+            <div class="space-y-5">
+                <h4 class="text-xs font-black text-[#002855] uppercase border-l-[3px] border-[#fcc000] pl-4 tracking-[0.2em]">1. Cari Identitas Mahasiswa</h4>
+
                 @if(!$selectedMhs)
-                    <div class="relative">
-                        <input type="text" wire:model.live.debounce.300ms="searchMhs" 
-                            class="block w-full rounded-xl border-slate-300 bg-white py-4 pl-12 pr-4 text-sm focus:border-[#002855] focus:ring-[#002855] transition-shadow outline-none font-bold placeholder-slate-400" 
-                            placeholder="Ketik NIM atau Nama Mahasiswa...">
-                        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
-                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                            </svg>
-                        </div>
-                        
-                        {{-- Dropdown Hasil Pencarian --}}
-                        @if(!empty($searchResults))
-                            <div class="absolute z-10 mt-2 w-full bg-white shadow-2xl rounded-xl py-2 text-base ring-1 ring-black ring-opacity-5 overflow-hidden">
-                                @foreach($searchResults as $mhs)
-                                    <div wire:click="selectMhs('{{ $mhs->id }}')" class="cursor-pointer px-4 py-3 hover:bg-indigo-50 border-b border-slate-50 last:border-0 transition-colors">
-                                        <span class="font-bold text-[#002855] block">{{ $mhs->person->nama_lengkap ?? $mhs->nama_lengkap }}</span>
-                                        <span class="text-slate-500 text-xs font-mono">{{ $mhs->nim }} - {{ $mhs->prodi->nama_prodi }}</span>
-                                    </div>
-                                @endforeach
-                            </div>
-                        @elseif(strlen($searchMhs) >= 3)
-                            <div class="absolute z-10 mt-2 w-full bg-white shadow-xl rounded-xl py-4 px-6 text-sm text-slate-500 italic border border-slate-100 text-center">
-                                Tidak ditemukan data mahasiswa.
-                            </div>
-                        @endif
+                <div class="relative max-w-2xl">
+                    <input type="text" wire:model.live.debounce.300ms="searchMhs"
+                        class="block w-full rounded-2xl border-slate-200 bg-slate-50 py-4 pl-14 pr-4 text-sm focus:border-[#002855] focus:ring-2 focus:ring-indigo-100 transition-all font-bold placeholder-slate-400"
+                        placeholder="Ketik NIM atau Nama Lengkap Mahasiswa...">
+                    <div class="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none text-slate-400">
+                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
                     </div>
-                @else
-                    {{-- Kartu Mahasiswa Terpilih --}}
-                    <div class="bg-indigo-50 border border-indigo-100 rounded-2xl p-5 flex justify-between items-center animate-in zoom-in-95">
-                        <div class="flex items-center gap-4">
-                            <div class="h-12 w-12 bg-[#002855] rounded-full flex items-center justify-center text-white text-lg font-black shadow-lg">
-                                {{ substr($selectedMhs->person->nama_lengkap ?? $selectedMhs->nama_lengkap, 0, 1) }}
-                            </div>
+
+                    {{-- Dropdown Hasil Pencarian --}}
+                    @if(!empty($searchResults))
+                    <div class="absolute z-20 mt-3 w-full bg-white shadow-2xl rounded-2xl border border-slate-100 overflow-hidden animate-in slide-in-from-top-2">
+                        @foreach($searchResults as $mhs)
+                        <div wire:click="selectMhs('{{ $mhs->id }}')" class="cursor-pointer px-6 py-4 hover:bg-indigo-50 border-b border-slate-50 last:border-0 transition-colors flex items-center gap-4">
+                            <div class="w-10 h-10 bg-slate-100 text-[#002855] rounded-xl flex items-center justify-center font-black text-xs shadow-inner uppercase">{{ substr($mhs->person->nama_lengkap ?? $mhs->nama_lengkap, 0, 1) }}</div>
                             <div>
-                                <div class="text-sm font-black text-[#002855] uppercase tracking-wide">{{ $selectedMhs->person->nama_lengkap ?? $selectedMhs->nama_lengkap }}</div>
-                                <div class="text-xs text-indigo-600 font-bold mt-0.5">{{ $selectedMhs->nim }} • {{ $selectedMhs->prodi->nama_prodi }}</div>
+                                <span class="font-black text-[#002855] block uppercase tracking-tight">{{ $mhs->person->nama_lengkap ?? $mhs->nama_lengkap }}</span>
+                                <span class="text-slate-500 text-[10px] font-bold uppercase tracking-widest mt-0.5 block">{{ $mhs->nim }} &bull; {{ $mhs->prodi->nama_prodi }}</span>
                             </div>
                         </div>
-                        <button wire:click="resetSelection" class="text-rose-600 hover:text-rose-800 text-xs font-black uppercase tracking-widest bg-white px-4 py-2 rounded-lg border border-rose-100 hover:bg-rose-50 transition-all shadow-sm">
-                            Ganti Target
-                        </button>
+                        @endforeach
                     </div>
+                    @elseif(strlen($searchMhs) >= 3)
+                    <div class="absolute z-20 mt-3 w-full bg-white shadow-xl rounded-2xl py-6 px-6 text-sm text-slate-400 font-bold tracking-widest uppercase italic border border-slate-100 text-center animate-in slide-in-from-top-2">
+                        Data mahasiswa tidak ditemukan.
+                    </div>
+                    @endif
+                </div>
+                @error('searchMhs') <span class="text-rose-500 text-[10px] font-bold mt-2 block uppercase tracking-widest">{{ $message }}</span> @enderror
+                @else
+                {{-- Kartu Mahasiswa Terpilih --}}
+                <div class="bg-[#002855] shadow-xl shadow-blue-900/20 rounded-[2rem] p-6 md:p-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 animate-in zoom-in-95 max-w-3xl relative overflow-hidden">
+                    <div class="absolute right-0 top-0 p-6 opacity-10 pointer-events-none">
+                        <svg class="w-32 h-32 text-white" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 14l9-5-9-5-9 5 9 5z" />
+                            <path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
+                        </svg>
+                    </div>
+                    <div class="flex items-center gap-6 relative z-10">
+                        <div class="h-16 w-16 bg-[#fcc000] rounded-2xl flex items-center justify-center text-[#002855] text-2xl font-black shadow-inner uppercase shrink-0">
+                            {{ substr($selectedMhs->person->nama_lengkap ?? $selectedMhs->nama_lengkap, 0, 1) }}
+                        </div>
+                        <div class="space-y-1">
+                            <p class="text-[10px] text-indigo-300 font-bold uppercase tracking-[0.2em]">Target Penagihan</p>
+                            <div class="text-xl font-black text-white uppercase tracking-tight">{{ $selectedMhs->person->nama_lengkap ?? $selectedMhs->nama_lengkap }}</div>
+                            <div class="flex items-center gap-3">
+                                <span class="text-xs text-white font-mono bg-white/20 px-2 py-0.5 rounded">{{ $selectedMhs->nim }}</span>
+                                <span class="text-[10px] font-bold text-indigo-200 uppercase tracking-widest">{{ $selectedMhs->prodi->nama_prodi }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <button wire:click="resetSelection" class="relative z-10 text-rose-300 hover:text-white text-[10px] font-black uppercase tracking-widest bg-rose-500/20 px-5 py-2.5 rounded-xl border border-rose-500/30 hover:bg-rose-500 transition-all shadow-sm">
+                        Ganti Mahasiswa
+                    </button>
+                </div>
                 @endif
-                @error('selectedMhs') <span class="text-rose-500 text-xs font-bold mt-1 block">{{ $message }}</span> @enderror
             </div>
 
             {{-- LANGKAH 2: DETAIL TAGIHAN --}}
-            <div class="{{ !$selectedMhs ? 'opacity-50 pointer-events-none grayscale' : '' }} space-y-6 transition-all duration-300">
-                <h4 class="text-xs font-bold text-[#002855] uppercase border-l-4 border-[#fcc000] pl-3 tracking-widest">2. Rincian Invoice</h4>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-6 rounded-2xl border border-slate-100">
-                    <div>
-                        <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2">Untuk Semester</label>
-                        <select wire:model="semesterId" class="block w-full rounded-xl border-slate-300 bg-white text-slate-900 focus:border-[#002855] focus:ring-[#002855] text-sm transition-all">
+            <div class="{{ !$selectedMhs ? 'opacity-40 pointer-events-none grayscale' : '' }} space-y-6 transition-all duration-500 max-w-4xl">
+                <h4 class="text-xs font-black text-[#002855] uppercase border-l-[3px] border-[#fcc000] pl-4 tracking-[0.2em]">2. Spesifikasi Tagihan</h4>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 bg-slate-50/50 p-8 rounded-[2.5rem] border border-slate-100">
+                    <div class="space-y-2">
+                        <label class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Periode Semester</label>
+                        <select wire:model="semesterId" class="block w-full rounded-2xl border-slate-200 bg-white text-slate-800 font-bold focus:border-[#002855] focus:ring-2 focus:ring-indigo-100 py-4 px-5 text-sm transition-all">
                             @foreach($semesters as $sem)
-                                <option value="{{ $sem->id }}">{{ $sem->nama_tahun }} {{ $sem->is_active ? '(Aktif)' : '' }}</option>
+                            <option value="{{ $sem->id }}">{{ $sem->nama_tahun }} {{ $sem->is_active ? '(Aktif)' : '' }}</option>
                             @endforeach
                         </select>
-                        @error('semesterId') <span class="text-rose-500 text-xs font-bold mt-1 block">{{ $message }}</span> @enderror
+                        @error('semesterId') <span class="text-rose-500 text-[10px] font-bold mt-1 block ml-1">{{ $message }}</span> @enderror
                     </div>
 
-                    <div>
-                        <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2">Jenis Biaya</label>
-                        <select wire:model.live="komponenId" class="block w-full rounded-xl border-slate-300 bg-white text-slate-900 focus:border-[#002855] focus:ring-[#002855] text-sm transition-all">
-                            <option value="">-- Pilih Komponen --</option>
+                    <div class="space-y-2">
+                        <label class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Komponen Master</label>
+                        <select wire:model.live="komponenId" class="block w-full rounded-2xl border-slate-200 bg-white text-slate-800 font-bold focus:border-[#002855] focus:ring-2 focus:ring-indigo-100 py-4 px-5 text-sm transition-all">
+                            <option value="">-- Pilih Jenis Biaya --</option>
                             @foreach($komponens as $k)
-                                <option value="{{ $k->id }}">{{ $k->nama_komponen }} ({{ $k->tipe_biaya }})</option>
+                            <option value="{{ $k->id }}">{{ $k->nama_komponen }} ({{ $k->tipe_biaya }})</option>
                             @endforeach
                         </select>
-                        @error('komponenId') <span class="text-rose-500 text-xs font-bold mt-1 block">{{ $message }}</span> @enderror
+                        @error('komponenId') <span class="text-rose-500 text-[10px] font-bold mt-1 block ml-1">{{ $message }}</span> @enderror
                     </div>
 
-                    <div class="md:col-span-2">
-                        <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2">Deskripsi / Keterangan Tagihan</label>
-                        <input type="text" wire:model="deskripsi" class="block w-full rounded-xl border-slate-300 bg-white text-slate-900 focus:border-[#002855] focus:ring-[#002855] text-sm" placeholder="Contoh: Denda Keterlambatan Pengembalian Alat Lab">
-                        @error('deskripsi') <span class="text-rose-500 text-xs font-bold mt-1 block">{{ $message }}</span> @enderror
+                    <div class="md:col-span-2 space-y-2">
+                        <label class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Keterangan / Alasan Penagihan</label>
+                        <input type="text" wire:model="deskripsi" class="block w-full rounded-2xl border-slate-200 bg-white text-slate-800 font-bold focus:border-[#002855] focus:ring-2 focus:ring-indigo-100 py-4 px-5 text-sm transition-all" placeholder="Contoh: Denda Keterlambatan Pengembalian Alat Laboratorium Jaringan">
+                        @error('deskripsi') <span class="text-rose-500 text-[10px] font-bold mt-1 block ml-1">{{ $message }}</span> @enderror
                     </div>
 
-                    <div class="md:col-span-2">
-                        <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-2">Nominal Tagihan (Rp)</label>
-                        <div class="relative rounded-xl shadow-sm">
-                            <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                <span class="text-slate-400 font-bold sm:text-sm">Rp</span>
+                    <div class="md:col-span-2 space-y-2 mt-4">
+                        <label class="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Nominal Wajib Dibayar</label>
+                        <div class="relative max-w-md mx-auto">
+                            <div class="absolute inset-y-0 left-0 pl-6 flex items-center pointer-events-none">
+                                <span class="text-slate-400 font-black text-lg">Rp</span>
                             </div>
-                            <input type="number" wire:model="nominal" class="block w-full rounded-xl border-slate-300 pl-12 pr-4 py-3 focus:border-[#002855] focus:ring-[#002855] text-lg font-black text-slate-800 placeholder-slate-300" placeholder="0">
+                            <input type="number" wire:model="nominal" class="block w-full rounded-[2rem] border-2 border-[#fcc000]/50 bg-white pl-16 pr-6 py-5 focus:border-[#fcc000] focus:ring-4 focus:ring-[#fcc000]/20 text-3xl font-black text-[#002855] placeholder-slate-200 text-center transition-all shadow-sm" placeholder="0">
                         </div>
-                        @error('nominal') <span class="text-rose-500 text-xs font-bold mt-1 block">{{ $message }}</span> @enderror
+                        @error('nominal') <span class="text-rose-500 text-[10px] font-bold mt-2 block text-center uppercase tracking-widest">{{ $message }}</span> @enderror
                     </div>
                 </div>
 
-                <div class="flex justify-end pt-6 border-t border-slate-100">
-                    <button wire:click="simpanTagihan" 
+                <div class="flex justify-end pt-8">
+                    <button wire:click="simpanTagihan"
                         wire:loading.attr="disabled"
-                        class="px-8 py-3 bg-[#002855] text-white rounded-xl text-sm font-bold shadow-xl shadow-indigo-900/20 hover:bg-[#001a38] hover:scale-105 transition-all flex items-center disabled:opacity-50 disabled:cursor-not-allowed">
-                        
-                        <svg wire:loading wire:target="simpanTagihan" class="animate-spin -ml-1 mr-3 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        class="px-12 py-5 bg-[#002855] text-white rounded-3xl text-[11px] font-black uppercase tracking-[0.2em] shadow-2xl shadow-blue-900/20 hover:bg-[#001a38] hover:-translate-y-1 transition-all flex items-center disabled:opacity-50 disabled:transform-none">
+
+                        <svg wire:loading wire:target="simpanTagihan" class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
-                        
-                        <span wire:loading.remove>Terbitkan Tagihan</span>
-                        <span wire:loading>Memproses...</span>
+
+                        <span wire:loading.remove>Sah & Terbitkan Tagihan</span>
+                        <span wire:loading>Memproses Data...</span>
                     </button>
                 </div>
             </div>
 
         </div>
     </div>
-</div>  
+
+    {{-- SweetAlert2 Listener --}}
+    @script
+    <script>
+        $wire.on('swal:success', data => {
+            alert(data[0].text);
+        });
+        $wire.on('swal:error', data => {
+            alert(data[0].text);
+        });
+    </script>
+    @endscript
+</div>

@@ -9,6 +9,8 @@ use App\Domains\Keuangan\Models\KomponenBiaya;
 use App\Domains\Core\Models\TahunAkademik;
 use App\Helpers\SistemHelper;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 
 class ManualTagihanManager extends Component
 {
@@ -36,11 +38,14 @@ class ManualTagihanManager extends Component
             return;
         }
 
-        $this->searchResults = Mahasiswa::with(['prodi', 'person']) // Eager load person
-            ->whereHas('person', function($q) {
-                $q->where('nama_lengkap', 'like', '%' . $this->searchMhs . '%');
+        // PERBAIKAN: Bungkus relasi orWhere ke dalam Closure (Group Query) agar aman
+        $this->searchResults = Mahasiswa::with(['prodi', 'person'])
+            ->where(function($query) {
+                $query->whereHas('person', function($q) {
+                    $q->where('nama_lengkap', 'like', '%' . $this->searchMhs . '%');
+                })
+                ->orWhere('nim', 'like', '%' . $this->searchMhs . '%');
             })
-            ->orWhere('nim', 'like', '%' . $this->searchMhs . '%')
             ->limit(5)
             ->get();
     }
@@ -50,6 +55,7 @@ class ManualTagihanManager extends Component
         $this->selectedMhs = Mahasiswa::with(['prodi', 'programKelas', 'person'])->find($id);
         $this->searchMhs = ''; 
         $this->searchResults = [];
+        $this->resetValidation('searchMhs');
     }
 
     public function resetSelection()
@@ -69,37 +75,55 @@ class ManualTagihanManager extends Component
 
     public function simpanTagihan()
     {
+        // Validasi kustom untuk objek Mahasiswa
+        if (!$this->selectedMhs) {
+            $this->addError('searchMhs', 'Silakan cari dan pilih target mahasiswa terlebih dahulu.');
+            return;
+        }
+
         $this->validate([
-            'selectedMhs' => 'required',
             'semesterId' => 'required',
             'komponenId' => 'required',
-            'nominal' => 'required|numeric|min:1000',
-            'deskripsi' => 'required|string|max:255',
+            'nominal'    => 'required|numeric|min:1000',
+            'deskripsi'  => 'required|string|max:255',
         ]);
 
         $komponen = KomponenBiaya::find($this->komponenId);
 
-        DB::transaction(function () use ($komponen) {
-            TagihanMahasiswa::create([
-                'mahasiswa_id' => $this->selectedMhs->id,
-                'tahun_akademik_id' => $this->semesterId,
-                'kode_transaksi' => 'INV-MANUAL-' . date('ymd') . '-' . rand(1000, 9999),
-                'deskripsi' => $this->deskripsi,
-                'total_tagihan' => $this->nominal,
-                'total_bayar' => 0,
-                'status_bayar' => 'BELUM',
-                'rincian_item' => [
-                    [
-                        'nama' => $komponen->nama_komponen,
-                        'nominal' => (int) $this->nominal
-                    ]
-                ]
-            ]);
-        });
+        try {
+            DB::transaction(function () use ($komponen) {
+                TagihanMahasiswa::create([
+                    'id'                => (string) Str::uuid(), // Security Hardening
+                    'mahasiswa_id'      => $this->selectedMhs->id,
+                    'tahun_akademik_id' => $this->semesterId,
+                    'kode_transaksi'    => 'INV-MNL-' . strtoupper(Str::random(8)),
+                    'deskripsi'         => $this->deskripsi,
+                    'total_tagihan'     => $this->nominal,
+                    'total_bayar'       => 0,
+                    'status_bayar'      => 'BELUM',
+                    'created_by'        => Auth::id(), // Audit Trail
+                    // PERBAIKAN: Gunakan json_encode agar format rincian konsisten dan tidak error Array to String
+                    'rincian_item'      => json_encode([
+                        $komponen->nama_komponen => (int) $this->nominal
+                    ])
+                ]);
+            });
 
-        session()->flash('success', 'Tagihan manual berhasil dibuat untuk ' . ($this->selectedMhs->person->nama_lengkap ?? $this->selectedMhs->nim));
-        
-        $this->reset(['selectedMhs', 'komponenId', 'nominal', 'deskripsi', 'searchMhs']);
+            $nama = $this->selectedMhs->person->nama_lengkap ?? $this->selectedMhs->nim;
+            
+            $this->dispatch('swal:success', [
+                'title' => 'Tagihan Terbit!',
+                'text'  => "Invoice manual berhasil dikirimkan ke akun mahasiswa: {$nama}."
+            ]);
+            
+            $this->reset(['selectedMhs', 'komponenId', 'nominal', 'deskripsi', 'searchMhs']);
+            
+        } catch (\Exception $e) {
+            $this->dispatch('swal:error', [
+                'title' => 'Gagal Menyimpan!',
+                'text'  => 'Terjadi kesalahan sistem: ' . $e->getMessage()
+            ]);
+        }
     }
 
     public function render()

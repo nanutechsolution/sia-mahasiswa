@@ -82,6 +82,25 @@ class KrsPage extends Component
         // Cek Keuangan
         $isDispensasi = (bool) ($this->mahasiswa->data_tambahan['bebas_keuangan'] ?? false);
         if (!$isDispensasi) {
+            // 1. PRIORITAS UTAMA: CEK TUNGGAKAN MASA LALU (LEGACY / SEMESTER LALU)
+            $tunggakanLama = DB::table('tagihan_mahasiswas')
+                ->where('mahasiswa_id', $this->mahasiswa->id)
+                ->where(function($q) {
+                    $q->whereNull('tahun_akademik_id')
+                      ->orWhere('tahun_akademik_id', '!=', $this->tahunAkademikId);
+                })
+                ->whereIn('status_bayar', ['BELUM', 'CICIL'])
+                ->get();
+
+            $sisaTunggakanLama = $tunggakanLama->sum(fn($t) => $t->total_tagihan - $t->total_bayar);
+
+            if ($sisaTunggakanLama > 0) {
+                $formatRupiah = 'Rp ' . number_format($sisaTunggakanLama, 0, ',', '.');
+                $this->blockAccess("Akses Terkunci: Anda memiliki Tunggakan Masa Lalu/Historis sebesar {$formatRupiah}. Tunggakan ini wajib diprioritaskan dan dilunasi 100% sebelum Anda dapat mengisi KRS semester baru.", 'FINANCE');
+                return true;
+            }
+
+            // 2. CEK TAGIHAN SEMESTER BERJALAN
             $tagihan = DB::table('tagihan_mahasiswas')
                 ->where('mahasiswa_id', $this->mahasiswa->id)
                 ->where('tahun_akademik_id', $this->tahunAkademikId)
@@ -97,7 +116,7 @@ class KrsPage extends Component
                 ? round(($tagihan->total_bayar / $tagihan->total_tagihan) * 100) : 100;
 
             if ($paidPercentage < $minPercentage) {
-                $this->blockAccess("Syarat Keuangan: Pembayaran baru {$paidPercentage}%. Minimal {$minPercentage}% untuk mengisi KRS.", 'FINANCE');
+                $this->blockAccess("Syarat Keuangan: Pembayaran semester berjalan baru {$paidPercentage}%. Minimal {$minPercentage}% untuk mengisi KRS.", 'FINANCE');
                 return true;
             }
         }
@@ -132,11 +151,13 @@ class KrsPage extends Component
         $jadwal = JadwalKuliah::with(['mataKuliah', 'ruang'])->findOrFail($jadwalId);
         $mk = $jadwal->mataKuliah;
 
-        // 1. Validasi Prasyarat (Many-to-Many)
-        $unmetPrerequisites = $this->checkPrerequisites($mk->id);
-        if (!empty($unmetPrerequisites)) {
-            session()->flash('error', "Gagal: Anda belum memenuhi prasyarat lulus untuk MK: " . implode(', ', $unmetPrerequisites));
-            return;
+        // 1. Validasi Prasyarat (Many-to-Many) - HANYA JIKA BUKAN SISTEM PAKET
+        if (!$this->isPaket) {
+            $unmetPrerequisites = $this->checkPrerequisites($mk->id);
+            if (!empty($unmetPrerequisites)) {
+                session()->flash('error', "Gagal: Anda belum memenuhi prasyarat lulus untuk MK: " . implode(', ', $unmetPrerequisites));
+                return;
+            }
         }
 
         // 2. Validasi Kuota

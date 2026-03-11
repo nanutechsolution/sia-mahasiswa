@@ -176,6 +176,7 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/tagihan-manual', ManualTagihanManager::class)->name('admin.keuangan.manual');
             Route::get('/laporan-keu', LaporanKeuangan::class)->name('admin.keuangan.laporan');
             Route::get('/koreksi-saldo', AdjustmentManager::class)->name('admin.keuangan.adjustment');
+            Route::get('/admin/keuangan/import-tagihan', \App\Livewire\Admin\Keuangan\ImportTagihanManager::class)->name('admin.keuangan.import-tagihan');
         });
 
         // 4. GRUP LPM (Permission: akses_modul_lpm)

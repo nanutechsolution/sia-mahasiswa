@@ -57,7 +57,7 @@ class TagihanMahasiswa extends Model
      */
     public function pembayarans()
     {
-        return $this->hasMany(PembayaranMahasiswa::class, 'tagihan_id', 'id');
+        return $this->hasMany(PembayaranMahasiswa::class, 'tagihan_id', 'id');  
     }
 
     // ==========================================
