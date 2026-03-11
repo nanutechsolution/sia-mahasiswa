@@ -12,11 +12,12 @@ use App\Domains\Akademik\Models\KrsDetail;
 use App\Domains\Keuangan\Models\TagihanMahasiswa;
 use App\Domains\Keuangan\Models\KeuanganSaldo;
 use App\Domains\Keuangan\Models\PembayaranMahasiswa;
-use App\Models\AkademikTranskrip; // Import Model Transkrip Baru
+use App\Models\AkademikTranskrip; 
 use App\Helpers\SistemHelper;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\DB;
 
 class DashboardPage extends Component
 {
@@ -37,7 +38,8 @@ class DashboardPage extends Component
             $this->user->load('person.mahasiswa', 'person.dosen');
         }
 
-        $this->role = $this->user->role;
+        // Handle role string (antisipasi admin/superadmin/staf)
+        $this->role = strtolower($this->user->role);
         $this->taAktif = SistemHelper::getTahunAktif();
 
         $this->setGreeting();
@@ -54,7 +56,7 @@ class DashboardPage extends Component
             'edom_pending' => 0,
             'teaching' => ['total_kelas' => 0, 'total_mhs_ajar' => 0],
             'mentorship' => ['total_anak_wali' => 0, 'krs_pending' => 0],
-            'system' => ['mhs_aktif' => 0, 'pembayaran_pending' => 0, 'krs_diajukan' => 0, 'nilai_unpublished' => 0],
+            'system' => ['mhs_aktif' => 0, 'pembayaran_pending' => 0, 'krs_diajukan' => 0, 'nilai_unpublished' => 0, 'finance_rate' => 0],
         ];
     }
 
@@ -70,14 +72,21 @@ class DashboardPage extends Component
     public function loadDataByRole()
     {
         $taId = SistemHelper::idTahunAktif();
-        $today = Carbon::now()->locale('id')->isoFormat('dddd');
+        if (!$taId) return;
 
-        // --- 1. LOGIKA DASHBOARD MAHASISWA ---
+        // Penyesuaian nama hari ke bahasa Indonesia
+        $hariIndo = ['Sunday' => 'Minggu', 'Monday' => 'Senin', 'Tuesday' => 'Selasa', 'Wednesday' => 'Rabu', 'Thursday' => 'Kamis', 'Friday' => 'Jumat', 'Saturday' => 'Sabtu'];
+        $todayEn = Carbon::now('Asia/Makassar')->format('l');
+        $today = $hariIndo[$todayEn] ?? 'Senin';
+
+        // ========================================================
+        // 1. DASHBOARD MAHASISWA
+        // ========================================================
         if ($this->role === 'mahasiswa') {
             $mhs = $this->user->person->mahasiswa ?? null;
             if (!$mhs) return;
 
-            // Stats Akademik: Sekarang mengambil dari Materialized Transkrip (Lebih Cepat & Akurat)
+            // Stats Akademik
             $transkripData = AkademikTranskrip::where('mahasiswa_id', $mhs->id)->get();
             $totalSks = $transkripData->sum('sks_diakui');
             $totalBobot = $transkripData->sum(fn($item) => $item->sks_diakui * $item->nilai_indeks_final);
@@ -88,17 +97,26 @@ class DashboardPage extends Component
                 'ips_lalu' => RiwayatStatusMahasiswa::where('mahasiswa_id', $mhs->id)->latest('id')->value('ips') ?? 0.00
             ];
 
-            // Stats Keuangan
-            $tagihans = TagihanMahasiswa::where('mahasiswa_id', $mhs->id)->get();
+            // Cek Kuesioner (EDOM) yang belum diisi
+            $this->stats['edom_pending'] = KrsDetail::whereHas('krs', fn($q) => $q->where('mahasiswa_id', $mhs->id)->where('tahun_akademik_id', $taId))
+                ->where('is_edom_filled', false)->count();
+
+            // Stats Keuangan (Diperbaiki: Akurasi Diskon/Beasiswa)
+            $tagihans = TagihanMahasiswa::with('adjustments')->where('mahasiswa_id', $mhs->id)->get();
+            
+            $totalBruto = $tagihans->sum('total_tagihan');
+            $totalBayar = $tagihans->sum('total_bayar');
+            $totalDiskon = $tagihans->sum(function($t) { return $t->adjustments->sum('nominal'); });
+            
             $this->stats['finance'] = [
-                'total_bill' => $tagihans->sum('total_tagihan'),
-                'total_paid' => $tagihans->sum('total_bayar'),
-                'debt' => max(0, $tagihans->sum('total_tagihan') - $tagihans->sum('total_bayar')),
+                'total_bill' => $totalBruto,
+                'total_paid' => $totalBayar,
+                'debt' => max(0, $totalBruto - $totalDiskon - $totalBayar), // Kalkulasi Sisa Piutang yang benar
                 'deposit' => KeuanganSaldo::where('mahasiswa_id', $mhs->id)->value('saldo') ?? 0,
                 'status_smt' => $tagihans->where('tahun_akademik_id', $taId)->first()->status_bayar ?? 'N/A'
             ];
 
-            // Jadwal Hari Ini: Join ke Team Teaching & Ruangan
+            // Jadwal Hari Ini
             $this->scheduleToday = KrsDetail::with(['jadwalKuliah.mataKuliah', 'jadwalKuliah.dosens.person', 'jadwalKuliah.ruang'])
                 ->whereHas('krs', fn($q) => $q->where('mahasiswa_id', $mhs->id)->where('tahun_akademik_id', $taId)->where('status_krs', 'DISETUJUI'))
                 ->whereHas('jadwalKuliah', fn($q) => $q->where('hari', $today))
@@ -106,17 +124,18 @@ class DashboardPage extends Component
                 ->sortBy('jadwalKuliah.jam_mulai');
         }
 
-        // --- 2. LOGIKA DASHBOARD DOSEN ---
+        // ========================================================
+        // 2. DASHBOARD DOSEN
+        // ========================================================
         elseif ($this->role === 'dosen') {
             $dosen = $this->user->person->dosen ?? null;
             if (!$dosen) return;
 
-            // Stats Mengajar: Sekarang menggunakan relasi Many-to-Many (Team Teaching)
             $this->stats['teaching'] = [
                 'total_kelas' => JadwalKuliah::whereHas('dosens', fn($q) => $q->where('dosen_id', $dosen->id))
                     ->where('tahun_akademik_id', $taId)->count(),
                 'total_mhs_ajar' => KrsDetail::whereHas('jadwalKuliah.dosens', fn($q) => $q->where('dosen_id', $dosen->id))
-                    ->whereHas('krs', fn($q) => $q->where('tahun_akademik_id', $taId))->count(),
+                    ->whereHas('krs', fn($q) => $q->where('tahun_akademik_id', $taId)->where('status_krs', 'DISETUJUI'))->count(),
             ];
 
             $this->stats['mentorship'] = [
@@ -125,7 +144,6 @@ class DashboardPage extends Component
                     ->where('tahun_akademik_id', $taId)->where('status_krs', 'AJUKAN')->count(),
             ];
 
-            // Jadwal Mengajar Hari Ini
             $this->scheduleToday = JadwalKuliah::with(['mataKuliah', 'ruang', 'dosens.person'])
                 ->whereHas('dosens', fn($q) => $q->where('dosen_id', $dosen->id))
                 ->where('tahun_akademik_id', $taId)
@@ -134,20 +152,29 @@ class DashboardPage extends Component
                 ->get();
         }
 
-        // --- 3. LOGIKA DASHBOARD ADMIN ---
+        // ========================================================
+        // 3. DASHBOARD ADMIN / STAFF
+        // ========================================================
         else {
+            // Kalkulasi Keuangan Global Semester Ini
+            $tagihanAdmin = DB::table('tagihan_mahasiswas')->where('tahun_akademik_id', $taId)->get();
+            $potensi = $tagihanAdmin->sum('total_tagihan');
+            $realisasi = $tagihanAdmin->sum('total_bayar');
+
             $this->stats['system'] = [
                 'mhs_aktif' => RiwayatStatusMahasiswa::where('tahun_akademik_id', $taId)->where('status_kuliah', 'A')->count(),
                 'pembayaran_pending' => PembayaranMahasiswa::where('status_verifikasi', 'PENDING')->count(),
                 'krs_diajukan' => Krs::where('tahun_akademik_id', $taId)->where('status_krs', 'AJUKAN')->count(),
-                'nilai_unpublished' => KrsDetail::whereHas('krs', fn($q) => $q->where('tahun_akademik_id', $taId))
-                    ->where('is_published', false)->count(),
+                'nilai_unpublished' => KrsDetail::whereHas('krs', fn($q) => $q->where('tahun_akademik_id', $taId))->where('is_published', false)->count(),
+                'finance_rate' => $potensi > 0 ? round(($realisasi / $potensi) * 100) : 0
             ];
         }
     }
 
     private function loadActiveSurvey()
     {
+        if ($this->role !== 'mahasiswa') return; // Hanya untuk mahasiswa saat ini
+
         $identifier = $this->user->username;
         $cacheKey = 'siaset_active_surveys_' . $identifier;
 

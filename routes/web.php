@@ -170,6 +170,7 @@ Route::middleware(['auth'])->group(function () {
         // Diakses oleh: Superadmin, Admin, BAUK
         Route::middleware(['permission:akses_modul_keuangan'])->group(function () {
             Route::get('/verifikasi', VerifikasiPembayaran::class)->name('admin.keuangan');
+            Route::get('/keuangan/verifikasi', VerifikasiPembayaran::class)->name('admin.keuangan.verifikasi');
             Route::get('/komponen', KomponenBiayaManager::class)->name('admin.keuangan.komponen');
             Route::get('/skema-tarif', SkemaTarifManager::class)->name('admin.keuangan.skema');
             Route::get('/generator', TagihanGenerator::class)->name('admin.tagihan-generator');
