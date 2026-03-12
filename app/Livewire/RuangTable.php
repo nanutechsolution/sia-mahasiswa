@@ -17,6 +17,13 @@ final class RuangTable extends PowerGridComponent
 {
     public string $tableName = 'ruang-table';
 
+    // Helper untuk cek apakah user adalah superadmin atau punya permission tertentu
+    // Ini membuat code lebih bersih (Don't Repeat Yourself)
+    private function canManage(string $permission): bool
+    {
+        return auth()->user()->hasRole('superadmin') || auth()->user()->can($permission);
+    }
+
     public function setUp(): array
     {
         $this->showCheckBox();
@@ -32,18 +39,19 @@ final class RuangTable extends PowerGridComponent
         ];
     }
 
-    /**
-     * Sesuai Dokumentasi PowerGrid 6+: 
-     * Tombol ini akan muncul secara otomatis di header saat baris dipilih.
-     */
     public function bulkActions(): array
     {
-        return [
-            Button::add('bulk-delete')
+        $actions = [];
+
+        // Hanya tampilkan tombol bulk delete jika punya akses
+        if ($this->canManage('delete_ruang')) {
+            $actions[] = Button::add('bulk-delete')
                 ->slot('Hapus Terpilih')
                 ->class('text-[11px] font-black uppercase tracking-widest text-rose-600 hover:text-rose-700 transition-all border border-rose-200 bg-rose-50 px-3 py-2 rounded-lg cursor-pointer')
-                ->dispatch('confirmBulkDelete', []),
-        ];
+                ->dispatch('confirmBulkDelete', []);
+        }
+
+        return $actions;
     }
 
     public function datasource(): Builder
@@ -51,129 +59,89 @@ final class RuangTable extends PowerGridComponent
         return RefRuang::query();
     }
 
-    /**
-     * Metode ini dipanggil saat tombol "Hapus Terpilih" diklik.
-     * Mengambil ID dari properti $checkboxValues bawaan PowerGrid.
-     */
     #[On('confirmBulkDelete')]
     public function confirmBulkDelete(): void
     {
         $ids = $this->checkboxValues;
 
         if (empty($ids)) {
-            $this->dispatch('toast', type: 'warning', message: 'Silakan pilih setidaknya satu ruangan terlebih dahulu.');
+            $this->dispatch('toast', type: 'warning', message: 'Silakan pilih setidaknya satu ruangan.');
             return;
         }
 
         $this->dispatch('confirmDelete', [
             'id'    => $ids,
-            'name'  => count($ids) . ' Ruangan yang dipilih',
+            'name'  => count($ids) . ' Ruangan terpilih',
             'event' => 'bulkDeleteRuang'
         ]);
     }
 
-    /**
-     * Eksekusi penghapusan masal setelah konfirmasi "Ya" dari SweetAlert
-     */
     #[On('bulkDeleteRuang')]
     public function bulkDeleteRuang(array $ids): void
     {
-        if (!auth()->user()->can('delete_ruang')) {
-            $this->dispatch('toast', type: 'error', message: 'Akses ditolak: Anda tidak memiliki izin menghapus data.');
+        if (!$this->canManage('delete_ruang')) {
+            $this->dispatch('toast', type: 'error', message: 'Akses ditolak.');
             return;
         }
 
         try {
-            DB::beginTransaction();
+            DB::transaction(function () use ($ids) {
+                RefRuang::whereIn('id', $ids)->delete();
+            });
 
-            $items = RefRuang::whereIn('id', $ids)->get();
-
-            foreach ($items as $item) {
-                // Pagar Pengaman: Cek relasi jika perlu
-                // if ($item->jadwals()->exists()) { ... }
-                $item->delete();
-            }
-
-            DB::commit();
-
-            $this->clearSelected(); // Penting: Membersihkan checkbox setelah sukses
-            
+            $this->clearSelected();
             $this->dispatch('pg:eventRefresh-ruang-table');
-            $this->dispatch('toast', type: 'success', message: count($ids) . ' Ruangan berhasil dihapus secara masal.');
+            $this->dispatch('toast', type: 'success', message: count($ids) . ' Ruangan berhasil dihapus.');
 
         } catch (\Exception $e) {
-            if (DB::transactionLevel() > 0) {
-                DB::rollBack();
-            }
-            $this->dispatch('toast', type: 'error', message: $e->getMessage());
+            $this->dispatch('toast', type: 'error', message: 'Gagal menghapus: Data mungkin sedang digunakan.');
         }
     }
 
-    /**
-     * Aksi Hapus Tunggal
-     */
     #[On('deleteRuang')]
     public function deleteRuang($id): void
     {
-        if (!auth()->user()->can('delete_ruang')) {
+        if (!$this->canManage('delete_ruang')) {
             $this->dispatch('toast', type: 'error', message: 'Izin ditolak.');
             return;
         }
 
         try {
-            $ruang = RefRuang::find($id);
-            if (!$ruang) return;
-
-            DB::beginTransaction();
-            $ruang->delete();
-            DB::commit();
-
+            RefRuang::findOrFail($id)->delete();
             $this->dispatch('pg:eventRefresh-ruang-table');
             $this->dispatch('toast', type: 'success', message: 'Ruangan berhasil dihapus.');
-
         } catch (\Exception $e) {
-            if (DB::transactionLevel() > 0) {
-                DB::rollBack();
-            }
-            $this->dispatch('toast', type: 'error', message: 'Gagal: ' . $e->getMessage());
+            $this->dispatch('toast', type: 'error', message: 'Gagal: Data berelasi atau tidak ditemukan.');
         }
     }
 
-    /**
-     * Simpan data baru (Insert MySQL)
-     */
     #[On('storeRuang')]
     public function storeRuang(array $data): void
     {
-        if (!auth()->user()->can('create_ruang')) {
+        if (!$this->canManage('create_ruang')) {
             $this->dispatch('toast', type: 'error', message: 'Izin ditolak.');
             return;
         }
 
         try {
-            DB::beginTransaction();
             RefRuang::create([
                 'kode_ruang' => strtoupper($data['kode_ruang']),
                 'nama_ruang' => $data['nama_ruang'],
                 'kapasitas'  => $data['kapasitas'] ?? 40,
                 'is_active'  => $data['is_active'] ?? true,
             ]);
-            DB::commit();
 
             $this->dispatch('pg:eventRefresh-ruang-table');
-            $this->dispatch('toast', type: 'success', message: 'Data ruangan berhasil disimpan ke MySQL.');
+            $this->dispatch('toast', type: 'success', message: 'Data berhasil disimpan.');
         } catch (\Exception $e) {
-            if (DB::transactionLevel() > 0) {
-                DB::rollBack();
-            }
-            $this->dispatch('toast', type: 'error', message: 'Terjadi kesalahan saat menyimpan.');
+            $this->dispatch('toast', type: 'error', message: 'Terjadi kesalahan.');
         }
     }
 
     #[On('editRuang')]
     public function edit($id): void
     {
-        if (!auth()->user()->can('edit_ruang')) {
+        if (!$this->canManage('edit_ruang')) {
             $this->dispatch('toast', type: 'error', message: 'Izin ditolak.');
             return;
         }
@@ -202,7 +170,7 @@ final class RuangTable extends PowerGridComponent
             Column::make('Nama Ruangan', 'nama_ruang')->sortable()->searchable(),
             Column::make('Kapasitas', 'kapasitas_label', 'kapasitas')->sortable()->bodyAttribute('text-center'),
             Column::make('Status', 'status_html', 'is_active')->sortable()->bodyAttribute('text-center'),
-            Column::action('Aksi')->headerAttribute('text-left')->bodyAttribute('text-left')
+            Column::action('Aksi')
         ];
     }
 
@@ -210,15 +178,19 @@ final class RuangTable extends PowerGridComponent
     {
         $actions = [];
 
-        if (auth()->user()->can('edit_ruang')) {
+        // Check permission dengan bypass superadmin
+        $canEdit = $this->canManage('edit_ruang');
+        $canDelete = $this->canManage('delete_ruang');
+
+        if ($canEdit) {
             $actions[] = Button::add('edit')
                 ->slot('EDIT')
-                ->class('text-[11px] font-black uppercase tracking-widest text-[#002855] hover:text-unmaris-gold transition-all border-0 bg-transparent cursor-pointer')
+                ->class('text-[11px] font-black uppercase tracking-widest text-[#002855] hover:text-amber-600 transition-all border-0 bg-transparent cursor-pointer')
                 ->dispatch('editRuang', ['id' => $row->id]);
         }
 
-        if (auth()->user()->can('delete_ruang')) {
-            if (count($actions) > 0) {
+        if ($canDelete) {
+            if ($canEdit) {
                 $actions[] = Button::add('spacer')->slot('<span class="text-slate-300">|</span>')->class('cursor-default pointer-events-none px-1');
             }
             $actions[] = Button::add('delete')
@@ -232,19 +204,5 @@ final class RuangTable extends PowerGridComponent
         }
 
         return $actions;
-    }
-
-    public function loadingSlot(): ?string
-    {
-        return <<<'HTML'
-            <div class="p-6 space-y-4 animate-pulse">
-                <div class="flex items-center space-x-4">
-                    <div class="h-4 bg-slate-100 rounded-lg w-12"></div>
-                    <div class="h-4 bg-slate-100 rounded-lg flex-1"></div>
-                    <div class="h-4 bg-slate-100 rounded-lg w-32"></div>
-                    <div class="h-4 bg-slate-100 rounded-lg w-24"></div>
-                </div>
-            </div>
-        HTML;
     }
 }
