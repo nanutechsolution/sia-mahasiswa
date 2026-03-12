@@ -17,8 +17,9 @@ final class RuangTable extends PowerGridComponent
 {
     public string $tableName = 'ruang-table';
 
-    // Helper untuk cek apakah user adalah superadmin atau punya permission tertentu
-    // Ini membuat code lebih bersih (Don't Repeat Yourself)
+    /**
+     * Helper authorization dengan bypass Superadmin
+     */
     private function canManage(string $permission): bool
     {
         return auth()->user()->hasRole('superadmin') || auth()->user()->can($permission);
@@ -43,7 +44,6 @@ final class RuangTable extends PowerGridComponent
     {
         $actions = [];
 
-        // Hanya tampilkan tombol bulk delete jika punya akses
         if ($this->canManage('delete_ruang')) {
             $actions[] = Button::add('bulk-delete')
                 ->slot('Hapus Terpilih')
@@ -85,16 +85,14 @@ final class RuangTable extends PowerGridComponent
         }
 
         try {
-            DB::transaction(function () use ($ids) {
-                RefRuang::whereIn('id', $ids)->delete();
-            });
+            DB::transaction(fn() => RefRuang::whereIn('id', $ids)->delete());
 
             $this->clearSelected();
             $this->dispatch('pg:eventRefresh-ruang-table');
             $this->dispatch('toast', type: 'success', message: count($ids) . ' Ruangan berhasil dihapus.');
 
         } catch (\Exception $e) {
-            $this->dispatch('toast', type: 'error', message: 'Gagal menghapus: Data mungkin sedang digunakan.');
+            $this->dispatch('toast', type: 'error', message: 'Gagal menghapus data.');
         }
     }
 
@@ -111,41 +109,8 @@ final class RuangTable extends PowerGridComponent
             $this->dispatch('pg:eventRefresh-ruang-table');
             $this->dispatch('toast', type: 'success', message: 'Ruangan berhasil dihapus.');
         } catch (\Exception $e) {
-            $this->dispatch('toast', type: 'error', message: 'Gagal: Data berelasi atau tidak ditemukan.');
+            $this->dispatch('toast', type: 'error', message: 'Gagal menghapus data.');
         }
-    }
-
-    #[On('storeRuang')]
-    public function storeRuang(array $data): void
-    {
-        if (!$this->canManage('create_ruang')) {
-            $this->dispatch('toast', type: 'error', message: 'Izin ditolak.');
-            return;
-        }
-
-        try {
-            RefRuang::create([
-                'kode_ruang' => strtoupper($data['kode_ruang']),
-                'nama_ruang' => $data['nama_ruang'],
-                'kapasitas'  => $data['kapasitas'] ?? 40,
-                'is_active'  => $data['is_active'] ?? true,
-            ]);
-
-            $this->dispatch('pg:eventRefresh-ruang-table');
-            $this->dispatch('toast', type: 'success', message: 'Data berhasil disimpan.');
-        } catch (\Exception $e) {
-            $this->dispatch('toast', type: 'error', message: 'Terjadi kesalahan.');
-        }
-    }
-
-    #[On('editRuang')]
-    public function edit($id): void
-    {
-        if (!$this->canManage('edit_ruang')) {
-            $this->dispatch('toast', type: 'error', message: 'Izin ditolak.');
-            return;
-        }
-        $this->dispatch('openEditForm', id: $id)->to(RuangManager::class);
     }
 
     public function fields(): PowerGridFields
@@ -177,8 +142,6 @@ final class RuangTable extends PowerGridComponent
     public function actions(RefRuang $row): array
     {
         $actions = [];
-
-        // Check permission dengan bypass superadmin
         $canEdit = $this->canManage('edit_ruang');
         $canDelete = $this->canManage('delete_ruang');
 
@@ -186,6 +149,7 @@ final class RuangTable extends PowerGridComponent
             $actions[] = Button::add('edit')
                 ->slot('EDIT')
                 ->class('text-[11px] font-black uppercase tracking-widest text-[#002855] hover:text-amber-600 transition-all border-0 bg-transparent cursor-pointer')
+                // Pastikan key parameter sesuai dengan yang diharapkan listener
                 ->dispatch('editRuang', ['id' => $row->id]);
         }
 
@@ -204,5 +168,26 @@ final class RuangTable extends PowerGridComponent
         }
 
         return $actions;
+    }
+
+    /**
+     * Listener untuk menangkap klik tombol EDIT dari baris tabel
+     */
+    #[On('editRuang')]
+    public function edit($id): void
+    {
+        // PowerGrid terkadang mengirimkan ID dalam bentuk array ['id' => 1]
+        // Kita ambil nilai aslinya untuk diteruskan ke Manager
+        $realId = is_array($id) ? ($id['id'] ?? null) : $id;
+
+        if (!$realId) return;
+
+        if (!$this->canManage('edit_ruang')) {
+            $this->dispatch('toast', type: 'error', message: 'Izin ditolak.');
+            return;
+        }
+
+        // Teruskan ID ke RuangManager agar modal/form terbuka
+        $this->dispatch('openEditForm', id: $realId)->to(RuangManager::class);
     }
 }

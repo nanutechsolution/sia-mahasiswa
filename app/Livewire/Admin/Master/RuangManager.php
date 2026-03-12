@@ -3,17 +3,19 @@
 namespace App\Livewire\Admin\Master;
 
 use Livewire\Component;
-use Livewire\WithPagination;
 use App\Models\RefRuang;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\On;
+use Illuminate\Support\Facades\DB;
 
 class RuangManager extends Component
 {
-    use WithPagination;
+    /**
+     * Kita menghapus WithPagination dan $search karena 
+     * fungsi tersebut sudah ditangani secara otomatis oleh RuangTable (PowerGrid).
+     */
 
     // UI State
-    public $search = '';
     public $showForm = false;
     public $editMode = false;
 
@@ -24,36 +26,45 @@ class RuangManager extends Component
     public $kapasitas = 40;
     public $is_active = true;
 
-    public function updatingSearch()
+    private function canManage(string $permission): bool
     {
-        $this->resetPage();
+        return auth()->user()->hasRole('superadmin') || auth()->user()->can($permission);
     }
 
+    /**
+     * Render sekarang hanya menampilkan view statis.
+     * Tabel datanya dipanggil di dalam Blade menggunakan <livewire:ruang-table />
+     */
     public function render()
     {
-        $ruangan = RefRuang::where('kode_ruang', 'like', "%{$this->search}%")
-            ->orWhere('nama_ruang', 'like', "%{$this->search}%")
-            ->orderBy('kode_ruang', 'asc')
-            ->paginate(12);
-
-        return view('livewire.admin.master.ruang-manager', [
-            'ruangan' => $ruangan
-        ]);
+        return view('livewire.admin.master.ruang-manager');
     }
 
     public function create()
     {
+        if (!$this->canManage('create_ruang')) {
+            $this->dispatch('toast', type: 'error', message: 'Izin ditolak.');
+            return;
+        }
+
         $this->resetForm();
         $this->showForm = true;
         $this->editMode = false;
     }
+
     #[On('openEditForm')]
     public function openEditForm($id)
     {
         $this->edit($id);
     }
+
     public function edit($id)
     {
+        if (!$this->canManage('edit_ruang')) {
+            $this->dispatch('toast', type: 'error', message: 'Izin ditolak.');
+            return;
+        }
+
         $ruang = RefRuang::findOrFail($id);
 
         $this->ruangId = $ruang->id;
@@ -65,51 +76,55 @@ class RuangManager extends Component
         $this->showForm = true;
     }
 
-    public function save()
+    public function batal()
     {
-        $rules = [
-            'nama_ruang' => 'required|string|max:100',
-            'kapasitas' => 'required|integer|min:1',
-            'is_active' => 'boolean'
-        ];
-
-        if ($this->editMode) {
-            $rules['kode_ruang'] = ['required', 'string', 'max:20', Rule::unique('ref_ruang')->ignore($this->ruangId)];
-        } else {
-            $rules['kode_ruang'] = 'required|string|max:20|unique:ref_ruang,kode_ruang';
-        }
-
-        $this->validate($rules);
-
-        RefRuang::updateOrCreate(
-            ['id' => $this->ruangId],
-            [
-                'kode_ruang' => strtoupper($this->kode_ruang),
-                'nama_ruang' => $this->nama_ruang,
-                'kapasitas' => $this->kapasitas,
-                'is_active' => $this->is_active,
-            ]
-        );
-        $this->dispatch('toast', [
-            'type' => 'success',
-            'message' => 'Data ruangan kelas berhasil disimpan.'
-        ]);
-
         $this->resetForm();
         $this->showForm = false;
     }
 
-    public function toggleActive($id)
+    public function save()
     {
-        $ruang = RefRuang::findOrFail($id);
-        $ruang->update(['is_active' => !$ruang->is_active]);
+        $permissionNeeded = $this->editMode ? 'edit_ruang' : 'create_ruang';
+        if (!$this->canManage($permissionNeeded)) {
+            $this->dispatch('toast', type: 'error', message: 'Izin ditolak.');
+            return;
+        }
 
-        $this->dispatch('swal:success', [
-            'title' => 'Status Diperbarui',
-            'text' => "Status ruangan {$ruang->kode_ruang} telah diubah."
-        ]);
+        $rules = [
+            'nama_ruang' => 'required|string|max:100',
+            'kapasitas'  => 'required|integer|min:1',
+            'is_active'  => 'boolean'
+        ];
+
+        $rules['kode_ruang'] = $this->editMode 
+            ? ['required', 'string', 'max:20', Rule::unique('ref_ruang', 'kode_ruang')->ignore($this->ruangId)]
+            : ['required', 'string', 'max:20', 'unique:ref_ruang,kode_ruang'];
+
+        $this->validate($rules);
+
+        try {
+            DB::transaction(function () {
+                RefRuang::updateOrCreate(
+                    ['id' => $this->ruangId],
+                    [
+                        'kode_ruang' => strtoupper($this->kode_ruang),
+                        'nama_ruang' => $this->nama_ruang,
+                        'kapasitas'  => $this->kapasitas,
+                        'is_active'  => $this->is_active,
+                    ]
+                );
+            });
+
+            // Memberitahu PowerGrid untuk refresh data setelah simpan
+            $this->dispatch('pg:eventRefresh-ruang-table');
+            $this->dispatch('toast', type: 'success', message: 'Data ruangan berhasil disimpan.');
+
+            $this->batal();
+
+        } catch (\Exception $e) {
+            $this->dispatch('toast', type: 'error', message: 'Gagal menyimpan data.');
+        }
     }
-
 
     public function resetForm()
     {
