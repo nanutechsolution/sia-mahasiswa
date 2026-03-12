@@ -11,7 +11,7 @@ class UserSeeder extends Seeder
     public function run(): void
     {
         // 1. Super Admin (IT / Dewa System)
-        $super = User::firstOrCreate(
+        $super = User::updateOrCreate(
             ['username' => 'superadmin'],
             [
                 'name' => 'Super Administrator',
@@ -21,7 +21,7 @@ class UserSeeder extends Seeder
                 'is_active' => true,
             ]
         );
-        $super->assignRole('superadmin'); // Spatie Role
+        $super->syncRoles('superadmin'); // Spatie Role
 
         // 2. Admin Keuangan (Biro Keuangan / BAUK)
         $keuangan = User::firstOrCreate(
