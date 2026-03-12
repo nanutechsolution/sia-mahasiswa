@@ -1,4 +1,4 @@
-<div class="space-y-8 animate-in fade-in duration-500 max-w-[1600px] mx-auto p-4 md:p-8">
+<div class="space-y-6 animate-in fade-in duration-500">
     
     {{-- Header Section --}}
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -19,7 +19,7 @@
     </div>
 
     {{-- Main Table --}}
-    <div class="bg-white rounded-[3rem] shadow-xl border border-slate-200 overflow-hidden relative">
+    <div class="bg-white  rounded-2xl shadow-xl border border-slate-200 overflow-hidden relative">
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-slate-100">
                 <thead class="bg-[#002855] text-white">

@@ -1,4 +1,5 @@
 <div class="space-y-6 animate-in fade-in duration-500">
+    
     {{-- 1. Header Section --}}
     <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
         <div class="flex items-center gap-4">
@@ -13,34 +14,38 @@
     </div>
 
     {{-- 2. Filter & Search Bento Box --}}
-    <div class="bg-white p-3 shadow-sm rounded-3xl border border-slate-200 grid grid-cols-1 md:grid-cols-3 gap-3">
+    <div class="bg-white p-3 shadow-sm rounded-3xl border border-slate-200 grid grid-cols-1 lg:grid-cols-3 gap-3">
         {{-- Filter Semester --}}
-        <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100 group focus-within:border-[#002855] transition-all">
+        <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100 group focus-within:border-[#002855] transition-all min-w-0">
             <div class="w-10 h-10 shrink-0 rounded-xl bg-white text-[#002855] flex items-center justify-center font-black text-[10px] tracking-widest shadow-sm">SEM</div>
-            <select wire:model.live="filterSemesterId" class="flex-1 bg-transparent border-none font-bold text-[#002855] focus:ring-0 text-sm uppercase cursor-pointer">
-                @foreach($semesters as $sem)
-                    <option value="{{ $sem->id }}">{{ $sem->nama_tahun }}</option>
-                @endforeach
-            </select>
+            <div class="flex-1 min-w-0">
+                <select wire:model.live="filterSemesterId" class="w-full bg-transparent border-none font-bold text-[#002855] focus:ring-0 text-sm uppercase cursor-pointer truncate">
+                    @foreach($semesters as $sem)
+                        <option value="{{ $sem->id }}">{{ $sem->nama_tahun }}</option>
+                    @endforeach
+                </select>
+            </div>
         </div>
 
         {{-- Filter Prodi --}}
-        <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100 group focus-within:border-[#002855] transition-all">
+        <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100 group focus-within:border-[#002855] transition-all min-w-0">
             <div class="w-10 h-10 shrink-0 rounded-xl bg-white text-indigo-600 flex items-center justify-center font-black text-[10px] tracking-widest shadow-sm">PRD</div>
-            <select wire:model.live="filterProdiId" class="flex-1 bg-transparent border-none font-bold text-slate-600 focus:ring-0 text-sm uppercase cursor-pointer">
-                <option value="">Semua Program Studi</option>
-                @foreach($prodis as $p)
-                    <option value="{{ $p->id }}">{{ $p->jenjang }} - {{ $p->nama_prodi }}</option>
-                @endforeach
-            </select>
+            <div class="flex-1 min-w-0">
+                <select wire:model.live="filterProdiId" class="w-full bg-transparent border-none font-bold text-slate-600 focus:ring-0 text-sm uppercase cursor-pointer truncate">
+                    <option value="">Semua Program Studi</option>
+                    @foreach($prodis as $p)
+                        <option value="{{ $p->id }}">{{ $p->jenjang }} - {{ $p->nama_prodi }}</option>
+                    @endforeach
+                </select>
+            </div>
         </div>
 
         {{-- Search Input --}}
-        <div class="flex items-center gap-3 p-3 bg-white rounded-2xl border border-slate-200 group focus-within:ring-2 focus-within:ring-indigo-100 transition-all">
+        <div class="flex items-center gap-3 p-3 bg-white rounded-2xl border border-slate-200 group focus-within:ring-2 focus-within:ring-indigo-100 transition-all min-w-0">
             <div class="w-10 h-10 shrink-0 rounded-xl bg-slate-50 text-slate-400 group-focus-within:text-[#002855] group-focus-within:bg-indigo-50 flex items-center justify-center transition-colors">
                 <x-heroicon-o-magnifying-glass class="h-5 w-5" />
             </div>
-            <input type="text" wire:model.live.debounce.300ms="search" placeholder="Cari MK / Dosen..." class="flex-1 border-none focus:ring-0 text-sm font-bold text-slate-700 placeholder:text-slate-300 placeholder:font-medium">
+            <input type="text" wire:model.live.debounce.300ms="search" placeholder="Cari MK / Dosen..." class="flex-1 border-none focus:ring-0 text-sm font-bold text-slate-700 placeholder:text-slate-300 placeholder:font-medium min-w-0">
         </div>
     </div>
 
