@@ -30,7 +30,7 @@ class UserSeeder extends Seeder
                 'name' => 'Staff Keuangan',
                 'email' => 'keuangan@unmaris.ac.id',
                 'password' => Hash::make('password'),
-                'role' => 'keuangan',
+                'role' => 'bauk',
                 'is_active' => true,
             ]
         );
@@ -43,7 +43,7 @@ class UserSeeder extends Seeder
                 'name' => 'Kepala BAAK',
                 'email' => 'baak@unmaris.ac.id',
                 'password' => Hash::make('password'),
-                'role' => 'baak',
+                'role' => 'bara',
                 'is_active' => true,
             ]
         );
