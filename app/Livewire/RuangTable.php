@@ -12,9 +12,12 @@ use PowerComponents\LivewirePowerGrid\PowerGridFields;
 use PowerComponents\LivewirePowerGrid\PowerGridComponent;
 use Livewire\Attributes\On;
 use Illuminate\Support\Facades\DB;
+use PowerComponents\LivewirePowerGrid\Concerns\Checkbox;
 
 final class RuangTable extends PowerGridComponent
 {
+    use Checkbox; // Pastikan Trait Checkbox digunakan secara eksplisit di PG 6
+
     public string $tableName = 'ruang-table';
 
     /**
@@ -40,14 +43,18 @@ final class RuangTable extends PowerGridComponent
         ];
     }
 
+    /**
+     * PowerGrid 6: Tombol di sini akan muncul secara otomatis di header 
+     * HANYA SAAT ada baris yang dicentang.
+     */
     public function bulkActions(): array
     {
         $actions = [];
 
         if ($this->canManage('delete_ruang')) {
             $actions[] = Button::add('bulk-delete')
-                ->slot('Hapus Terpilih')
-                ->class('text-[11px] font-black uppercase tracking-widest text-rose-600 hover:text-rose-700 transition-all border border-rose-200 bg-rose-50 px-3 py-2 rounded-lg cursor-pointer')
+                ->slot('Hapus Terpilih (<span x-text="window.pgBulkActions.count(\'' . $this->tableName . '\')"></span>)')
+                ->class('flex items-center gap-2 text-[11px] font-black uppercase tracking-widest text-rose-600 hover:text-rose-700 transition-all border border-rose-200 bg-rose-50 px-3 py-2 rounded-lg cursor-pointer')
                 ->dispatch('confirmBulkDelete', []);
         }
 
@@ -62,6 +69,7 @@ final class RuangTable extends PowerGridComponent
     #[On('confirmBulkDelete')]
     public function confirmBulkDelete(): void
     {
+        // PowerGrid 6 menyimpan nilai terpilih di $this->checkboxValues
         $ids = $this->checkboxValues;
 
         if (empty($ids)) {
@@ -87,7 +95,7 @@ final class RuangTable extends PowerGridComponent
         try {
             DB::transaction(fn() => RefRuang::whereIn('id', $ids)->delete());
 
-            $this->clearSelected();
+            $this->clearSelected(); // Membersihkan pilihan checkbox
             $this->dispatch('pg:eventRefresh-ruang-table');
             $this->dispatch('toast', type: 'success', message: count($ids) . ' Ruangan berhasil dihapus.');
 
@@ -149,7 +157,6 @@ final class RuangTable extends PowerGridComponent
             $actions[] = Button::add('edit')
                 ->slot('EDIT')
                 ->class('text-[11px] font-black uppercase tracking-widest text-[#002855] hover:text-amber-600 transition-all border-0 bg-transparent cursor-pointer')
-                // Pastikan key parameter sesuai dengan yang diharapkan listener
                 ->dispatch('editRuang', ['id' => $row->id]);
         }
 
@@ -176,8 +183,6 @@ final class RuangTable extends PowerGridComponent
     #[On('editRuang')]
     public function edit($id): void
     {
-        // PowerGrid terkadang mengirimkan ID dalam bentuk array ['id' => 1]
-        // Kita ambil nilai aslinya untuk diteruskan ke Manager
         $realId = is_array($id) ? ($id['id'] ?? null) : $id;
 
         if (!$realId) return;
@@ -187,7 +192,6 @@ final class RuangTable extends PowerGridComponent
             return;
         }
 
-        // Teruskan ID ke RuangManager agar modal/form terbuka
         $this->dispatch('openEditForm', id: $realId)->to(RuangManager::class);
     }
 }
