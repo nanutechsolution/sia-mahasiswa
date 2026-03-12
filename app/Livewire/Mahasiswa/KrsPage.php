@@ -85,9 +85,9 @@ class KrsPage extends Component
             // 1. PRIORITAS UTAMA: CEK TUNGGAKAN MASA LALU (LEGACY / SEMESTER LALU)
             $tunggakanLama = DB::table('tagihan_mahasiswas')
                 ->where('mahasiswa_id', $this->mahasiswa->id)
-                ->where(function($q) {
+                ->where(function ($q) {
                     $q->whereNull('tahun_akademik_id')
-                      ->orWhere('tahun_akademik_id', '!=', $this->tahunAkademikId);
+                        ->orWhere('tahun_akademik_id', '!=', $this->tahunAkademikId);
                 })
                 ->whereIn('status_bayar', ['BELUM', 'CICIL'])
                 ->get();
@@ -358,7 +358,6 @@ class KrsPage extends Component
                     ->whereIn('activity_type', [KrsDetail::TYPE_THESIS, KrsDetail::TYPE_MBKM, KrsDetail::TYPE_CONTINUATION])
                     ->whereNotIn('kode_mk', $takenMkCodes)
                     ->get();
-
                 foreach ($specialMks as $mk) {
                     $dummyJadwal = new JadwalKuliah();
                     $dummyJadwal->id = 'SPECIAL_' . $mk->id;

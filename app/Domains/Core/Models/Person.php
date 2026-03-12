@@ -37,37 +37,25 @@ class Person extends Model
             ->orderBy('trx_person_gelar.urutan', 'asc');
     }
 
-    /**
-     * Accessor: Gabungan Nama + Gelar
-     * Panggil: $person->nama_dengan_gelar
-     */
-    public function getNamaDenganGelarAttribute()
+  // 2. Accessor perakit gelar dan nama
+    public function getNamaBergelarAttribute()
     {
-        // Kita bisa gunakan relasi yang sudah diload untuk performa (jika eager loading)
-        // atau query manual jika relasi belum diload.
+        // Tarik semua gelar dari relasi
+        $gelars = $this->gelars;
+        // 1. FILTER GELAR DEPAN
+        // Mengambil semua gelar yang posisinya 'DEPAN' (Bisa 1 atau lebih)
+        // Misal: ['Prof.', 'Dr.', 'Ir.'] -> digabung spasi jadi "Prof. Dr. Ir. "
+        $gelarDepanArr = $gelars->where('posisi', 'DEPAN')->pluck('kode')->toArray();
+        $gelarDepanStr = !empty($gelarDepanArr) ? implode(' ', $gelarDepanArr) . ' ' : '';
+        // 2. FILTER GELAR BELAKANG
+        // Mengambil semua gelar yang posisinya 'BELAKANG' (Bisa 2, 3, atau lebih)
+        // Misal: ['S.Kom.', 'M.T.'] -> digabung koma+spasi jadi ", S.Kom., M.T."
+        $gelarBelakangArr = $gelars->where('posisi', 'BELAKANG')->pluck('kode')->toArray();
+        $gelarBelakangStr = !empty($gelarBelakangArr) ? ', ' . implode(', ', $gelarBelakangArr) : '';
 
-        if ($this->relationLoaded('gelars')) {
-            $gelars = $this->gelars;
-        } else {
-            // Fallback query manual jika relasi tidak di-eager load (untuk hemat memori list besar)
-            $gelars = DB::table('trx_person_gelar as tpg')
-                ->join('ref_gelar as rg', 'tpg.gelar_id', '=', 'rg.id')
-                ->where('tpg.person_id', $this->id)
-                ->orderBy('tpg.urutan', 'asc')
-                ->select('rg.kode', 'rg.posisi')
-                ->get();
-        }
-
-        $depan = $gelars->where('posisi', 'DEPAN')->pluck('kode')->implode(' ');
-        $belakang = $gelars->where('posisi', 'BELAKANG')->pluck('kode')->implode(', ');
-
-        $namaLengkap = $this->nama_lengkap;
-
-        // Format: [Gelar Depan] [Nama] [, Gelar Belakang]
-        $hasil = $depan ? ($depan . ' ' . $namaLengkap) : $namaLengkap;
-        $hasil .= $belakang ? (', ' . $belakang) : '';
-
-        return $hasil;
+        // 3. GABUNGKAN SEMUANYA
+        // Hasil: "Prof. Dr. Ir. Budi Santoso, S.Kom., M.T."
+        return $gelarDepanStr . $this->nama_lengkap . $gelarBelakangStr;
     }
 
     /**

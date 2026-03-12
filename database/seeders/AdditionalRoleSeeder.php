@@ -19,37 +19,134 @@ class AdditionalRoleSeeder extends Seeder
          * Cukup tambahkan modul baru di array ini. Tidak perlu ubah logika di bawah.
          * Format: 'nama_role' => ['permission_1', 'permission_2']
          */
+        // $roleMap = [
+        //     // Superadmin: Memiliki akses ke SELURUH permission yang ada di sistem
+        //     'superadmin' => ['*'],
+
+        //     // Admin: Operator utama sistem
+        //     'admin' => [
+        //         'akses_modul_akademik',
+        //         'akses_modul_keuangan',
+        //         'akses_modul_lpm',
+        //         'akses_modul_system',
+        //     ],
+
+        //     // BARA: Bagian Administrasi, Registrasi & Akademik
+        //     'bara' => [
+        //         'akses_modul_akademik',
+        //     ],
+
+        //     // BAUK: Bagian Administrasi Umum & Keuangan
+        //     'bauk' => [
+        //         'akses_modul_keuangan',
+        //     ],
+
+        //     // User Role: Default tanpa permission khusus panel admin
+        //     'dosen' => [],
+        //     'mahasiswa' => [],
+        //     'lpm' => ['akses_modul_lpm'],
+        //     // 'pustakawan' => ['akses_modul_perpustakaan'],
+        //     // 'aset'       => ['akses_modul_inventaris'],
+        //     // 'alumni'     => ['akses_modul_karir'],
+        // ];
+
         $roleMap = [
-            // Superadmin: Memiliki akses ke SELURUH permission yang ada di sistem
             'superadmin' => ['*'],
 
-            // Admin: Operator utama sistem
             'admin' => [
-                'akses_modul_akademik',
-                'akses_modul_keuangan',
-                'akses_modul_lpm',
                 'akses_modul_system',
+                'view_users',
+                'create_users',
+                'edit_users',
+                'delete_users',
+                'view_roles',
+                'manage_roles',
+                'view_logs',
+                'clear_logs',
+                'manage_settings',
             ],
 
-            // BARA: Bagian Administrasi, Registrasi & Akademik
             'bara' => [
                 'akses_modul_akademik',
+                // Master Data
+                'view_fakultas',
+                'create_fakultas',
+                'edit_fakultas',
+                'delete_fakultas',
+                'view_prodi',
+                'create_prodi',
+                'edit_prodi',
+                'delete_prodi',
+                'view_kurikulum',
+                'create_kurikulum',
+                'edit_kurikulum',
+                'delete_kurikulum',
+                'view_matakuliah',
+                'create_matakuliah',
+                'edit_matakuliah',
+                'delete_matakuliah',
+                // Operasional
+                'view_mahasiswa',
+                'create_mahasiswa',
+                'edit_mahasiswa',
+                'delete_mahasiswa',
+                'view_jadwal',
+                'create_jadwal',
+                'edit_jadwal',
+                'delete_jadwal',
+                'validasi_krs_akhir',
+                'buka_tutup_krs',
+                'cetak_absensi',
+                'cetak_transkrip',
             ],
 
-            // BAUK: Bagian Administrasi Umum & Keuangan
+            // BAUK (Keuangan & Umum)
             'bauk' => [
                 'akses_modul_keuangan',
+                'view_tagihan',
+                'create_tagihan',
+                'edit_tagihan',
+                'delete_tagihan',
+                'validasi_pembayaran',
+                'cancel_pembayaran',
+                'manage_dispensasi', // Untuk mahasiswa yang menunggak tapi diizinkan KRS
+                'view_laporan_keuangan',
+                'export_laporan_keuangan',
+                'manage_beasiswa',
             ],
 
-            // User Role: Default tanpa permission khusus panel admin
-            'dosen' => [],
-            'mahasiswa' => [],
-            'lpm' => ['akses_modul_lpm'],
-            // 'pustakawan' => ['akses_modul_perpustakaan'],
-            // 'aset'       => ['akses_modul_inventaris'],
-            // 'alumni'     => ['akses_modul_karir'],
-        ];
+            'dosen' => [
+                'akses_portal_dosen',
+                'view_jadwal_mengajar',
+                'input_absensi',
+                'view_mahasiswa_bimbingan',
+                'validasi_krs_perwalian',
+                'input_nilai',
+                'lock_nilai', // lock_nilai agar nilai tidak bisa diubah setelah durasi tertentu
+                'view_bahan_ajar',
+                'upload_bahan_ajar',
+            ],
 
+            'mahasiswa' => [
+                'akses_portal_mahasiswa',
+                'view_tagihan_saya',
+                'input_krs',
+                'view_krs',
+                'view_jadwal_kuliah',
+                'view_khs',
+                'view_transkrip_sementara',
+                'view_presensi',
+                'isi_kuisioner_dosen',
+            ],
+
+            'lpm' => [
+                'akses_modul_lpm',
+                'view_instrumen',
+                'manage_instrumen',
+                'view_grafik_evaluasi',
+                'export_hasil_audit',
+            ],
+        ];
         // 2. EKSEKUSI OTOMATIS (JANGAN DIUBAH)
 
         // A. Kumpulkan semua permission unik dari konfigurasi diatas

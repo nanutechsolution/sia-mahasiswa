@@ -6,12 +6,14 @@ use Livewire\Component;
 use Livewire\WithPagination;
 use App\Domains\Core\Models\Prodi;
 use App\Domains\Core\Models\Fakultas;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Validation\Rule;
+use Livewire\Attributes\On;
 
 class ProdiManager extends Component
 {
     use WithPagination;
-
+    use AuthorizesRequests;
     // Filter
     public $search = '';
 
@@ -24,7 +26,7 @@ class ProdiManager extends Component
     public $jenjang = 'S1';
     public $gelar_lulusan;
     public $format_nim = '{THN}{KODE}{NO:3}';
-    public $is_paket = true; 
+    public $is_paket = true;
     public $is_active = true;
     public $kaprodi;
 
@@ -51,19 +53,7 @@ class ProdiManager extends Component
     public function render()
     {
         $fakultas_list = Fakultas::orderBy('nama_fakultas')->get();
-
-        $prodis = Prodi::with('fakultas')
-            ->where(function ($q) {
-                $q->where('nama_prodi', 'like', '%' . $this->search . '%')
-                    ->orWhere('kode_prodi_internal', 'like', '%' . $this->search . '%')
-                    ->orWhere('kode_prodi_dikti', 'like', '%' . $this->search . '%');
-            })
-            ->orderBy('fakultas_id', 'asc')
-            ->orderBy('kode_prodi_internal', 'asc')
-            ->paginate(10);
-
         return view('livewire.admin.master.prodi-manager', [
-            'prodis' => $prodis,
             'fakultas_list' => $fakultas_list
         ]);
     }
@@ -74,7 +64,7 @@ class ProdiManager extends Component
         $this->showForm = true;
         $this->editMode = false;
     }
-
+    #[On('editProdi')]
     public function edit($id)
     {
         $p = Prodi::findOrFail($id);
@@ -96,6 +86,7 @@ class ProdiManager extends Component
 
     public function save()
     {
+
         $rules = [
             'fakultas_id' => 'required|exists:ref_fakultas,id',
             'nama_prodi' => 'required|string|max:100',
@@ -115,7 +106,8 @@ class ProdiManager extends Component
         }
 
         $this->validate($rules);
-
+        $permission = $this->editMode ? 'edit_prodi' : 'create_prodi';
+        $this->authorize($permission);
         $data = [
             'fakultas_id' => $this->fakultas_id,
             'kode_prodi_dikti' => trim($this->kode_prodi_dikti),
@@ -131,30 +123,31 @@ class ProdiManager extends Component
 
         if ($this->editMode) {
             Prodi::find($this->prodiId)->update($data);
-            session()->flash('success', 'Data Prodi berhasil diperbarui.');
+            $this->dispatch('toast', [
+                'type' => 'success',
+                'message' => 'Data Prodi berhasil diperbarui.'
+            ]);
         } else {
             Prodi::create($data);
-            session()->flash('success', 'Prodi baru berhasil ditambahkan.');
+            $this->dispatch('toast', [
+                'type' => 'success',
+                'message' => 'Prodi baru berhasil ditambahkan.'
+            ]);
         }
 
         $this->batal();
     }
-
-    public function delete($id)
-    {
-        try {
-            Prodi::destroy($id);
-            session()->flash('success', 'Prodi berhasil dihapus.');
-        } catch (\Exception $e) {
-            session()->flash('error', 'Gagal hapus: Prodi mungkin masih memiliki data mahasiswa atau kurikulum.');
-        }
-    }
-
     public function resetForm()
     {
         $this->reset([
-            'prodiId', 'fakultas_id', 'kode_prodi_dikti', 'kode_prodi_internal', 
-            'nama_prodi', 'gelar_lulusan', 'format_nim', 'kaprodi'
+            'prodiId',
+            'fakultas_id',
+            'kode_prodi_dikti',
+            'kode_prodi_internal',
+            'nama_prodi',
+            'gelar_lulusan',
+            'format_nim',
+            'kaprodi'
         ]);
         $this->jenjang = 'S1';
         $this->is_paket = true;

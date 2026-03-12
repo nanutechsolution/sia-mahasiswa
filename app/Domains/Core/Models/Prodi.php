@@ -2,11 +2,14 @@
 
 namespace App\Domains\Core\Models;
 
+use App\Domains\Akademik\Models\Kurikulum;
+use App\Domains\Akademik\Models\MataKuliah;
+use App\Domains\Mahasiswa\Models\Mahasiswa;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Activitylog\LogOptions;
-use Illuminate\Support\Facades\DB; // Tambahkan DB
 
 class Prodi extends Model
 {
@@ -40,27 +43,48 @@ class Prodi extends Model
     {
         return $this->belongsTo(Fakultas::class, 'fakultas_id');
     }
+    // Relasi ke tabel trx_person_jabatan
+    public function kaprodiAktif()
+    {
+        return $this->hasOne(PersonJabatan::class, 'prodi_id')
+            ->whereHas('jabatan', fn($q) => $q->where('kode_jabatan', 'KAPRODI'))
+            ->whereDate('tanggal_mulai', '<=', now())
+            ->where(function ($q) {
+                $q->whereNull('tanggal_selesai')
+                    ->orWhereDate('tanggal_selesai', '>=', now());
+            });
+    }
+
+    // Accessor untuk merender nama bergelar
+    public function getNamaKaprodiAttribute()
+    {
+        // Pastikan model Person sudah punya accessor getNamaBergelarAttribute
+        return $this->kaprodiAktif?->person?->nama_bergelar ?? '-';
+    }
 
     /**
-     * Helper untuk mengambil Kaprodi Aktif saat ini dari modul HR
+     * Relasi ke Mata Kuliah
+     * Sesuaikan nama fungsi ini dengan yang dipanggil di withCount()
      */
-    public function getKaprodiAttribute()
+    public function prodis(): HasMany
     {
-        $today = date('Y-m-d');
-        
-        $pj = DB::table('trx_person_jabatan as pj')
-            ->join('ref_jabatan as j', 'pj.jabatan_id', '=', 'j.id')
-            ->join('ref_person as p', 'pj.person_id', '=', 'p.id')
-            ->where('j.kode_jabatan', 'KAPRODI') // Pastikan kode jabatan di master adalah 'KAPRODI'
-            ->where('pj.prodi_id', $this->id) // Filter spesifik ID Prodi ini
-            ->where('pj.tanggal_mulai', '<=', $today)
-            ->where(function($q) use ($today) {
-                $q->whereNull('pj.tanggal_selesai')
-                  ->orWhere('pj.tanggal_selesai', '>=', $today);
-            })
-            ->select('p.nama_lengkap')
-            ->first();
+        // Pastikan namespace model MataKuliah sudah benar
+        return $this->hasMany(MataKuliah::class, 'prodi_id');
+    }
 
-        return $pj ? $pj->nama_lengkap : '-';
+    /**
+     * Relasi ke Kurikulum
+     */
+    public function kurikulums(): HasMany
+    {
+        return $this->hasMany(Kurikulum::class, 'prodi_id');
+    }
+
+    /**
+     * Relasi ke Mahasiswa
+     */
+    public function mahasiswas(): HasMany
+    {
+        return $this->hasMany(Mahasiswa::class, 'prodi_id');
     }
 }

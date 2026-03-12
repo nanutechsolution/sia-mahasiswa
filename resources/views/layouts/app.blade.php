@@ -8,6 +8,7 @@
     <!-- icon -->
     <link rel="icon" type="image/png" href="{{ asset('logo.png') }}">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @livewireStyles
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
 </head>
 
@@ -303,7 +304,53 @@
             </main>
         </div>
     </div>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    @livewireScripts
+  <script>
+    // 1. Menangani Konfirmasi Hapus (Muncul saat tombol Hapus diklik)
+    window.addEventListener('confirmDelete', event => {
+        Swal.fire({
+            title: 'Hapus ' + event.detail.name + '?',
+            text: "Data yang terikat mungkin akan mencegah penghapusan ini.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#e11d48', // Rose 600
+            cancelButtonColor: '#002855',  // Unmaris Blue
+            confirmButtonText: 'Ya, Hapus!',
+            cancelButtonText: 'Batal',
+            customClass: {
+                popup: 'rounded-2xl',
+                title: 'font-black text-unmaris-blue',
+                confirmButton: 'rounded-xl px-6 py-2.5 font-bold',
+                cancelButton: 'rounded-xl px-6 py-2.5 font-bold'
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // Memicu event deleteProdi di Livewire
+                Livewire.dispatch(event.detail.event, { id: event.detail.id });
+            }
+        })
+    });
+
+    // 2. MENANGANI RETURN TOAST (Sukses/Gagal dari Server)
+    // Script ini yang membuat Swal muncul setelah return hapus
+    window.addEventListener('toast', event => {
+        const data = event.detail;
+        
+        Swal.fire({
+            icon: data.type, // 'success' atau 'error'
+            title: data.type === 'success' ? 'Berhasil!' : 'Gagal!',
+            text: data.message,
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 3000,
+            timerProgressBar: true,
+            customClass: {
+                popup: 'rounded-xl shadow-lg border border-slate-100'
+            }
+        });
+    });
+</script>
 </body>
 
 </html>

@@ -4,7 +4,6 @@ namespace App\Domains\Core\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Support\Facades\DB;
 
 class Fakultas extends Model
 {
@@ -22,23 +21,25 @@ class Fakultas extends Model
     {
         return $this->hasMany(Prodi::class, 'fakultas_id');
     }
-
     /**
-     * Helper untuk mengambil Dekan Aktif saat ini dari modul HR
+     * 1. RELASI: Mengambil data Jabatan Dekan yang sedang aktif
      */
+    public function dekanAktif()
+    {
+        return $this->hasOne(PersonJabatan::class, 'fakultas_id')
+            ->whereHas('jabatan', fn($q) => $q->where('kode_jabatan', 'DEKAN'))
+            ->whereDate('tanggal_mulai', '<=', now())
+            ->where(function ($q) {
+                $q->whereNull('tanggal_selesai')
+                    ->orWhereDate('tanggal_selesai', '>=', now());
+            });
+    }
+
     public function getDekanAttribute()
     {
-        return PersonJabatan::with('person')
-            ->whereHas('jabatan', fn($q) => $q->where('kode_jabatan', 'DEKAN'))
-            ->where('fakultas_id', $this->id)
-            ->whereDate('tanggal_mulai', '<=', now())
-            ->where(
-                fn($q) =>
-                $q->whereNull('tanggal_selesai')
-                    ->orWhereDate('tanggal_selesai', '>=', now())
-            )
-            ->first()
-            ?->person
-            ?->nama_lengkap ?? '-';
+        $person = $this->dekanAktif?->person;
+        
+        // Panggil atribut nama_bergelar dari model Person
+        return $person ? $person->nama_bergelar : '-';
     }
 }

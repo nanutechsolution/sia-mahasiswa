@@ -141,7 +141,6 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/kurikulum', KurikulumManager::class)->name('admin.kurikulum');
             // Route::get('/kurikulum/{id}', KurikulumDetail::class)->name('admin.kurikulum.detail'); // Jika ada detail
             Route::get('/komponen-nilai', \App\Livewire\Admin\Akademik\KomponenNilaiManager::class)->name('admin.komponen-nilai');
-
             // Operasional Perkuliahan
             Route::get('/jadwal', JadwalKuliahManager::class)->name('admin.jadwal');
             Route::get('/cetak-absensi', CetakAbsensiManager::class)->name('admin.cetak.absensi.manager');

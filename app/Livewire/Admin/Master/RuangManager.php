@@ -6,6 +6,7 @@ use Livewire\Component;
 use Livewire\WithPagination;
 use App\Models\RefRuang;
 use Illuminate\Validation\Rule;
+use Livewire\Attributes\On;
 
 class RuangManager extends Component
 {
@@ -46,17 +47,20 @@ class RuangManager extends Component
         $this->showForm = true;
         $this->editMode = false;
     }
-
+    #[On('openEditForm')]
+    public function openEditForm($id)
+    {
+        $this->edit($id);
+    }
     public function edit($id)
     {
         $ruang = RefRuang::findOrFail($id);
-        
+
         $this->ruangId = $ruang->id;
         $this->kode_ruang = $ruang->kode_ruang;
         $this->nama_ruang = $ruang->nama_ruang;
         $this->kapasitas = $ruang->kapasitas;
         $this->is_active = $ruang->is_active;
-
         $this->editMode = true;
         $this->showForm = true;
     }
@@ -86,12 +90,11 @@ class RuangManager extends Component
                 'is_active' => $this->is_active,
             ]
         );
-
-        $this->dispatch('swal:success', [
-            'title' => 'Berhasil!', 
-            'text' => 'Data ruangan kelas berhasil disimpan.'
+        $this->dispatch('toast', [
+            'type' => 'success',
+            'message' => 'Data ruangan kelas berhasil disimpan.'
         ]);
-        
+
         $this->resetForm();
         $this->showForm = false;
     }
@@ -100,29 +103,13 @@ class RuangManager extends Component
     {
         $ruang = RefRuang::findOrFail($id);
         $ruang->update(['is_active' => !$ruang->is_active]);
-        
+
         $this->dispatch('swal:success', [
-            'title' => 'Status Diperbarui', 
+            'title' => 'Status Diperbarui',
             'text' => "Status ruangan {$ruang->kode_ruang} telah diubah."
         ]);
     }
 
-    public function delete($id)
-    {
-        try {
-            RefRuang::findOrFail($id)->delete();
-            $this->dispatch('swal:success', [
-                'title' => 'Terhapus!', 
-                'text' => 'Ruangan berhasil dihapus dari sistem.'
-            ]);
-        } catch (\Illuminate\Database\QueryException $e) {
-            // Tangkap error constraint foreign key jika ruang sudah dipakai di jadwal
-            $this->dispatch('swal:error', [
-                'title' => 'Akses Ditolak!', 
-                'text' => 'Ruangan ini tidak dapat dihapus karena sudah terhubung dengan data Jadwal Kuliah atau Ujian. Coba nonaktifkan statusnya saja.'
-            ]);
-        }
-    }
 
     public function resetForm()
     {
