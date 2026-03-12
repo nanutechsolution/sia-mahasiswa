@@ -75,6 +75,13 @@ final class ProdiTable extends PowerGridComponent
                 $this->dispatch('toast', type: 'error', message: "Gagal! Program Studi {$prodi->nama_prodi} masih memiliki {$count} mahasiswa aktif.");
                 return;
             }
+            if ($prodi->kurikulums()->exists()) {
+                $count = $prodi->kurikulums()->count();
+                // Batalkan transaksi sebelum melempar error
+                DB::rollBack();
+                $this->dispatch('toast', type: 'error', message: "Gagal! Program Studi {$prodi->nama_prodi} masih memiliki {$count} kurikulum aktif.");
+                return;
+            }
 
             // 4. Eksekusi Hapus
             $prodi->delete();
