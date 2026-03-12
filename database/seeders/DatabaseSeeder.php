@@ -33,8 +33,8 @@ class DatabaseSeeder extends Seeder
             MasterMatakuliahBisnisDigitalSeeder::class,
             KomponenNilaiSeeder::class,
             RefRuangSeeder::class,
-            // RealDosenSeeder::class,
-            // RealMahasiswaSeeder::class,
+            RealDosenSeeder::class,
+            RealMahasiswaSeeder::class,
         ]);
     }
 }
