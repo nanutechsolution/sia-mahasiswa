@@ -8,7 +8,6 @@
     <!-- icon -->
     <link rel="icon" type="image/png" href="{{ asset('logo.png') }}">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
-    @livewireStyles
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
 </head>
 
@@ -304,7 +303,6 @@
             </main>
         </div>
     </div>
-    @livewireScripts
   <script>
     // 1. Menangani Konfirmasi Hapus (Muncul saat tombol Hapus diklik)
     window.addEventListener('confirmDelete', event => {
