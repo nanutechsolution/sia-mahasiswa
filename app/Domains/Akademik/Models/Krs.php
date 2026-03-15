@@ -49,8 +49,6 @@ class Krs extends Model
         return $this->belongsTo(TahunAkademik::class, 'tahun_akademik_id');
     }
 
-
-
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
